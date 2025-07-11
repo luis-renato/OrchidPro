@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<!-- TEMA SPLASH COM BACKGROUND FORÇADO -->
+	<style name="Maui.SplashTheme" parent="Theme.Material3.DayNight.NoActionBar">
+		<item name="android:windowBackground">@color/splash_background</item>
+		<item name="android:colorBackground">@color/splash_background</item>
+		<item name="android:windowActivityTransitions">false</item>
+		<item name="android:windowContentTransitions">false</item>
+		<item name="android:windowAnimationStyle">@null</item>
+		<item name="android:activityOpenEnterAnimation">@null</item>
+		<item name="android:activityOpenExitAnimation">@null</item>
+		<item name="android:activityCloseEnterAnimation">@null</item>
+		<item name="android:activityCloseExitAnimation">@null</item>
+		<item name="android:taskOpenEnterAnimation">@null</item>
+		<item name="android:taskOpenExitAnimation">@null</item>
+		<item name="android:taskCloseEnterAnimation">@null</item>
+		<item name="android:taskCloseExitAnimation">@null</item>
+		<item name="android:taskToFrontEnterAnimation">@null</item>
+		<item name="android:taskToFrontExitAnimation">@null</item>
+		<item name="android:taskToBackEnterAnimation">@null</item>
+		<item name="android:taskToBackExitAnimation">@null</item>
+		<item name="android:windowIsTranslucent">false</item>
+		<item name="android:windowNoTitle">true</item>
+		<item name="android:windowFullscreen">true</item>
+		<item name="colorPrimary">@color/colorPrimary</item>
+		<item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+		<item name="colorAccent">@color/colorAccent</item>
+		<item name="android:statusBarColor">@color/status_bar_color</item>
+		<item name="android:navigationBarColor">@color/navigation_bar_color</item>
+	</style>
+
+	<!-- TEMA PRINCIPAL APÓS SPLASH -->
+	<style name="MainTheme" parent="Theme.Material3.DayNight.NoActionBar">
+		<item name="android:windowBackground">@color/window_background</item>
+		<item name="android:colorBackground">@color/window_background</item>
+		<item name="colorPrimary">@color/colorPrimary</item>
+		<item name="colorPrimaryDark">@color/colorPrimaryDark</item>
+		<item name="colorAccent">@color/colorAccent</item>
+		<item name="android:statusBarColor">@color/status_bar_color</item>
+		<item name="android:navigationBarColor">@color/navigation_bar_color</item>
+	</style>
+</resources>

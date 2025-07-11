@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell
+    x:Class="OrchidPro.AppShell"
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:local="clr-namespace:OrchidPro"
+    Title="OrchidPro"
+    FlyoutBehavior="Flyout">
+
+    <!-- Cabeçalho do menu -->
+    <Shell.FlyoutHeader>
+        <Grid BackgroundColor="{StaticResource Primary}" HeightRequest="150">
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10">
+                <Image Source="orchid_logo.png" 
+                       HeightRequest="60" 
+                       WidthRequest="60" />
+                <Label Text="OrchidPro" 
+                       FontSize="18" 
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource OnPrimary}" 
+                       HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Grid>
+    </Shell.FlyoutHeader>
+
+    <!-- Itens do menu -->
+    <FlyoutItem Title="Home" Icon="home.png">
+        <ShellContent Route="MainPage" ContentTemplate="{DataTemplate local:MainPage}" />
+    </FlyoutItem>
+
+    <!-- Adicione mais itens conforme necessário -->
+    <FlyoutItem Title="Configurações" Icon="settings.png">
+        <ShellContent Route="SettingsPage" ContentTemplate="{DataTemplate local:MainPage}" />
+    </FlyoutItem>
+
+    <!-- Rodapé do menu com logout -->
+    <Shell.FlyoutFooter>
+        <Grid BackgroundColor="{StaticResource Secondary}" HeightRequest="60">
+            <Button Text="Logout" 
+                    BackgroundColor="Transparent"
+                    TextColor="{StaticResource OnSecondary}"
+                    Clicked="OnLogoutClicked"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center" />
+        </Grid>
+    </Shell.FlyoutFooter>
+
+</Shell>

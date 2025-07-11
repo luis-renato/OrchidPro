@@ -1,0 +1,237 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="OrchidPro.MainPage"
+             Title="Home"
+             BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+             Shell.NavBarIsVisible="True"
+             Shell.BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+             Shell.ForegroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+             Shell.TitleColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+             xmlns:mct="clr-namespace:CommunityToolkit.Maui.Behaviors;assembly=CommunityToolkit.Maui"
+             xmlns:local="clr-namespace:OrchidPro">
+
+    <!-- Status bar configuration with app theme support -->
+    <Page.Behaviors>
+        <mct:StatusBarBehavior StatusBarColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" 
+                               StatusBarStyle="LightContent" />
+    </Page.Behaviors>
+
+    <!-- Main scrollable content container -->
+    <ScrollView>
+        <!-- Content card with rounded corners and shadow effect -->
+        <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray950}}"
+                Stroke="Transparent"
+                StrokeThickness="0"
+                Margin="10,20,10,10"
+                Padding="0">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="16" />
+            </Border.StrokeShape>
+
+            <!-- Add subtle shadow effect -->
+            <Border.Shadow>
+                <Shadow Brush="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Black}}"
+                        Opacity="0.1"
+                        Radius="8"
+                        Offset="0,2" />
+            </Border.Shadow>
+
+            <VerticalStackLayout Padding="20,10,20,20" Spacing="30" x:DataType="local:MainPage">
+
+                <!-- Header section with branding and welcome message -->
+                <VerticalStackLayout Spacing="15">
+                    <!-- Application logo -->
+                    <Image Source="orchid_logo.png"
+                       HeightRequest="120"
+                       Aspect="AspectFit"
+                       HorizontalOptions="Center" />
+
+                    <!-- Primary welcome message -->
+                    <Label Text="Welcome to OrchidPro!"
+                       Style="{StaticResource Headline}"
+                       SemanticProperties.HeadingLevel="Level1" />
+
+                    <!-- Secondary description -->
+                    <Label Text="Your complete orchid management solution"
+                       Style="{StaticResource SubHeadline}"
+                       SemanticProperties.HeadingLevel="Level2" />
+                </VerticalStackLayout>
+
+                <!-- Quick actions section for main app functionality -->
+                <VerticalStackLayout Spacing="20">
+                    <!-- Section title -->
+                    <Label Text="Quick Actions"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                       HorizontalOptions="Start" />
+
+                    <!-- Action buttons grid - 2x2 layout -->
+                    <Grid ColumnDefinitions="*,*" 
+                      RowDefinitions="*,*" 
+                      ColumnSpacing="15" 
+                      RowSpacing="15">
+
+                        <!-- My Orchids button - Primary action -->
+                        <Button Grid.Row="0" 
+                            Grid.Column="0"
+                            Text="My Orchids"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                            TextColor="{StaticResource OnPrimary}"
+                            Clicked="OnMyOrchidsClicked"
+                            SemanticProperties.Hint="Navigate to orchid collection view" />
+
+                        <!-- Add Orchid button - Secondary action -->
+                        <Button Grid.Row="0" 
+                            Grid.Column="1"
+                            Text="Add Orchid"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDarkText}}"
+                            TextColor="{StaticResource OnSecondary}"
+                            Clicked="OnAddOrchidClicked"
+                            SemanticProperties.Hint="Add new orchid to collection" />
+
+                        <!-- Calendar button - Tertiary action -->
+                        <Button Grid.Row="1" 
+                            Grid.Column="0"
+                            Text="Calendar"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource Gray600}}"
+                            TextColor="{StaticResource OnPrimary}"
+                            Clicked="OnCalendarClicked"
+                            SemanticProperties.Hint="View care schedule and reminders" />
+
+                        <!-- Reports button - Analytics action -->
+                        <Button Grid.Row="1" 
+                            Grid.Column="1"
+                            Text="Reports"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource InfoColor}, Dark={StaticResource Gray500}}"
+                            TextColor="{StaticResource OnPrimary}"
+                            Clicked="OnReportsClicked"
+                            SemanticProperties.Hint="View orchid health and care reports" />
+                    </Grid>
+                </VerticalStackLayout>
+
+                <!-- Statistics overview section -->
+                <VerticalStackLayout Spacing="15">
+                    <!-- Section title -->
+                    <Label Text="Overview"
+                       FontSize="18"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                       HorizontalOptions="Start" />
+
+                    <!-- Statistics cards container -->
+                    <Grid ColumnDefinitions="*,*,*" 
+                      ColumnSpacing="10">
+
+                        <!-- Total orchids card -->
+                        <Border Grid.Column="0"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                            Stroke="{StaticResource BorderColor}"
+                            StrokeThickness="1"
+                            Padding="15,10">
+                            <VerticalStackLayout Spacing="5">
+                                <Label Text="{Binding TotalOrchidCount}"
+                                   FontSize="24"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                                   HorizontalOptions="Center" />
+                                <Label Text="Total"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                                   HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Healthy orchids card -->
+                        <Border Grid.Column="1"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                            Stroke="{StaticResource BorderColor}"
+                            StrokeThickness="1"
+                            Padding="15,10">
+                            <VerticalStackLayout Spacing="5">
+                                <Label Text="{Binding HealthyOrchidCount}"
+                                   FontSize="24"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource SuccessColor}"
+                                   HorizontalOptions="Center" />
+                                <Label Text="Healthy"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                                   HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <!-- Needs attention card -->
+                        <Border Grid.Column="2"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                            Stroke="{StaticResource BorderColor}"
+                            StrokeThickness="1"
+                            Padding="15,10">
+                            <VerticalStackLayout Spacing="5">
+                                <Label Text="{Binding AttentionNeededCount}"
+                                   FontSize="24"
+                                   FontAttributes="Bold"
+                                   TextColor="{StaticResource WarningColor}"
+                                   HorizontalOptions="Center" />
+                                <Label Text="Attention"
+                                   FontSize="12"
+                                   TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                                   HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+                </VerticalStackLayout>
+
+                <!-- Recent activities section -->
+                <VerticalStackLayout Spacing="15">
+                    <!-- Section title -->
+                    <Label Text="Recent Activities"
+                       FontSize="18"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                       HorizontalOptions="Start" />
+
+                    <!-- Activities list container -->
+                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                        Stroke="{StaticResource BorderColor}"
+                        StrokeThickness="1"
+                        Padding="20">
+                        <VerticalStackLayout Spacing="10">
+                            <!-- Activity item example -->
+                            <Label Text="Last watering: 2 days ago"
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}" />
+                            <Label Text="Fertilized: 1 week ago"
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}" />
+                            <Label Text="New orchid added: 3 days ago"
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- Development section - Remove in production -->
+                <VerticalStackLayout Spacing="15" IsVisible="False">
+                    <!-- Debug section title -->
+                    <Label Text="Development Tools"
+                       FontSize="16"
+                       FontAttributes="Bold"
+                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+
+                    <!-- Debug counter button -->
+                    <Button x:Name="DebugCounterButton"
+                        Text="Debug Counter"
+                        BackgroundColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                        TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
+                        SemanticProperties.Hint="Development counter for testing purposes"
+                        Clicked="OnDebugCounterClicked"
+                        HorizontalOptions="Fill" />
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </Border>
+    </ScrollView>
+
+</ContentPage>

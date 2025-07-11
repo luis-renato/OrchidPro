@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+	<!-- FORÇA COR PRIMÁRIA EM NÍVEL NATIVO -->
+	<color name="colorPrimary">#A47764</color>
+	<color name="colorPrimaryDark">#7A564A</color>
+	<color name="colorAccent">#A47764</color>
+
+	<!-- BACKGROUND PRINCIPAL -->
+	<color name="splash_background">#A47764</color>
+	<color name="window_background">#A47764</color>
+	<color name="activity_background">#A47764</color>
+
+	<!-- STATUS BAR E NAVIGATION BAR -->
+	<color name="status_bar_color">#A47764</color>
+	<color name="navigation_bar_color">#A47764</color>
+
+	<!-- SOBRESCREVE COR PADRÃO DO SISTEMA -->
+	<color name="background_material_light">#A47764</color>
+	<color name="background_material_dark">#A47764</color>
+</resources>

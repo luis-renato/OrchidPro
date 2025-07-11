@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="OrchidPro.Views.Pages.SplashPage"
+    BackgroundColor="{StaticResource Primary}"
+    Shell.NavBarIsVisible="False"
+    xmlns:mct="clr-namespace:CommunityToolkit.Maui.Behaviors;assembly=CommunityToolkit.Maui">
+
+    <Page.Behaviors>
+        <mct:StatusBarBehavior StatusBarColor="{StaticResource Primary}" 
+                               StatusBarStyle="LightContent" />
+    </Page.Behaviors>
+
+    <!-- Main container with fade animation support -->
+    <Grid x:Name="RootGrid" Opacity="0">
+        <VerticalStackLayout Spacing="20"
+                             HorizontalOptions="Center"
+                             VerticalOptions="Center">
+
+            <!-- App logo with scale animation -->
+            <Image x:Name="LogoImage"
+                   Source="orchid_logo.png"
+                   HeightRequest="120"
+                   WidthRequest="120"
+                   Scale="0.8" />
+
+            <!-- Loading indicator with pulse animation -->
+            <ActivityIndicator x:Name="LoadingIndicator"
+                               IsRunning="True"
+                               Color="{StaticResource OnPrimary}"
+                               WidthRequest="32"
+                               HeightRequest="32" />
+
+            <!-- Status message -->
+            <Label x:Name="StatusLabel"
+                   Text="Initializing..."
+                   TextColor="{StaticResource OnPrimary}"
+                   FontFamily="OpenSansRegular"
+                   FontSize="14"
+                   HorizontalOptions="Center"
+                   Opacity="0.8" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>

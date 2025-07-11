@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    x:Class="OrchidPro.Views.Pages.LoginPage"
+    BackgroundColor="{StaticResource Primary}"
+    Shell.NavBarIsVisible="False"
+    xmlns:mct="clr-namespace:CommunityToolkit.Maui.Behaviors;assembly=CommunityToolkit.Maui">
+
+    <Page.Behaviors>
+        <mct:StatusBarBehavior StatusBarColor="{StaticResource Primary}" 
+                               StatusBarStyle="LightContent" />
+    </Page.Behaviors>
+
+    <!-- Root grid with initial opacity for animation -->
+    <Grid x:Name="RootGrid" Opacity="0">
+        <VerticalStackLayout VerticalOptions="Center" 
+                             HorizontalOptions="Center" 
+                             Spacing="24">
+
+            <!-- Login card with shadow effect -->
+            <Border x:Name="LoginCard"
+                    Background="#CCFFFFFF"
+                    StrokeThickness="0"
+                    StrokeShape="RoundRectangle 20"
+                    Padding="24"
+                    WidthRequest="320"
+                    MinimumHeightRequest="400"
+                    HorizontalOptions="Center"
+                    Scale="0.95">
+
+                <!-- Shadow effect -->
+                <Border.Shadow>
+                    <Shadow Brush="{StaticResource Black}"
+                            Opacity="0.15"
+                            Radius="20"
+                            Offset="0,10" />
+                </Border.Shadow>
+
+                <VerticalStackLayout Spacing="20">
+
+                    <!-- App logo with animation support -->
+                    <Image x:Name="LogoImage"
+                           Source="orchid_logo.png"
+                           HeightRequest="80"
+                           HorizontalOptions="Center" />
+
+                    <!-- App title -->
+                    <Label Text="OrchidPro"
+                           Style="{StaticResource Headline}"
+                           TextColor="{StaticResource PrimaryDarkText}"
+                           HorizontalOptions="Center" />
+
+                    <!-- Input fields container -->
+                    <VerticalStackLayout Spacing="16">
+                        <!-- Email input with icon -->
+                        <Border StrokeThickness="1"
+                                Stroke="{StaticResource BorderColor}"
+                                StrokeShape="RoundRectangle 8"
+                                Padding="12,8">
+                            <Entry x:Name="EmailEntry"
+                                   Placeholder="Email"
+                                   Keyboard="Email"
+                                   TextColor="{StaticResource PrimaryDarkText}"
+                                   PlaceholderColor="{StaticResource Gray400}"
+                                   BackgroundColor="Transparent" />
+                        </Border>
+
+                        <!-- Password input with icon -->
+                        <Border StrokeThickness="1"
+                                Stroke="{StaticResource BorderColor}"
+                                StrokeShape="RoundRectangle 8"
+                                Padding="12,8">
+                            <Entry x:Name="PasswordEntry"
+                                   Placeholder="Password"
+                                   IsPassword="True"
+                                   TextColor="{StaticResource PrimaryDarkText}"
+                                   PlaceholderColor="{StaticResource Gray400}"
+                                   BackgroundColor="Transparent" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <!-- Login button -->
+                    <Button x:Name="LoginButton"
+                            Text="Sign In"
+                            Clicked="OnLoginClicked"
+                            BackgroundColor="{StaticResource Primary}"
+                            TextColor="{StaticResource White}"
+                            FontAttributes="Bold"
+                            HeightRequest="48" />
+
+                    <!-- Loading indicator -->
+                    <ActivityIndicator x:Name="LoadingIndicator"
+                                       IsRunning="False"
+                                       IsVisible="False"
+                                       Color="{StaticResource PrimaryDark}"
+                                       HeightRequest="32" />
+
+                    <!-- Error message label -->
+                    <Label x:Name="ErrorLabel"
+                           Text=""
+                           TextColor="{StaticResource ErrorColor}"
+                           FontSize="12"
+                           HorizontalOptions="Center"
+                           IsVisible="False" />
+                </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>
