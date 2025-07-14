@@ -81,6 +81,12 @@ public interface IFamilyRepository
     /// </summary>
     /// <returns>Family statistics</returns>
     Task<FamilyStatistics> GetStatisticsAsync();
+
+    /// <summary>
+    /// ADICIONADO: Forces full synchronization of all pending families
+    /// </summary>
+    /// <returns>Sync result with statistics</returns>
+    Task<SyncResult> ForceFullSyncAsync();
 }
 
 /// <summary>

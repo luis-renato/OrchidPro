@@ -2,11 +2,12 @@
 using OrchidPro.Services.Data;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
+using System.Diagnostics;
 
 namespace OrchidPro.Services;
 
 /// <summary>
-/// Modelo da Family para Supabase (com atributos de mapeamento)
+/// Modelo da Family para Supabase (CORRIGIDO para corresponder ao schema)
 /// </summary>
 [Table("families")]
 public class SupabaseFamily : BaseModel
@@ -38,9 +39,6 @@ public class SupabaseFamily : BaseModel
     [Column("sync_hash")]
     public string? SyncHash { get; set; }
 
-    /// <summary>
-    /// Converte de Family para SupabaseFamily
-    /// </summary>
     public static SupabaseFamily FromFamily(Family family)
     {
         return new SupabaseFamily
@@ -57,9 +55,6 @@ public class SupabaseFamily : BaseModel
         };
     }
 
-    /// <summary>
-    /// Converte de SupabaseFamily para Family
-    /// </summary>
     public Family ToFamily()
     {
         return new Family
@@ -72,7 +67,7 @@ public class SupabaseFamily : BaseModel
             IsActive = this.IsActive,
             CreatedAt = this.CreatedAt,
             UpdatedAt = this.UpdatedAt,
-            SyncStatus = SyncStatus.Synced, // Se veio do servidor, está sincronizado
+            SyncStatus = SyncStatus.Synced,
             LastSyncAt = DateTime.UtcNow,
             SyncHash = this.SyncHash
         };
@@ -80,7 +75,7 @@ public class SupabaseFamily : BaseModel
 }
 
 /// <summary>
-/// Serviço para sincronizar Families com Supabase
+/// Serviço de sincronização - TIPOS CORRIGIDOS
 /// </summary>
 public class SupabaseFamilySync
 {
@@ -91,95 +86,130 @@ public class SupabaseFamilySync
         _supabaseService = supabaseService;
     }
 
-    /// <summary>
-    /// 📤 Envia uma família para o Supabase
-    /// </summary>
     public async Task<bool> UploadFamilyAsync(Family family)
     {
         try
         {
-            if (_supabaseService.Client?.Auth.CurrentUser == null)
+            if (_supabaseService.Client == null || !_supabaseService.IsAuthenticated)
             {
-                throw new InvalidOperationException("User not authenticated");
+                Debug.WriteLine("❌ Supabase not ready for upload");
+                return false;
             }
+
+            Debug.WriteLine($"📤 Uploading family: {family.Name}");
 
             var supabaseFamily = SupabaseFamily.FromFamily(family);
 
-            // Verifica se já existe
-            var existing = await _supabaseService.Client
+            // Se não tem user_id e não é system default, pegar do usuário atual
+            if (supabaseFamily.UserId == null && !supabaseFamily.IsSystemDefault)
+            {
+                var currentUserId = _supabaseService.GetCurrentUserId();
+                if (Guid.TryParse(currentUserId, out var userId))
+                {
+                    supabaseFamily.UserId = userId;
+                }
+            }
+
+            // Verificar se já existe - CORRIGIDO
+            var existingResponse = await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Where(f => f.Id == family.Id)
-                .Single();
+                .Get();
+
+            var existing = existingResponse?.Models?.FirstOrDefault();
 
             if (existing != null)
             {
-                // Atualizar
-                await _supabaseService.Client
+                // Atualizar existente - CORRIGIDO
+                Debug.WriteLine($"🔄 Updating existing family: {family.Name}");
+
+                var updateResponse = await _supabaseService.Client
                     .From<SupabaseFamily>()
                     .Where(f => f.Id == family.Id)
-                    .Set(f => f.Name, family.Name)
-                    .Set(f => f.Description, family.Description)
-                    .Set(f => f.IsActive, family.IsActive)
-                    .Set(f => f.UpdatedAt, family.UpdatedAt)
-                    .Set(f => f.SyncHash, family.SyncHash)
-                    .Update();
+                    .Update(supabaseFamily);
+
+                Debug.WriteLine($"✅ Updated family: {family.Name}");
             }
             else
             {
-                // Inserir
-                await _supabaseService.Client
+                // Inserir novo - CORRIGIDO
+                Debug.WriteLine($"➕ Inserting new family: {family.Name}");
+
+                var insertResponse = await _supabaseService.Client
                     .From<SupabaseFamily>()
                     .Insert(supabaseFamily);
+
+                Debug.WriteLine($"✅ Inserted family: {family.Name}");
             }
 
-            System.Diagnostics.Debug.WriteLine($"✅ Uploaded family to Supabase: {family.Name}");
             return true;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"❌ Failed to upload family {family.Name}: {ex.Message}");
+            Debug.WriteLine($"❌ Upload failed for {family.Name}: {ex.Message}");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             return false;
         }
     }
 
-    /// <summary>
-    /// 📥 Baixa famílias do Supabase
-    /// </summary>
     public async Task<List<Family>> DownloadFamiliesAsync()
     {
         try
         {
-            if (_supabaseService.Client?.Auth.CurrentUser == null)
+            if (_supabaseService.Client == null)
             {
-                throw new InvalidOperationException("User not authenticated");
+                Debug.WriteLine("❌ Supabase client not available");
+                return new List<Family>();
             }
 
-            var currentUserId = Guid.Parse(_supabaseService.Client.Auth.CurrentUser.Id);
+            Debug.WriteLine("📥 Downloading families...");
 
-            // Busca famílias do usuário + system defaults
-            var supabaseFamilies = await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Where(f => f.UserId == currentUserId || f.UserId == null)
-                .Where(f => f.IsActive == true)
-                .Get();
+            var currentUserId = _supabaseService.GetCurrentUserId();
 
-            var families = supabaseFamilies.Models
-                .Select(sf => sf.ToFamily())
-                .ToList();
+            // CORRIGIDO: Usar métodos em sequência separada
+            if (!string.IsNullOrEmpty(currentUserId) && Guid.TryParse(currentUserId, out var userGuid))
+            {
+                // Famílias do usuário OU system defaults (user_id IS NULL)
+                Debug.WriteLine($"📥 Downloading for user: {userGuid}");
 
-            System.Diagnostics.Debug.WriteLine($"📥 Downloaded {families.Count} families from Supabase");
-            return families;
+                var response = await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Where(f => f.UserId == userGuid || f.UserId == null)
+                    .Get();
+
+                var families = response?.Models?
+                    .Select(sf => sf.ToFamily())
+                    .ToList() ?? new List<Family>();
+
+                Debug.WriteLine($"📥 Downloaded {families.Count} families");
+                return families;
+            }
+            else
+            {
+                // Apenas system defaults se não autenticado
+                Debug.WriteLine("📥 Downloading system defaults only");
+
+                var response = await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Where(f => f.UserId == null)
+                    .Get();
+
+                var families = response?.Models?
+                    .Select(sf => sf.ToFamily())
+                    .ToList() ?? new List<Family>();
+
+                Debug.WriteLine($"📥 Downloaded {families.Count} system default families");
+                return families;
+            }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"❌ Failed to download families: {ex.Message}");
+            Debug.WriteLine($"❌ Download failed: {ex.Message}");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
             return new List<Family>();
         }
     }
 
-    /// <summary>
-    /// 🔄 Sincronização bidirecional completa
-    /// </summary>
     public async Task<SyncResult> PerformFullSyncAsync(List<Family> localFamilies)
     {
         var result = new SyncResult
@@ -189,10 +219,12 @@ public class SupabaseFamilySync
 
         try
         {
-            // 1. 📥 Baixar famílias do servidor
+            Debug.WriteLine("🔄 Starting sync...");
+
+            // 1. Download server families
             var serverFamilies = await DownloadFamiliesAsync();
 
-            // 2. 📤 Enviar famílias locais pendentes
+            // 2. Upload pending local families
             var pendingLocal = localFamilies.Where(f =>
                 f.SyncStatus == SyncStatus.Local ||
                 f.SyncStatus == SyncStatus.Pending ||
@@ -208,17 +240,17 @@ public class SupabaseFamilySync
                     result.Successful++;
                 else
                     result.Failed++;
+
+                // Small delay to avoid rate limiting
+                await Task.Delay(100);
             }
 
-            // 3. 🔍 Detectar conflitos (mesma família modificada em ambos os lados)
-            // Implementação básica - pode ser expandida
-
-            System.Diagnostics.Debug.WriteLine($"🔄 Full sync completed: {result.Successful}/{result.TotalProcessed}");
+            Debug.WriteLine($"🔄 Sync completed: {result.Successful}/{result.TotalProcessed}");
         }
         catch (Exception ex)
         {
             result.ErrorMessages.Add(ex.Message);
-            System.Diagnostics.Debug.WriteLine($"❌ Full sync failed: {ex.Message}");
+            Debug.WriteLine($"❌ Sync failed: {ex.Message}");
         }
 
         result.EndTime = DateTime.UtcNow;
@@ -226,30 +258,88 @@ public class SupabaseFamilySync
         return result;
     }
 
-    /// <summary>
-    /// 🧪 Testa conectividade com Supabase
-    /// </summary>
     public async Task<bool> TestConnectionAsync()
     {
         try
         {
-            if (_supabaseService.Client?.Auth.CurrentUser == null)
+            if (_supabaseService.Client == null)
             {
+                Debug.WriteLine("❌ Supabase client is null");
                 return false;
             }
 
-            // Tenta fazer uma query simples
-            await _supabaseService.Client
+            Debug.WriteLine("🧪 Testing families table connection...");
+
+            // Teste simples na tabela families
+            var response = await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Limit(1)
                 .Get();
 
-            System.Diagnostics.Debug.WriteLine("✅ Supabase connection test successful");
+            Debug.WriteLine("✅ Families table connection OK");
             return true;
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"❌ Supabase connection test failed: {ex.Message}");
+            Debug.WriteLine($"❌ Families table connection failed: {ex.Message}");
+            Debug.WriteLine($"Stack trace: {ex.StackTrace}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// ADICIONADO: Testa se consegue fazer insert simples
+    /// </summary>
+    public async Task<bool> TestInsertAsync()
+    {
+        try
+        {
+            if (_supabaseService.Client == null || !_supabaseService.IsAuthenticated)
+            {
+                Debug.WriteLine("❌ Cannot test insert - not authenticated");
+                return false;
+            }
+
+            Debug.WriteLine("🧪 Testing insert capability...");
+
+            var testFamily = new SupabaseFamily
+            {
+                Id = Guid.NewGuid(),
+                Name = $"TEST_DELETE_ME_{DateTime.Now:HHmmss}",
+                Description = "Test family for connection testing",
+                IsSystemDefault = false,
+                IsActive = true,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+                UserId = Guid.TryParse(_supabaseService.GetCurrentUserId(), out var uid) ? uid : null
+            };
+
+            var insertResponse = await _supabaseService.Client
+                .From<SupabaseFamily>()
+                .Insert(testFamily);
+
+            Debug.WriteLine("✅ Insert test successful");
+
+            // Cleanup - delete the test family
+            try
+            {
+                await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Where(f => f.Id == testFamily.Id)
+                    .Delete();
+
+                Debug.WriteLine("✅ Test family cleaned up");
+            }
+            catch (Exception cleanupEx)
+            {
+                Debug.WriteLine($"⚠️ Cleanup failed (not critical): {cleanupEx.Message}");
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Insert test failed: {ex.Message}");
             return false;
         }
     }

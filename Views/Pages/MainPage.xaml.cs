@@ -1,10 +1,15 @@
 ﻿using System.ComponentModel;
+using OrchidPro.Services.Data;
+using OrchidPro.Services;
+using OrchidPro.Models;
+using System.Diagnostics;
 
 namespace OrchidPro
 {
     /// <summary>
     /// Main page of the OrchidPro application.
     /// Provides dashboard functionality with quick actions and overview statistics.
+    /// ADICIONADO: Testes de sincronização integrados
     /// </summary>
     public partial class MainPage : ContentPage, INotifyPropertyChanged
     {
@@ -29,6 +34,11 @@ namespace OrchidPro
         /// Number of orchids that need attention
         /// </summary>
         private int _attentionNeededCount = 0;
+
+        // ADICIONADO: Services para teste de sync
+        private readonly SupabaseService _supabaseService;
+        private readonly IFamilyRepository _familyRepository;
+        private readonly SupabaseFamilySync _syncService;
 
         #endregion
 
@@ -93,6 +103,21 @@ namespace OrchidPro
         {
             InitializeComponent();
             BindingContext = this;
+
+            // ADICIONADO: Obter services para teste
+            try
+            {
+                var services = MauiProgram.CreateMauiApp().Services;
+                _supabaseService = services.GetRequiredService<SupabaseService>();
+                _familyRepository = services.GetRequiredService<IFamilyRepository>();
+                _syncService = services.GetRequiredService<SupabaseFamilySync>();
+
+                LogTest("✅ Services loaded successfully");
+            }
+            catch (Exception ex)
+            {
+                LogTest($"❌ Error loading services: {ex.Message}");
+            }
 
             // Initialize dashboard data
             LoadDashboardData();
@@ -175,14 +200,12 @@ namespace OrchidPro
 
         #endregion
 
-        #region Event Handlers
+        #region Event Handlers (Original)
 
         /// <summary>
         /// Handles the My Orchids button click event
         /// Navigates to the orchid collection view
         /// </summary>
-        /// <param name="sender">The button that triggered the event</param>
-        /// <param name="e">Event arguments</param>
         private async void OnMyOrchidsClicked(object? sender, EventArgs e)
         {
             try
@@ -192,7 +215,6 @@ namespace OrchidPro
             }
             catch (Exception ex)
             {
-                // TODO: Implement proper error handling/logging
                 await DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
             }
         }
@@ -201,8 +223,6 @@ namespace OrchidPro
         /// Handles the Add Orchid button click event
         /// Navigates to the add orchid form
         /// </summary>
-        /// <param name="sender">The button that triggered the event</param>
-        /// <param name="e">Event arguments</param>
         private async void OnAddOrchidClicked(object? sender, EventArgs e)
         {
             try
@@ -212,7 +232,6 @@ namespace OrchidPro
             }
             catch (Exception ex)
             {
-                // TODO: Implement proper error handling/logging
                 await DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
             }
         }
@@ -221,8 +240,6 @@ namespace OrchidPro
         /// Handles the Calendar button click event
         /// Navigates to the care schedule calendar
         /// </summary>
-        /// <param name="sender">The button that triggered the event</param>
-        /// <param name="e">Event arguments</param>
         private async void OnCalendarClicked(object? sender, EventArgs e)
         {
             try
@@ -232,28 +249,22 @@ namespace OrchidPro
             }
             catch (Exception ex)
             {
-                // TODO: Implement proper error handling/logging
                 await DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
             }
         }
 
         /// <summary>
-        /// Handles the Reports button click event
-        /// Navigates to the analytics and reports section
+        /// ADICIONADO: Navigate to Families page
         /// </summary>
-        /// <param name="sender">The button that triggered the event</param>
-        /// <param name="e">Event arguments</param>
-        private async void OnReportsClicked(object? sender, EventArgs e)
+        private async void OnFamiliesClicked(object? sender, EventArgs e)
         {
             try
             {
-                // TODO: Navigate to reports page
-                await DisplayAlert("Navigation", "Navigate to Reports page", "OK");
+                await Shell.Current.GoToAsync("families");
             }
             catch (Exception ex)
             {
-                // TODO: Implement proper error handling/logging
-                await DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
+                await DisplayAlert("Error", $"Failed to navigate to families: {ex.Message}", "OK");
             }
         }
 
@@ -261,8 +272,6 @@ namespace OrchidPro
         /// Handles the debug counter button click event
         /// Used for development testing purposes only
         /// </summary>
-        /// <param name="sender">The button that triggered the event</param>
-        /// <param name="e">Event arguments</param>
         private void OnDebugCounterClicked(object? sender, EventArgs e)
         {
             // Increment debug counter
@@ -273,6 +282,192 @@ namespace OrchidPro
 
             // Announce to screen reader for accessibility
             SemanticScreenReader.Announce(DebugCounterButton.Text);
+        }
+
+        #endregion
+
+        #region SYNC TESTING METHODS (ADICIONADO)
+
+        /// <summary>
+        /// ADICIONADO: Testa conexão Supabase COMPLETA
+        /// </summary>
+        private async void OnTestSupabaseClicked(object? sender, EventArgs e)
+        {
+            try
+            {
+                LogTest("🧪 Testing Supabase connection...");
+
+                // Test 1: Initialize
+                await _supabaseService.InitializeAsync();
+                LogTest("✅ Supabase initialized");
+
+                // Test 2: Basic connection
+                var connected = await _supabaseService.TestSyncConnectionAsync();
+                LogTest($"✅ Basic connection: {connected}");
+
+                // Test 3: User status
+                var isAuth = _supabaseService.IsAuthenticated;
+                var userId = _supabaseService.GetCurrentUserId();
+                LogTest($"✅ Authenticated: {isAuth}");
+                LogTest($"✅ User ID: {userId ?? "None"}");
+
+                // Test 4: Families table access
+                var familiesConnected = await _syncService.TestConnectionAsync();
+                LogTest($"✅ Families table: {familiesConnected}");
+
+                // Test 5: NOVO - Insert/Delete capability
+                if (isAuth)
+                {
+                    var canInsert = await _syncService.TestInsertAsync();
+                    LogTest($"✅ Insert capability: {canInsert}");
+                }
+                else
+                {
+                    LogTest("⚠️ Skipping insert test (not authenticated)");
+                }
+
+            }
+            catch (Exception ex)
+            {
+                LogTest($"❌ Supabase test error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ADICIONADO: Testa operações de famílias
+        /// </summary>
+        private async void OnTestFamiliesClicked(object? sender, EventArgs e)
+        {
+            try
+            {
+                LogTest("🧪 Testing families...");
+
+                // Test 1: Get local families
+                var families = await _familyRepository.GetAllAsync();
+                LogTest($"✅ Local families: {families.Count}");
+
+                foreach (var family in families.Take(3))
+                {
+                    LogTest($"  - {family.Name} ({family.SyncStatus})");
+                }
+
+                // Test 2: Download from server
+                var serverFamilies = await _syncService.DownloadFamiliesAsync();
+                LogTest($"✅ Server families: {serverFamilies.Count}");
+
+                foreach (var family in serverFamilies.Take(3))
+                {
+                    LogTest($"  - {family.Name} (from server)");
+                }
+
+                // Test 3: Statistics
+                var stats = await _familyRepository.GetStatisticsAsync();
+                LogTest($"✅ Stats - Total: {stats.TotalCount}, Synced: {stats.SyncedCount}");
+                LogTest($"   Local: {stats.LocalCount}, Pending: {stats.PendingCount}");
+
+            }
+            catch (Exception ex)
+            {
+                LogTest($"❌ Families test error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ADICIONADO: Cria família de teste
+        /// </summary>
+        private async void OnCreateTestFamilyClicked(object? sender, EventArgs e)
+        {
+            try
+            {
+                LogTest("🧪 Creating test family...");
+
+                var testFamily = new Family
+                {
+                    Name = $"Test Family {DateTime.Now:HH:mm:ss}",
+                    Description = "Family created for testing sync",
+                    IsActive = true
+                };
+
+                var created = await _familyRepository.CreateAsync(testFamily);
+                LogTest($"✅ Created: {created.Name}");
+                LogTest($"   Status: {created.SyncStatus}");
+                LogTest($"   ID: {created.Id}");
+
+                // Wait and check sync status
+                LogTest("⏳ Waiting 3s for auto-sync...");
+                await Task.Delay(3000);
+
+                var updated = await _familyRepository.GetByIdAsync(created.Id);
+                if (updated != null)
+                {
+                    LogTest($"   After 3s: {updated.SyncStatus}");
+                    if (updated.LastSyncAt.HasValue)
+                    {
+                        LogTest($"   Synced at: {updated.LastSyncAt:HH:mm:ss}");
+                    }
+                }
+
+            }
+            catch (Exception ex)
+            {
+                LogTest($"❌ Create test error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ADICIONADO: Força sincronização completa
+        /// </summary>
+        private async void OnForceFullSyncClicked(object? sender, EventArgs e)
+        {
+            try
+            {
+                LogTest("🔄 Starting manual full sync...");
+
+                var result = await _familyRepository.ForceFullSyncAsync();
+
+                LogTest($"✅ Sync completed:");
+                LogTest($"   Processed: {result.TotalProcessed}");
+                LogTest($"   Successful: {result.Successful}");
+                LogTest($"   Failed: {result.Failed}");
+                LogTest($"   Duration: {result.Duration.TotalSeconds:F1}s");
+
+                if (result.ErrorMessages.Any())
+                {
+                    LogTest($"   Errors: {string.Join(", ", result.ErrorMessages)}");
+                }
+
+                // Refresh family count
+                var families = await _familyRepository.GetAllAsync();
+                LogTest($"📊 Total families after sync: {families.Count}");
+
+            }
+            catch (Exception ex)
+            {
+                LogTest($"❌ Force sync error: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// ADICIONADO: Limpa log de teste
+        /// </summary>
+        private void OnClearTestLogClicked(object? sender, EventArgs e)
+        {
+            TestLogLabel.Text = "Log cleared at " + DateTime.Now.ToString("HH:mm:ss") + "\n";
+        }
+
+        /// <summary>
+        /// ADICIONADO: Helper para adicionar logs de teste
+        /// </summary>
+        private void LogTest(string message)
+        {
+            var timestamp = DateTime.Now.ToString("HH:mm:ss");
+            TestLogLabel.Text += $"[{timestamp}] {message}\n";
+
+            // Auto-scroll to bottom
+            TestLogScrollView.ScrollToAsync(TestLogLabel, ScrollToPosition.End, false);
+
+            // Also log to debug console
+            Debug.WriteLine($"[MainPage] {message}");
         }
 
         #endregion

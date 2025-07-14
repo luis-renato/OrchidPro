@@ -64,4 +64,30 @@ public class SupabaseService
         Preferences.Remove("supabase_session");
         Client?.Auth.SignOut();
     }
+
+    // ADIÇÕES PARA SYNC - sem alterar login existente
+    public bool IsInitialized => Client != null;
+
+    public bool IsAuthenticated => Client?.Auth?.CurrentUser != null;
+
+    public string? GetCurrentUserId() => Client?.Auth?.CurrentUser?.Id;
+
+    public User? GetCurrentUser() => Client?.Auth?.CurrentUser;
+
+    // Teste de conectividade específico para sincronização
+    public async Task<bool> TestSyncConnectionAsync()
+    {
+        try
+        {
+            if (Client == null) return false;
+
+            // Teste simples de conectividade
+            var result = await Client.Rpc("now", new Dictionary<string, object>());
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
 }

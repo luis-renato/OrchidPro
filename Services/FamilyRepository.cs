@@ -2,11 +2,12 @@
 using OrchidPro.Services.Data;
 using System.Security.Cryptography;
 using System.Text;
+using System.Diagnostics;
 
 namespace OrchidPro.Services;
 
 /// <summary>
-/// Repository implementation for Family entities with local storage and REAL Supabase sync
+/// Repository - ALTERAÇÕES MÍNIMAS para corrigir apenas sync
 /// </summary>
 public class FamilyRepository : IFamilyRepository
 {
@@ -16,11 +17,11 @@ public class FamilyRepository : IFamilyRepository
     private readonly List<Family> _localFamilies = new();
     private Guid? _currentUserId;
 
-    public FamilyRepository(SupabaseService supabaseService, ILocalDataService localDataService)
+    public FamilyRepository(SupabaseService supabaseService, ILocalDataService localDataService, SupabaseFamilySync syncService)
     {
         _supabaseService = supabaseService;
         _localDataService = localDataService;
-        _syncService = new SupabaseFamilySync(supabaseService);
+        _syncService = syncService;
         _ = InitializeAsync();
     }
 
@@ -28,48 +29,39 @@ public class FamilyRepository : IFamilyRepository
     {
         try
         {
-            System.Diagnostics.Debug.WriteLine("🔄 Initializing FamilyRepository...");
+            Debug.WriteLine("🔄 Initializing FamilyRepository...");
 
             // Get current user ID
-            if (_supabaseService.Client?.Auth.CurrentUser?.Id != null)
+            var currentUserIdString = _supabaseService.GetCurrentUserId();
+            if (!string.IsNullOrEmpty(currentUserIdString) && Guid.TryParse(currentUserIdString, out var userId))
             {
-                if (Guid.TryParse(_supabaseService.Client.Auth.CurrentUser.Id, out var userId))
-                {
-                    _currentUserId = userId;
-                    System.Diagnostics.Debug.WriteLine($"✅ Current user ID: {_currentUserId}");
-                }
-            }
-            else
-            {
-                System.Diagnostics.Debug.WriteLine("⚠️ No authenticated user found");
+                _currentUserId = userId;
+                Debug.WriteLine($"✅ Current user ID: {_currentUserId}");
             }
 
-            // Load local data first
+            // Load local data
             await LoadLocalDataAsync();
 
-            // Test Supabase connection
-            var isConnected = await _syncService.TestConnectionAsync();
-            System.Diagnostics.Debug.WriteLine($"🌐 Supabase connection: {(isConnected ? "✅ Connected" : "❌ Failed")}");
+            // Test connection and try sync if possible
+            var canSync = await _syncService.TestConnectionAsync();
+            Debug.WriteLine($"🌐 Sync available: {canSync}");
 
-            if (isConnected)
+            if (canSync && _supabaseService.IsAuthenticated)
             {
-                // Try to sync with server
                 await PerformInitialSyncAsync();
             }
-            else
+            else if (!_localFamilies.Any())
             {
-                // Fallback to minimal local setup
-                if (!_localFamilies.Any())
-                {
-                    await SeedMinimalDefaultFamiliesAsync();
-                }
+                // Seed defaults only if no local data
+                await SeedMinimalDefaultFamiliesAsync();
             }
+
+            Debug.WriteLine("✅ FamilyRepository initialized");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"❌ FamilyRepository initialization error: {ex.Message}");
-
-            // Fallback to local-only mode
+            Debug.WriteLine($"❌ FamilyRepository init error: {ex.Message}");
+            // Fallback - ensure we have at least Orchidaceae
             if (!_localFamilies.Any())
             {
                 await SeedMinimalDefaultFamiliesAsync();
@@ -77,52 +69,38 @@ public class FamilyRepository : IFamilyRepository
         }
     }
 
-    /// <summary>
-    /// 🔄 Primeira sincronização - baixa dados do servidor e mescla com local
-    /// </summary>
     private async Task PerformInitialSyncAsync()
     {
         try
         {
-            System.Diagnostics.Debug.WriteLine("📥 Performing initial sync...");
+            Debug.WriteLine("📥 Initial sync...");
 
-            // Baixar famílias do servidor
             var serverFamilies = await _syncService.DownloadFamiliesAsync();
 
             if (serverFamilies.Any())
             {
-                System.Diagnostics.Debug.WriteLine($"📥 Downloaded {serverFamilies.Count} families from server");
-
-                // Mesclar com dados locais
                 foreach (var serverFamily in serverFamilies)
                 {
                     var localFamily = _localFamilies.FirstOrDefault(f => f.Id == serverFamily.Id);
 
                     if (localFamily == null)
                     {
-                        // Nova família do servidor
                         _localFamilies.Add(serverFamily);
                         await _localDataService.SaveFamilyAsync(serverFamily);
-                        System.Diagnostics.Debug.WriteLine($"📥 Added from server: {serverFamily.Name}");
+                        Debug.WriteLine($"📥 Added: {serverFamily.Name}");
                     }
-                    else
+                    else if (serverFamily.UpdatedAt > localFamily.UpdatedAt)
                     {
-                        // Verificar qual é mais recente
-                        if (serverFamily.UpdatedAt > localFamily.UpdatedAt)
-                        {
-                            // Servidor é mais recente
-                            var index = _localFamilies.IndexOf(localFamily);
-                            _localFamilies[index] = serverFamily;
-                            await _localDataService.SaveFamilyAsync(serverFamily);
-                            System.Diagnostics.Debug.WriteLine($"📥 Updated from server: {serverFamily.Name}");
-                        }
+                        var index = _localFamilies.IndexOf(localFamily);
+                        _localFamilies[index] = serverFamily;
+                        await _localDataService.SaveFamilyAsync(serverFamily);
+                        Debug.WriteLine($"📥 Updated: {serverFamily.Name}");
                     }
                 }
 
-                // Enviar famílias locais pendentes
+                // Upload pending local
                 var pendingFamilies = _localFamilies.Where(f =>
-                    f.SyncStatus == SyncStatus.Local ||
-                    f.SyncStatus == SyncStatus.Pending
+                    f.SyncStatus == SyncStatus.Local || f.SyncStatus == SyncStatus.Pending
                 ).ToList();
 
                 foreach (var pendingFamily in pendingFamilies)
@@ -133,32 +111,22 @@ public class FamilyRepository : IFamilyRepository
                         pendingFamily.SyncStatus = SyncStatus.Synced;
                         pendingFamily.LastSyncAt = DateTime.UtcNow;
                         await _localDataService.SaveFamilyAsync(pendingFamily);
-                        System.Diagnostics.Debug.WriteLine($"📤 Uploaded to server: {pendingFamily.Name}");
                     }
                 }
             }
-            else
+            else if (!_localFamilies.Any(f => f.Name == "Orchidaceae"))
             {
-                // Servidor vazio, criar Orchidaceae default se não existir localmente
-                if (!_localFamilies.Any(f => f.Name == "Orchidaceae"))
+                await SeedMinimalDefaultFamiliesAsync();
+                var orchidFamily = _localFamilies.FirstOrDefault(f => f.Name == "Orchidaceae");
+                if (orchidFamily != null)
                 {
-                    await SeedMinimalDefaultFamiliesAsync();
-
-                    // Tentar enviar para o servidor
-                    var orchidFamily = _localFamilies.First(f => f.Name == "Orchidaceae");
-                    var success = await _syncService.UploadFamilyAsync(orchidFamily);
-                    if (success)
-                    {
-                        orchidFamily.SyncStatus = SyncStatus.Synced;
-                        orchidFamily.LastSyncAt = DateTime.UtcNow;
-                        await _localDataService.SaveFamilyAsync(orchidFamily);
-                    }
+                    await _syncService.UploadFamilyAsync(orchidFamily);
                 }
             }
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"❌ Initial sync failed: {ex.Message}");
+            Debug.WriteLine($"❌ Initial sync failed: {ex.Message}");
         }
     }
 
@@ -169,25 +137,24 @@ public class FamilyRepository : IFamilyRepository
             var localData = await _localDataService.GetAllFamiliesAsync();
             _localFamilies.Clear();
             _localFamilies.AddRange(localData);
-            System.Diagnostics.Debug.WriteLine($"💾 Loaded {localData.Count} families from local storage");
+            Debug.WriteLine($"💾 Loaded {localData.Count} local families");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"❌ Error loading local families: {ex.Message}");
+            Debug.WriteLine($"❌ Error loading local families: {ex.Message}");
         }
     }
 
     private async Task SeedMinimalDefaultFamiliesAsync()
     {
-        // APENAS Orchidaceae como padrão - afinal é um app de orquídeas! 🌺
         var orchidFamily = new Family
         {
             Name = "Orchidaceae",
-            Description = "The orchid family - largest family of flowering plants with over 25,000 species worldwide. Known for their complex flowers and diverse growth habits.",
+            Description = "The orchid family - largest family of flowering plants with over 25,000 species worldwide.",
             IsSystemDefault = true,
             IsActive = true,
-            SyncStatus = SyncStatus.Local, // Será sincronizado depois
-            UserId = null, // System default
+            SyncStatus = SyncStatus.Local,
+            UserId = null,
             CreatedAt = DateTime.UtcNow,
             UpdatedAt = DateTime.UtcNow
         };
@@ -196,9 +163,10 @@ public class FamilyRepository : IFamilyRepository
         _localFamilies.Add(orchidFamily);
         await _localDataService.SaveFamilyAsync(orchidFamily);
 
-        System.Diagnostics.Debug.WriteLine("🌺 Seeded default family: Orchidaceae");
+        Debug.WriteLine("🌺 Seeded Orchidaceae");
     }
 
+    // MÉTODOS PRINCIPAIS - mantidos iguais ao original mas com sync automático
     public async Task<List<Family>> GetAllAsync(bool includeInactive = false)
     {
         await LoadLocalDataAsync();
@@ -215,7 +183,6 @@ public class FamilyRepository : IFamilyRepository
     {
         var families = await GetAllAsync(true);
 
-        // Apply text search
         if (!string.IsNullOrWhiteSpace(searchText))
         {
             searchText = searchText.ToLowerInvariant();
@@ -225,13 +192,11 @@ public class FamilyRepository : IFamilyRepository
             ).ToList();
         }
 
-        // Apply status filter
         if (statusFilter.HasValue)
         {
             families = families.Where(f => f.IsActive == statusFilter.Value).ToList();
         }
 
-        // Apply sync filter
         if (syncFilter.HasValue)
         {
             families = families.Where(f => f.SyncStatus == syncFilter.Value).ToList();
@@ -261,16 +226,16 @@ public class FamilyRepository : IFamilyRepository
         family.UserId = _currentUserId;
         family.CreatedAt = DateTime.UtcNow;
         family.UpdatedAt = DateTime.UtcNow;
-        family.SyncStatus = SyncStatus.Local; // Marca como local até sincronizar
+        family.SyncStatus = SyncStatus.Local;
         family.SyncHash = GenerateHash(family);
 
         _localFamilies.Add(family);
         await _localDataService.SaveFamilyAsync(family);
 
-        // 🔄 Tentar sincronizar automaticamente em background
+        // Auto-sync em background
         _ = Task.Run(async () => await TryAutoSyncFamilyAsync(family));
 
-        System.Diagnostics.Debug.WriteLine($"✅ Created family: {family.Name} (Status: {family.SyncStatus})");
+        Debug.WriteLine($"✅ Created family: {family.Name}");
         return family;
     }
 
@@ -283,22 +248,19 @@ public class FamilyRepository : IFamilyRepository
         }
 
         family.UpdatedAt = DateTime.UtcNow;
-
-        // Se estava sincronizado, marca como pendente
         if (family.SyncStatus == SyncStatus.Synced)
         {
             family.SyncStatus = SyncStatus.Pending;
         }
-
         family.SyncHash = GenerateHash(family);
 
         _localFamilies[existingIndex] = family;
         await _localDataService.SaveFamilyAsync(family);
 
-        // 🔄 Tentar sincronizar automaticamente em background
+        // Auto-sync em background
         _ = Task.Run(async () => await TryAutoSyncFamilyAsync(family));
 
-        System.Diagnostics.Debug.WriteLine($"✅ Updated family: {family.Name} (Status: {family.SyncStatus})");
+        Debug.WriteLine($"✅ Updated family: {family.Name}");
         return family;
     }
 
@@ -316,10 +278,10 @@ public class FamilyRepository : IFamilyRepository
 
         await _localDataService.SaveFamilyAsync(family);
 
-        // 🔄 Tentar sincronizar automaticamente em background
+        // Auto-sync em background
         _ = Task.Run(async () => await TryAutoSyncFamilyAsync(family));
 
-        System.Diagnostics.Debug.WriteLine($"✅ Soft deleted family: {family.Name}");
+        Debug.WriteLine($"✅ Deleted family: {family.Name}");
         return true;
     }
 
@@ -364,13 +326,14 @@ public class FamilyRepository : IFamilyRepository
         };
     }
 
-    /// <summary>
-    /// 🔄 NOVA: Sincronização automática em background
-    /// </summary>
+    // SYNC AUTOMÁTICO EM BACKGROUND
     private async Task TryAutoSyncFamilyAsync(Family family)
     {
         try
         {
+            if (!_supabaseService.IsAuthenticated)
+                return;
+
             var success = await _syncService.UploadFamilyAsync(family);
 
             if (success)
@@ -378,41 +341,47 @@ public class FamilyRepository : IFamilyRepository
                 family.SyncStatus = SyncStatus.Synced;
                 family.LastSyncAt = DateTime.UtcNow;
                 await _localDataService.SaveFamilyAsync(family);
-                System.Diagnostics.Debug.WriteLine($"🔄 Auto-synced family: {family.Name}");
+                Debug.WriteLine($"🔄 Auto-synced: {family.Name}");
             }
             else
             {
                 family.SyncStatus = SyncStatus.Error;
                 await _localDataService.SaveFamilyAsync(family);
-                System.Diagnostics.Debug.WriteLine($"❌ Auto-sync failed for: {family.Name}");
             }
         }
         catch (Exception ex)
         {
+            Debug.WriteLine($"❌ Auto-sync error: {ex.Message}");
             family.SyncStatus = SyncStatus.Error;
             await _localDataService.SaveFamilyAsync(family);
-            System.Diagnostics.Debug.WriteLine($"❌ Auto-sync error for {family.Name}: {ex.Message}");
         }
     }
 
-    /// <summary>
-    /// 🔄 NOVA: Força sincronização manual de todas as famílias pendentes
-    /// </summary>
     public async Task<SyncResult> ForceFullSyncAsync()
     {
-        System.Diagnostics.Debug.WriteLine("🔄 Starting manual full sync...");
+        Debug.WriteLine("🔄 Manual sync started...");
+
+        if (!_supabaseService.IsAuthenticated)
+        {
+            return new SyncResult
+            {
+                StartTime = DateTime.UtcNow,
+                EndTime = DateTime.UtcNow,
+                ErrorMessages = { "User not authenticated" }
+            };
+        }
 
         var result = await _syncService.PerformFullSyncAsync(_localFamilies);
 
-        // Atualizar status local das famílias sincronizadas
-        foreach (var family in _localFamilies.Where(f => f.SyncStatus == SyncStatus.Pending || f.SyncStatus == SyncStatus.Local))
+        // Update local status
+        foreach (var family in _localFamilies.Where(f =>
+            f.SyncStatus == SyncStatus.Pending || f.SyncStatus == SyncStatus.Local))
         {
             family.SyncStatus = SyncStatus.Synced;
             family.LastSyncAt = DateTime.UtcNow;
             await _localDataService.SaveFamilyAsync(family);
         }
 
-        System.Diagnostics.Debug.WriteLine($"🔄 Manual sync completed: {result.Successful}/{result.TotalProcessed}");
         return result;
     }
 

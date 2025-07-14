@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="OrchidPro.Views.Pages.TestSyncPage"
+             Title="Test Sync"
+             BackgroundColor="{StaticResource Primary}">
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- Header with test buttons -->
+        <VerticalStackLayout Grid.Row="0" 
+                             Padding="20"
+                             Spacing="10"
+                             BackgroundColor="{StaticResource Secondary}">
+
+            <Label Text="Sync Testing Console"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   TextColor="{StaticResource PrimaryDarkText}"
+                   HorizontalOptions="Center" />
+
+            <Grid ColumnDefinitions="*,*" 
+                  RowDefinitions="Auto,Auto,Auto"
+                  ColumnSpacing="10"
+                  RowSpacing="10">
+
+                <Button Grid.Row="0" Grid.Column="0"
+                        Text="Test Supabase"
+                        Clicked="OnTestSupabaseClicked"
+                        BackgroundColor="{StaticResource Primary}"
+                        TextColor="White"
+                        FontSize="12" />
+
+                <Button Grid.Row="0" Grid.Column="1"
+                        Text="Test Families"
+                        Clicked="OnTestFamiliesClicked"
+                        BackgroundColor="{StaticResource Tertiary}"
+                        TextColor="White"
+                        FontSize="12" />
+
+                <Button Grid.Row="1" Grid.Column="0"
+                        Text="Create Test"
+                        Clicked="OnCreateTestFamilyClicked"
+                        BackgroundColor="{StaticResource SuccessColor}"
+                        TextColor="White"
+                        FontSize="12" />
+
+                <Button Grid.Row="1" Grid.Column="1"
+                        Text="Force Sync"
+                        Clicked="OnForceFullSyncClicked"
+                        BackgroundColor="{StaticResource InfoColor}"
+                        TextColor="White"
+                        FontSize="12" />
+
+                <Button Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
+                        Text="Clear Log"
+                        Clicked="OnClearLogClicked"
+                        BackgroundColor="{StaticResource Gray400}"
+                        TextColor="White"
+                        FontSize="12" />
+
+            </Grid>
+        </VerticalStackLayout>
+
+        <!-- Log output area -->
+        <Border Grid.Row="1"
+                BackgroundColor="{StaticResource Surface}"
+                Margin="10"
+                Padding="0">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="10" />
+            </Border.StrokeShape>
+
+            <ScrollView x:Name="LogScrollView">
+                <Label x:Name="StatusLabel"
+                       Text="Ready for testing...\n"
+                       FontFamily="Courier"
+                       FontSize="12"
+                       TextColor="{StaticResource OnSurface}"
+                       Padding="15"
+                       VerticalOptions="Start" />
+            </ScrollView>
+        </Border>
+
+    </Grid>
+</ContentPage>

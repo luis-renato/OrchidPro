@@ -99,5 +99,7 @@ public static class MauiProgram
         Routing.RegisterRoute("statistics", typeof(MainPage)); // Placeholder
         Routing.RegisterRoute("settings", typeof(MainPage)); // Placeholder
         Routing.RegisterRoute("sync", typeof(MainPage)); // Placeholder
+
+        Routing.RegisterRoute("testsync", typeof(TestSyncPage));
     }
 }
