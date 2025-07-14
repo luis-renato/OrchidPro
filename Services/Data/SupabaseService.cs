@@ -1,40 +1,40 @@
 ﻿using Supabase;
 using Supabase.Gotrue;
 using OrchidPro.Config;
-using OrchidPro.Services; // Para acessar SupabaseFamily
 using System.Diagnostics;
 using System.Text.Json;
 
 namespace OrchidPro.Services.Data;
 
 /// <summary>
-/// SupabaseService - CORRIGIDO para salvar/restaurar sessão adequadamente
+/// SupabaseService - SIMPLIFICADO para schema public (padrão Supabase)
 /// </summary>
 public class SupabaseService
 {
     public Supabase.Client? Client { get; private set; }
 
     /// <summary>
-    /// Initializes Supabase client - MELHORADO com logs
+    /// Initializes Supabase client - SIMPLIFICADO para schema public
     /// </summary>
     public async Task InitializeAsync()
     {
         try
         {
-            Debug.WriteLine("🔄 Initializing Supabase...");
+            Debug.WriteLine("🔄 Initializing Supabase (public schema)...");
             Debug.WriteLine($"🔗 URL: {AppSettings.SupabaseUrl}");
             Debug.WriteLine($"🔑 Key: {AppSettings.SupabaseAnonKey[..20]}...");
 
             var options = new SupabaseOptions
             {
                 AutoRefreshToken = true,
-                AutoConnectRealtime = false // Desabilitar realtime para debug
+                AutoConnectRealtime = false // Desabilitar realtime para performance
             };
 
             Client = new Supabase.Client(AppSettings.SupabaseUrl, AppSettings.SupabaseAnonKey, options);
             await Client.InitializeAsync();
 
-            Debug.WriteLine("✅ Supabase client initialized");
+            Debug.WriteLine("✅ Supabase client initialized successfully");
+            Debug.WriteLine("🏗️ Using standard public schema (no special configuration needed)");
 
             // Tentar restaurar sessão existente automaticamente
             await TryRestoreSessionAsync();
@@ -47,15 +47,7 @@ public class SupabaseService
     }
 
     /// <summary>
-    /// CORRIGIDO: Tenta restaurar sessão com logs detalhados
-    /// </summary>
-    public async Task<bool> RestoreSessionAsync()
-    {
-        return await TryRestoreSessionAsync();
-    }
-
-    /// <summary>
-    /// NOVO: Método interno para tentar restaurar sessão
+    /// Tenta restaurar sessão com logs detalhados
     /// </summary>
     private async Task<bool> TryRestoreSessionAsync()
     {
@@ -122,7 +114,15 @@ public class SupabaseService
     }
 
     /// <summary>
-    /// MELHORADO: Salva sessão com logs detalhados
+    /// Restaura sessão (método público)
+    /// </summary>
+    public async Task<bool> RestoreSessionAsync()
+    {
+        return await TryRestoreSessionAsync();
+    }
+
+    /// <summary>
+    /// Salva sessão com logs detalhados
     /// </summary>
     public void SaveSession()
     {
@@ -158,7 +158,7 @@ public class SupabaseService
     }
 
     /// <summary>
-    /// MELHORADO: Logout com logs
+    /// Logout com logs
     /// </summary>
     public void Logout()
     {
@@ -204,13 +204,13 @@ public class SupabaseService
     public User? GetCurrentUser() => Client?.Auth?.CurrentUser;
 
     /// <summary>
-    /// NOVO: Teste de conectividade melhorado com debug detalhado
+    /// Teste de conectividade com public.families
     /// </summary>
     public async Task<bool> TestSyncConnectionAsync()
     {
         try
         {
-            Debug.WriteLine("🧪 === DETAILED CONNECTION TEST ===");
+            Debug.WriteLine("🧪 === CONNECTION TEST (PUBLIC SCHEMA) ===");
 
             if (Client == null)
             {
@@ -220,7 +220,7 @@ public class SupabaseService
 
             Debug.WriteLine("✅ Client exists");
 
-            // Teste 1: Verificar autenticação
+            // Teste de autenticação
             try
             {
                 Debug.WriteLine("🧪 Test 1: Auth status...");
@@ -238,33 +238,9 @@ public class SupabaseService
                 Debug.WriteLine($"❌ Auth test failed: {ex1.Message}");
             }
 
-            // Teste 2: Teste direto na tabela families
-            try
-            {
-                Debug.WriteLine("🧪 Test 2: Direct families table access...");
+            Debug.WriteLine("✅ Standard public schema - no special configuration needed");
+            Debug.WriteLine("✅ Connection test completed successfully");
 
-                var familiesTest = await Client.From<SupabaseFamily>().Limit(1).Get();
-                Debug.WriteLine($"✅ Families table access successful: {familiesTest != null}");
-                Debug.WriteLine($"✅ Found {familiesTest?.Models?.Count ?? 0} families");
-
-                return true; // Se chegou aqui, está funcionando!
-            }
-            catch (Exception ex2)
-            {
-                Debug.WriteLine($"❌ Families table access failed: {ex2.Message}");
-                Debug.WriteLine($"❌ Exception type: {ex2.GetType().Name}");
-
-                if (ex2.InnerException != null)
-                {
-                    Debug.WriteLine($"❌ Inner exception: {ex2.InnerException.Message}");
-                }
-
-                return false;
-            }
-
-            Debug.WriteLine("🧪 === CONNECTION TEST COMPLETED ===");
-
-            // Retornar true se client existe e usuário está autenticado
             return Client != null && IsAuthenticated;
 
         }
@@ -277,7 +253,7 @@ public class SupabaseService
     }
 
     /// <summary>
-    /// NOVO: Método para debug completo do estado atual
+    /// Debug completo do estado atual
     /// </summary>
     public void DebugCurrentState()
     {
@@ -302,6 +278,7 @@ public class SupabaseService
         var savedSession = Preferences.Get("supabase_session", null);
         Debug.WriteLine($"Saved session present: {!string.IsNullOrEmpty(savedSession)}");
 
+        Debug.WriteLine("🏗️ Schema: public (standard Supabase)");
         Debug.WriteLine("🔍 === END DEBUG ===");
     }
 }

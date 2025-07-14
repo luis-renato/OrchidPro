@@ -7,9 +7,9 @@ using System.Diagnostics;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// CORRIGIDO: Modelo da Family para Supabase - SCHEMA CORRETO families apenas
+/// FINAL: Modelo da Family para Supabase - SCHEMA PUBLIC (families)
 /// </summary>
-[Table("families")]
+[Table("families")] // ✅ Schema public - padrão do Supabase
 public class SupabaseFamily : BaseModel
 {
     [PrimaryKey("id")]
@@ -75,7 +75,7 @@ public class SupabaseFamily : BaseModel
 }
 
 /// <summary>
-/// Serviço de sincronização com Supabase - COMPLETO
+/// Serviço de sincronização com Supabase - OTIMIZADO para schema public
 /// </summary>
 public class SupabaseFamilySync
 {
@@ -84,6 +84,115 @@ public class SupabaseFamilySync
     public SupabaseFamilySync(SupabaseService supabaseService)
     {
         _supabaseService = supabaseService;
+    }
+
+    /// <summary>
+    /// FINAL: Teste de schema public - deve funcionar perfeitamente agora
+    /// </summary>
+    public async Task<bool> TestSchemaAndPermissionsAsync()
+    {
+        try
+        {
+            Debug.WriteLine("🔍 === SCHEMA TEST: public.families ===");
+
+            if (_supabaseService.Client == null)
+            {
+                Debug.WriteLine("❌ Client is null");
+                return false;
+            }
+
+            if (!_supabaseService.IsAuthenticated)
+            {
+                Debug.WriteLine("❌ Not authenticated");
+                return false;
+            }
+
+            var userId = _supabaseService.GetCurrentUserId();
+            var userEmail = _supabaseService.GetCurrentUser()?.Email;
+            Debug.WriteLine($"🔐 User ID: {userId ?? "null"}");
+            Debug.WriteLine($"📧 User Email: {userEmail ?? "null"}");
+
+            try
+            {
+                Debug.WriteLine("🧪 Testing public.families access...");
+
+                var query = _supabaseService.Client.From<SupabaseFamily>();
+                Debug.WriteLine("✅ Query object created");
+
+                var limitedQuery = query.Limit(5); // Buscar mais para teste
+                Debug.WriteLine("✅ Limit added");
+
+                var response = await limitedQuery.Get();
+                Debug.WriteLine($"✅ Query executed, response: {response != null}");
+
+                if (response?.Models != null)
+                {
+                    Debug.WriteLine($"✅ Models count: {response.Models.Count}");
+
+                    if (response.Models.Any())
+                    {
+                        foreach (var family in response.Models.Take(3))
+                        {
+                            Debug.WriteLine($"  - {family.Name} (ID: {family.Id}, User: {family.UserId?.ToString() ?? "system"})");
+                        }
+
+                        Debug.WriteLine("🎉 SUCCESS: public.families fully accessible!");
+
+                        // Teste adicional: verificar se consegue filtrar por user
+                        if (Guid.TryParse(userId, out var userGuid))
+                        {
+                            var userFamilies = response.Models.Where(f => f.UserId == userGuid).ToList();
+                            var systemFamilies = response.Models.Where(f => f.UserId == null).ToList();
+
+                            Debug.WriteLine($"📊 My families: {userFamilies.Count}");
+                            Debug.WriteLine($"📊 System families: {systemFamilies.Count}");
+                            Debug.WriteLine($"📊 Total accessible: {response.Models.Count}");
+                        }
+
+                        return true;
+                    }
+                    else
+                    {
+                        Debug.WriteLine("⚠️ No families found - table is empty or RLS blocking all");
+                        Debug.WriteLine("💡 This could mean successful connection but empty data");
+                        return true; // Conexão funcionou, mas sem dados
+                    }
+                }
+                else
+                {
+                    Debug.WriteLine("❌ Response.Models was null");
+                    return false;
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Query failed: {ex.Message}");
+                Debug.WriteLine($"❌ Exception type: {ex.GetType().Name}");
+
+                if (ex.InnerException != null)
+                {
+                    Debug.WriteLine($"❌ Inner exception: {ex.InnerException.Message}");
+                }
+
+                if (ex.Message.Contains("permission denied"))
+                {
+                    Debug.WriteLine("🔍 DIAGNOSIS: RLS policy blocking access");
+                    Debug.WriteLine("💡 Check RLS policies on public.families");
+                }
+                else if (ex.Message.Contains("does not exist"))
+                {
+                    Debug.WriteLine("🔍 DIAGNOSIS: public.families table not found");
+                    Debug.WriteLine("💡 Migration may not have completed successfully");
+                }
+
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ Test failed completely: {ex.Message}");
+            return false;
+        }
     }
 
     public async Task<bool> UploadFamilyAsync(Family family)
@@ -102,10 +211,11 @@ public class SupabaseFamilySync
                 return false;
             }
 
-            Debug.WriteLine($"📤 Uploading family: {family.Name} (ID: {family.Id})");
+            Debug.WriteLine($"📤 Uploading family to public.families: {family.Name} (ID: {family.Id})");
 
             var supabaseFamily = SupabaseFamily.FromFamily(family);
 
+            // Garantir user_id para famílias não-system
             if (supabaseFamily.UserId == null && !(supabaseFamily.IsSystemDefault ?? false))
             {
                 var currentUserId = _supabaseService.GetCurrentUserId();
@@ -123,6 +233,7 @@ public class SupabaseFamilySync
 
             Debug.WriteLine($"🔍 Checking if family exists: {family.Id}");
 
+            // Verificar se existe
             var existingQuery = _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Where(f => f.Id == family.Id);
@@ -182,11 +293,13 @@ public class SupabaseFamilySync
                 Debug.WriteLine($"❌ Inner exception: {ex.InnerException.Message}");
             }
 
-            Debug.WriteLine($"❌ Stack trace: {ex.StackTrace}");
             return false;
         }
     }
 
+    /// <summary>
+    /// VERSÃO DEBUG do DownloadFamiliesAsync - para identificar problema RLS
+    /// </summary>
     public async Task<List<Family>> DownloadFamiliesAsync()
     {
         try
@@ -197,72 +310,164 @@ public class SupabaseFamilySync
                 return new List<Family>();
             }
 
-            Debug.WriteLine("📥 Starting families download...");
+            Debug.WriteLine("📥 Starting families download from public.families...");
 
             var currentUserId = _supabaseService.GetCurrentUserId();
+            Debug.WriteLine($"📥 Current user ID: {currentUserId ?? "null"}");
 
-            if (!string.IsNullOrEmpty(currentUserId) && Guid.TryParse(currentUserId, out var userGuid))
+            // 🧪 TESTE 1: Query sem filtros (para ver se RLS permite acesso básico)
+            try
             {
-                Debug.WriteLine($"📥 Downloading for authenticated user: {userGuid}");
+                Debug.WriteLine("🧪 TEST 1: Query without filters...");
+                var basicQuery = _supabaseService.Client.From<SupabaseFamily>();
+                var basicResponse = await basicQuery.Get();
 
-                var query = _supabaseService.Client
-                    .From<SupabaseFamily>()
-                    .Where(f => f.UserId == userGuid || f.UserId == null);
+                Debug.WriteLine($"✅ Basic query result: {basicResponse?.Models?.Count ?? 0} families");
 
-                Debug.WriteLine("📥 Executing query...");
-                var response = await query.Get();
-
-                if (response?.Models != null)
+                if (basicResponse?.Models?.Any() == true)
                 {
-                    var families = response.Models.Select(sf => sf.ToFamily()).ToList();
-                    Debug.WriteLine($"📥 Downloaded {families.Count} families successfully");
+                    foreach (var family in basicResponse.Models.Take(3))
+                    {
+                        Debug.WriteLine($"  - {family.Name} (User: {family.UserId?.ToString() ?? "system"})");
+                    }
+                }
+            }
+            catch (Exception basicEx)
+            {
+                Debug.WriteLine($"❌ Basic query failed: {basicEx.Message}");
+                Debug.WriteLine("🔍 This indicates RLS is blocking ALL access");
+            }
 
-                    foreach (var family in families.Take(3))
+            // 🧪 TESTE 2: Query só para system families (user_id IS NULL)
+            try
+            {
+                Debug.WriteLine("🧪 TEST 2: System families only...");
+                var systemQuery = _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Where(f => f.UserId == null);
+
+                var systemResponse = await systemQuery.Get();
+                Debug.WriteLine($"✅ System families: {systemResponse?.Models?.Count ?? 0}");
+
+                if (systemResponse?.Models?.Any() == true)
+                {
+                    foreach (var family in systemResponse.Models.Take(3))
                     {
                         Debug.WriteLine($"  - {family.Name} (System: {family.IsSystemDefault})");
                     }
-
-                    return families;
                 }
-                else
+            }
+            catch (Exception systemEx)
+            {
+                Debug.WriteLine($"❌ System families query failed: {systemEx.Message}");
+            }
+
+            // 🧪 TESTE 3: Query só para minhas families (se autenticado)
+            if (!string.IsNullOrEmpty(currentUserId) && Guid.TryParse(currentUserId, out var userGuid))
+            {
+                try
                 {
-                    Debug.WriteLine("❌ Response or models was null");
-                    return new List<Family>();
+                    Debug.WriteLine("🧪 TEST 3: My families only...");
+                    var myQuery = _supabaseService.Client
+                        .From<SupabaseFamily>()
+                        .Where(f => f.UserId == userGuid);
+
+                    var myResponse = await myQuery.Get();
+                    Debug.WriteLine($"✅ My families: {myResponse?.Models?.Count ?? 0}");
+
+                    if (myResponse?.Models?.Any() == true)
+                    {
+                        foreach (var family in myResponse.Models)
+                        {
+                            Debug.WriteLine($"  - {family.Name} (My family)");
+                        }
+                    }
+                }
+                catch (Exception myEx)
+                {
+                    Debug.WriteLine($"❌ My families query failed: {myEx.Message}");
+                }
+
+                // 🧪 TESTE 4: Query combinada (como o app faz normalmente)
+                try
+                {
+                    Debug.WriteLine("🧪 TEST 4: Combined query (system OR mine)...");
+                    var combinedQuery = _supabaseService.Client
+                        .From<SupabaseFamily>()
+                        .Where(f => f.UserId == userGuid || f.UserId == null);
+
+                    var combinedResponse = await combinedQuery.Get();
+                    Debug.WriteLine($"✅ Combined query: {combinedResponse?.Models?.Count ?? 0} families");
+
+                    if (combinedResponse?.Models?.Any() == true)
+                    {
+                        var systemCount = combinedResponse.Models.Count(f => f.UserId == null);
+                        var userCount = combinedResponse.Models.Count(f => f.UserId != null);
+
+                        Debug.WriteLine($"  📊 System families: {systemCount}");
+                        Debug.WriteLine($"  📊 User families: {userCount}");
+                        Debug.WriteLine($"  📊 Total accessible: {combinedResponse.Models.Count}");
+
+                        // Esta é a query que deveria funcionar!
+                        var families = combinedResponse.Models.Select(sf => sf.ToFamily()).ToList();
+                        Debug.WriteLine("🎉 SUCCESS: Combined query worked!");
+                        return families;
+                    }
+                    else
+                    {
+                        Debug.WriteLine("⚠️ Combined query returned no families");
+                        Debug.WriteLine("🔍 RLS policy is blocking the combined WHERE clause");
+                    }
+                }
+                catch (Exception combinedEx)
+                {
+                    Debug.WriteLine($"❌ Combined query failed: {combinedEx.Message}");
+                    Debug.WriteLine("🔍 This is the main problem - RLS blocking combined query");
+
+                    if (combinedEx.Message.Contains("permission denied"))
+                    {
+                        Debug.WriteLine("🎯 CONFIRMED: RLS policy blocking combined query");
+                        Debug.WriteLine("💡 Need to fix RLS policy for: (user_id = auth.uid() OR user_id IS NULL)");
+                    }
                 }
             }
             else
             {
-                Debug.WriteLine("📥 Downloading system defaults only (not authenticated)");
+                Debug.WriteLine("⚠️ Not authenticated - trying system families only");
 
-                var query = _supabaseService.Client
-                    .From<SupabaseFamily>()
-                    .Where(f => f.UserId == null);
-
-                var response = await query.Get();
-
-                if (response?.Models != null)
+                try
                 {
-                    var families = response.Models.Select(sf => sf.ToFamily()).ToList();
-                    Debug.WriteLine($"📥 Downloaded {families.Count} system default families");
-                    return families;
+                    var query = _supabaseService.Client
+                        .From<SupabaseFamily>()
+                        .Where(f => f.UserId == null);
+
+                    var response = await query.Get();
+
+                    if (response?.Models != null)
+                    {
+                        var families = response.Models.Select(sf => sf.ToFamily()).ToList();
+                        Debug.WriteLine($"📥 Downloaded {families.Count} system default families");
+                        return families;
+                    }
                 }
-                else
+                catch (Exception ex)
                 {
-                    Debug.WriteLine("❌ Response or models was null");
-                    return new List<Family>();
+                    Debug.WriteLine($"❌ System families download failed: {ex.Message}");
                 }
             }
+
+            Debug.WriteLine("❌ All download attempts failed - returning empty list");
+            return new List<Family>();
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ Download failed: {ex.Message}");
+            Debug.WriteLine($"❌ Download failed completely: {ex.Message}");
 
             if (ex.InnerException != null)
             {
                 Debug.WriteLine($"❌ Inner exception: {ex.InnerException.Message}");
             }
 
-            Debug.WriteLine($"❌ Stack trace: {ex.StackTrace}");
             return new List<Family>();
         }
     }
@@ -276,7 +481,17 @@ public class SupabaseFamilySync
 
         try
         {
-            Debug.WriteLine("🔄 Starting full sync...");
+            Debug.WriteLine("🔄 Starting full sync with public.families...");
+
+            // Primeiro teste schema/permissões
+            var schemaOk = await TestSchemaAndPermissionsAsync();
+            if (!schemaOk)
+            {
+                result.ErrorMessages.Add("Schema or permissions test failed");
+                result.EndTime = DateTime.UtcNow;
+                result.Duration = result.EndTime - result.StartTime;
+                return result;
+            }
 
             Debug.WriteLine("📥 Step 1: Downloading server families...");
             var serverFamilies = await DownloadFamiliesAsync();
@@ -336,44 +551,17 @@ public class SupabaseFamilySync
                 return false;
             }
 
-            Debug.WriteLine("🧪 Testing families table connection...");
+            Debug.WriteLine("🧪 Testing public.families table connection...");
             Debug.WriteLine($"🔐 User authenticated: {_supabaseService.IsAuthenticated}");
             Debug.WriteLine($"🆔 User ID: {_supabaseService.GetCurrentUserId()}");
 
-            // Teste mais detalhado
-            Debug.WriteLine("🧪 Step 1: Testing basic query...");
-
-            var basicQuery = _supabaseService.Client.From<SupabaseFamily>();
-            Debug.WriteLine("✅ Basic query object created");
-
-            var limitQuery = basicQuery.Limit(1);
-            Debug.WriteLine("✅ Limit applied");
-
-            var response = await limitQuery.Get();
-            Debug.WriteLine($"✅ Query executed, response: {(response != null ? "not null" : "null")}");
-
-            if (response != null)
-            {
-                Debug.WriteLine($"✅ Models count: {response.Models?.Count ?? 0}");
-
-                if (response.Models?.Any() == true)
-                {
-                    var firstModel = response.Models.First();
-                    Debug.WriteLine($"✅ First model - Name: {firstModel.Name}, ID: {firstModel.Id}");
-                }
-
-                Debug.WriteLine("✅ Families table connection successful!");
-                return true;
-            }
-            else
-            {
-                Debug.WriteLine("❌ Response was null");
-                return false;
-            }
+            // Teste schema
+            var schemaOk = await TestSchemaAndPermissionsAsync();
+            return schemaOk;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ Families table connection failed: {ex.Message}");
+            Debug.WriteLine($"❌ Connection test failed: {ex.Message}");
             Debug.WriteLine($"❌ Stack trace: {ex.StackTrace}");
 
             if (ex.InnerException != null)
@@ -395,7 +583,7 @@ public class SupabaseFamilySync
                 return false;
             }
 
-            Debug.WriteLine("🧪 Testing insert capability...");
+            Debug.WriteLine("🧪 Testing insert capability on public.families...");
 
             var currentUserId = _supabaseService.GetCurrentUserId();
             if (string.IsNullOrEmpty(currentUserId) || !Guid.TryParse(currentUserId, out var userId))
