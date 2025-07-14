@@ -35,7 +35,7 @@ public partial class TestSyncPage : ContentPage
     }
 
     /// <summary>
-    /// MELHORADO: Teste completo do Supabase com diagnósticos detalhados
+    /// MELHORADO: Teste completo do Supabase com diagnósticos detalhados - APENAS AQUI
     /// </summary>
     private async void OnTestSupabaseClicked(object sender, EventArgs e)
     {
@@ -43,90 +43,83 @@ public partial class TestSyncPage : ContentPage
         {
             LogTest("🧪 === COMPREHENSIVE SUPABASE TEST ===");
 
-            // Step 1: Debug current state BEFORE anything
+            // Debug current state BEFORE anything
             LogTest("📊 Current state check:");
             _supabaseService.DebugCurrentState();
 
-            // Step 2: Initialize (should be safe to call multiple times)
+            // Initialize (should be safe to call multiple times)
             LogTest("🔄 Initializing Supabase...");
             await _supabaseService.InitializeAsync();
             LogTest("✅ Supabase initialized");
 
-            // Step 3: Check authentication IMMEDIATELY after init
+            // Check authentication IMMEDIATELY after init
             var isAuthAfterInit = _supabaseService.IsAuthenticated;
             var userIdAfterInit = _supabaseService.GetCurrentUserId();
             LogTest($"🔐 Auth after init: {isAuthAfterInit}");
             LogTest($"🆔 User ID after init: {userIdAfterInit ?? "null"}");
 
-            // Step 4: Test basic connectivity
-            LogTest("🌐 Testing basic connectivity...");
-            var basicConnection = await _supabaseService.TestSyncConnectionAsync();
-            LogTest($"🌐 Basic connection: {basicConnection}");
-
-            // Step 5: Test families table specifically
-            LogTest("🏷️ Testing families table access...");
-            var familiesConnection = await _syncService.TestConnectionAsync();
-            LogTest($"🏷️ Families table: {familiesConnection}");
-
-            // Step 6: If authenticated, test operations
-            if (isAuthAfterInit)
+            if (!isAuthAfterInit)
             {
-                LogTest("🧪 Testing authenticated operations...");
+                LogTest("❌ Not authenticated - stopping test");
+                return;
+            }
 
-                // Test download
-                try
+            // TESTE DIRETO DA TABELA - SEM usar o método antigo
+            LogTest("🧪 Testing families table access DIRECTLY...");
+
+            try
+            {
+                if (_supabaseService.Client == null)
                 {
-                    var downloadTest = await _syncService.DownloadFamiliesAsync();
-                    LogTest($"📥 Download test: {downloadTest.Count} families found");
-                }
-                catch (Exception ex)
-                {
-                    LogTest($"❌ Download test failed: {ex.Message}");
+                    LogTest("❌ Client is null");
+                    return;
                 }
 
-                // Test insert capability
-                try
+                LogTest("🔍 Attempting direct table query...");
+                var directQuery = await _supabaseService.Client.From<SupabaseFamily>().Limit(1).Get();
+
+                LogTest($"✅ Direct query successful: {directQuery != null}");
+                LogTest($"✅ Models returned: {directQuery?.Models?.Count ?? 0}");
+
+                if (directQuery?.Models?.Any() == true)
                 {
-                    var insertTest = await _syncService.TestInsertAsync();
-                    LogTest($"➕ Insert test: {insertTest}");
+                    var firstFamily = directQuery.Models.First();
+                    LogTest($"✅ First family: {firstFamily.Name} (ID: {firstFamily.Id})");
                 }
-                catch (Exception ex)
+
+                LogTest("🎉 FAMILIES TABLE ACCESS SUCCESSFUL!");
+            }
+            catch (Exception tableEx)
+            {
+                LogTest($"❌ Direct table access failed: {tableEx.Message}");
+                LogTest($"❌ Exception type: {tableEx.GetType().Name}");
+
+                if (tableEx.InnerException != null)
                 {
-                    LogTest($"❌ Insert test failed: {ex.Message}");
+                    LogTest($"❌ Inner exception: {tableEx.InnerException.Message}");
+                }
+
+                // Analisar o erro específico
+                if (tableEx.Message.Contains("permission denied"))
+                {
+                    LogTest("🔍 DIAGNOSIS: Permission denied - check RLS policies");
+                }
+                else if (tableEx.Message.Contains("does not exist"))
+                {
+                    LogTest("🔍 DIAGNOSIS: Table doesn't exist - check schema/table name");
+                }
+                else if (tableEx.Message.Contains("insufficient"))
+                {
+                    LogTest("🔍 DIAGNOSIS: Insufficient privileges - check user permissions");
                 }
             }
-            else
+
+            // Test insert capability se autenticado
+            if (isAuthAfterInit)
             {
-                LogTest("⚠️ Not authenticated - skipping authenticated tests");
-
-                // Detailed session debugging
-                LogTest("🔍 Session debugging:");
-                var savedSession = Preferences.Get("supabase_session", null);
-                LogTest($"📱 Saved session exists: {!string.IsNullOrEmpty(savedSession)}");
-
-                if (!string.IsNullOrEmpty(savedSession))
-                {
-                    LogTest($"📱 Session length: {savedSession.Length} characters");
-                    LogTest($"📱 Session preview: {savedSession[..Math.Min(100, savedSession.Length)]}...");
-
-                    // Try to restore session manually
-                    LogTest("🔄 Attempting manual session restore...");
-                    var restoreResult = await _supabaseService.RestoreSessionAsync();
-                    LogTest($"🔄 Restore result: {restoreResult}");
-
-                    if (restoreResult)
-                    {
-                        LogTest("✅ Session restored! Checking auth status...");
-                        var authAfterRestore = _supabaseService.IsAuthenticated;
-                        var userAfterRestore = _supabaseService.GetCurrentUserId();
-                        LogTest($"🔐 Auth after restore: {authAfterRestore}");
-                        LogTest($"🆔 User after restore: {userAfterRestore ?? "null"}");
-                    }
-                }
-                else
-                {
-                    LogTest("❌ No saved session found - user needs to login again");
-                }
+                LogTest("🧪 Testing insert capability...");
+                var insertTest = await _syncService.TestInsertAsync();
+                LogTest($"➕ Insert test: {insertTest}");
             }
 
             LogTest("🧪 === TEST COMPLETED ===");

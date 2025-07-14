@@ -101,7 +101,7 @@
 
     <!-- Sync Status -->
     <FlyoutItem Title="Sync Status" Icon="sync.png">
-        <ShellContent Route="SyncPage" ContentTemplate="{DataTemplate local:MainPage}" />
+        <ShellContent Route="SyncPage" ContentTemplate="{DataTemplate pages:TestSyncPage}" />
     </FlyoutItem>
 
     <!-- Rodapé do menu com logout -->

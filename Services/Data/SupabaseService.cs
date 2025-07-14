@@ -238,18 +238,20 @@ public class SupabaseService
                 Debug.WriteLine($"❌ Auth test failed: {ex1.Message}");
             }
 
-            // Teste 2: Teste básico de conectividade
+            // Teste 2: Teste direto na tabela families
             try
             {
-                Debug.WriteLine("🧪 Test 2: Basic connectivity...");
+                Debug.WriteLine("🧪 Test 2: Direct families table access...");
 
-                // Teste simples de ping
-                var basicTest = await Client.Postgrest.Rpc("version", new Dictionary<string, object>());
-                Debug.WriteLine($"✅ Basic connectivity successful: {basicTest != null}");
+                var familiesTest = await Client.From<SupabaseFamily>().Limit(1).Get();
+                Debug.WriteLine($"✅ Families table access successful: {familiesTest != null}");
+                Debug.WriteLine($"✅ Found {familiesTest?.Models?.Count ?? 0} families");
+
+                return true; // Se chegou aqui, está funcionando!
             }
             catch (Exception ex2)
             {
-                Debug.WriteLine($"❌ Basic connectivity failed: {ex2.Message}");
+                Debug.WriteLine($"❌ Families table access failed: {ex2.Message}");
                 Debug.WriteLine($"❌ Exception type: {ex2.GetType().Name}");
 
                 if (ex2.InnerException != null)
@@ -257,18 +259,7 @@ public class SupabaseService
                     Debug.WriteLine($"❌ Inner exception: {ex2.InnerException.Message}");
                 }
 
-                // Teste alternativo mais simples
-                try
-                {
-                    Debug.WriteLine("🧪 Trying alternative connectivity test...");
-                    var testQuery = await Client.From<SupabaseFamily>().Limit(1).Get();
-                    Debug.WriteLine("✅ Alternative connectivity OK");
-                }
-                catch (Exception ex2Alt)
-                {
-                    Debug.WriteLine($"❌ Alternative connectivity failed: {ex2Alt.Message}");
-                    return false;
-                }
+                return false;
             }
 
             Debug.WriteLine("🧪 === CONNECTION TEST COMPLETED ===");

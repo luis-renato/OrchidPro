@@ -7,9 +7,9 @@ using System.Diagnostics;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// CORRIGIDO: Modelo da Family para Supabase - SCHEMA CORRETO orchidpro.families
+/// CORRIGIDO: Modelo da Family para Supabase - SCHEMA CORRETO families apenas
 /// </summary>
-[Table("orchidpro.families")]
+[Table("families")]
 public class SupabaseFamily : BaseModel
 {
     [PrimaryKey("id")]
