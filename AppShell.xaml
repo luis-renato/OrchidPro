@@ -46,7 +46,7 @@
             <ShellContent Title="Genera" 
                           Icon="genus.png" 
                           Route="genera" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
+                          ContentTemplate="{DataTemplate pages:TestSyncPage}" />
         </Tab>
         <Tab Title="Species">
             <ShellContent Title="Species" 

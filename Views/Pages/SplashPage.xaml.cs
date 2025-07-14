@@ -1,10 +1,11 @@
-using OrchidPro.Services.Data;
+﻿using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
+using System.Diagnostics;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// Initial splash screen that handles app initialization and authentication check
+/// CORRIGIDO: SplashPage que inicializa Supabase adequadamente e verifica sessão
 /// </summary>
 public partial class SplashPage : ContentPage
 {
@@ -25,11 +26,11 @@ public partial class SplashPage : ContentPage
     {
         base.OnAppearing();
 
-        // Start entrance animation with enhanced fade in
+        // Start entrance animation
         await PerformEntranceAnimation();
 
-        // Initialize app
-        await InitializeApp();
+        // Initialize app with proper error handling
+        await InitializeAppAsync();
     }
 
     /// <summary>
@@ -48,7 +49,7 @@ public partial class SplashPage : ContentPage
         var logoAnimation = LogoImage.ScaleTo(1, 600, Easing.SpringOut);
 
         // Start pulse animation for loading indicator
-        _ = AnimateLoadingIndicator();
+        _ = AnimateLoadingIndicatorAsync();
 
         await logoAnimation;
     }
@@ -56,7 +57,7 @@ public partial class SplashPage : ContentPage
     /// <summary>
     /// Continuously animates the loading indicator with a pulse effect
     /// </summary>
-    private async Task AnimateLoadingIndicator()
+    private async Task AnimateLoadingIndicatorAsync()
     {
         try
         {
@@ -73,42 +74,88 @@ public partial class SplashPage : ContentPage
     }
 
     /// <summary>
-    /// Initializes the app services and determines navigation destination
+    /// CORRIGIDO: Initializes the app services and determines navigation destination
     /// </summary>
-    private async Task InitializeApp()
+    private async Task InitializeAppAsync()
     {
         try
         {
-            // Update status
+            Debug.WriteLine("🚀 === APP INITIALIZATION START ===");
+
+            // Step 1: Initialize Supabase
             UpdateStatus("Initializing services...");
+            Debug.WriteLine("🔄 Initializing Supabase...");
+
             await _supabaseService.InitializeAsync();
+            Debug.WriteLine("✅ Supabase initialized successfully");
 
             // Add delay for better UX
-            await Task.Delay(700);
-
-            // Check for existing session
-            UpdateStatus("Checking authentication...");
-            bool hasValidSession = await _supabaseService.RestoreSessionAsync();
-
-            // Add delay to ensure smooth transition
             await Task.Delay(500);
 
-            // Perform enhanced exit animation
-            await PerformExitAnimation();
+            // Step 2: Check for existing session
+            UpdateStatus("Checking authentication...");
+            Debug.WriteLine("🔐 Checking for existing session...");
 
-            // Navigate based on session status
+            // CORRIGIDO: Use the corrected RestoreSessionAsync method
+            bool hasValidSession = await _supabaseService.RestoreSessionAsync();
+
+            Debug.WriteLine($"🔐 Session restore result: {hasValidSession}");
+
             if (hasValidSession)
             {
+                var user = _supabaseService.GetCurrentUser();
+                Debug.WriteLine($"✅ Valid session found for user: {user?.Email}");
+                Debug.WriteLine($"✅ User ID: {user?.Id}");
+            }
+            else
+            {
+                Debug.WriteLine("❌ No valid session found - user needs to login");
+            }
+
+            // Add delay to ensure smooth transition
+            await Task.Delay(700);
+
+            // Step 3: Perform enhanced exit animation
+            await PerformExitAnimation();
+
+            // Step 4: Navigate based on session status
+            Debug.WriteLine("🧭 Navigating based on session status...");
+
+            if (hasValidSession)
+            {
+                Debug.WriteLine("🧭 Navigating to main app...");
                 await _navigationService.NavigateToMainAsync();
             }
             else
             {
+                Debug.WriteLine("🧭 Navigating to login...");
                 await _navigationService.NavigateToLoginAsync();
             }
+
+            Debug.WriteLine("🚀 === APP INITIALIZATION COMPLETED ===");
         }
         catch (Exception ex)
         {
-            await DisplayAlert("Error", $"Initialization failed: {ex.Message}", "OK");
+            Debug.WriteLine($"❌ Initialization failed: {ex.Message}");
+            Debug.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+
+            UpdateStatus("Initialization failed...");
+            await Task.Delay(1000);
+
+            try
+            {
+                await DisplayAlert("Initialization Error",
+                    $"Failed to initialize the app: {ex.Message}", "OK");
+
+                // Try to navigate to login as fallback
+                await _navigationService.NavigateToLoginAsync();
+            }
+            catch (Exception navEx)
+            {
+                Debug.WriteLine($"❌ Even fallback navigation failed: {navEx.Message}");
+                // Last resort - close app
+                Application.Current?.Quit();
+            }
         }
     }
 
@@ -117,9 +164,18 @@ public partial class SplashPage : ContentPage
     /// </summary>
     private async void UpdateStatus(string message)
     {
-        await StatusLabel.FadeTo(0.3, 150);
-        StatusLabel.Text = message;
-        await StatusLabel.FadeTo(0.8, 150);
+        try
+        {
+            await StatusLabel.FadeTo(0.3, 150);
+            StatusLabel.Text = message;
+            await StatusLabel.FadeTo(0.8, 150);
+
+            Debug.WriteLine($"📱 Status: {message}");
+        }
+        catch
+        {
+            // Ignore animation errors during page destruction
+        }
     }
 
     /// <summary>
@@ -127,16 +183,23 @@ public partial class SplashPage : ContentPage
     /// </summary>
     private async Task PerformExitAnimation()
     {
-        LoadingIndicator.IsRunning = false;
+        try
+        {
+            LoadingIndicator.IsRunning = false;
 
-        // Enhanced exit with multiple elements fading
-        await Task.WhenAll(
-            LogoImage.ScaleTo(0.9, 300, Easing.CubicIn),
-            StatusLabel.FadeTo(0, 200, Easing.CubicIn),
-            LoadingIndicator.FadeTo(0, 200, Easing.CubicIn)
-        );
+            // Enhanced exit with multiple elements fading
+            await Task.WhenAll(
+                LogoImage.ScaleTo(0.9, 300, Easing.CubicIn),
+                StatusLabel.FadeTo(0, 200, Easing.CubicIn),
+                LoadingIndicator.FadeTo(0, 200, Easing.CubicIn)
+            );
 
-        // Final fade out of entire screen
-        await RootGrid.FadeTo(0, 300, Easing.CubicIn);
+            // Final fade out of entire screen
+            await RootGrid.FadeTo(0, 300, Easing.CubicIn);
+        }
+        catch
+        {
+            // Ignore animation errors during page destruction
+        }
     }
 }

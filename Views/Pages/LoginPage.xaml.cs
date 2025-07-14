@@ -1,10 +1,12 @@
-using OrchidPro.Services.Data;
+Ôªøusing OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
+using System.Diagnostics;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// Login page that handles user authentication
+/// Login page with enhanced animations and professional UI
+/// CORRIGIDO: Agora salva sess√£o ap√≥s login bem-sucedido
 /// </summary>
 public partial class LoginPage : ContentPage
 {
@@ -25,201 +27,114 @@ public partial class LoginPage : ContentPage
     {
         base.OnAppearing();
 
-        // Ensure navigation bar is hidden
-        Shell.SetNavBarIsVisible(this, false);
-        NavigationPage.SetHasNavigationBar(this, false);
-
-        // Perform entrance animation with fade in
+        // Perform entrance animation
         await PerformEntranceAnimation();
     }
 
     /// <summary>
-    /// Animates the login card entrance with fade in
+    /// Performs enhanced entrance animation
     /// </summary>
     private async Task PerformEntranceAnimation()
     {
-        // Fade in root grid
-        await RootGrid.FadeTo(1, 400, Easing.CubicOut);
+        // Set initial states
+        RootGrid.Opacity = 0;
+        LoginCard.Scale = 0.9;
+        LogoImage.Scale = 0.8;
 
-        // Scale in login card with bounce effect
-        await LoginCard.ScaleTo(1, 500, Easing.SpringOut);
+        // Animate main container
+        await RootGrid.FadeTo(1, 600, Easing.CubicOut);
+
+        // Animate card and logo
+        await Task.WhenAll(
+            LoginCard.ScaleTo(1, 600, Easing.SpringOut),
+            LogoImage.ScaleTo(1, 800, Easing.SpringOut)
+        );
     }
 
     /// <summary>
-    /// Handles the login button click event
+    /// Handles login button click with CORRE√á√ÉO para salvar sess√£o
     /// </summary>
     private async void OnLoginClicked(object sender, EventArgs e)
     {
-        // Get and validate input
-        string? email = EmailEntry.Text?.Trim();
-        string? password = PasswordEntry.Text;
-
-        if (!ValidateInput(email, password))
+        if (string.IsNullOrWhiteSpace(EmailEntry.Text) || string.IsNullOrWhiteSpace(PasswordEntry.Text))
         {
+            await DisplayAlert("Error", "Please enter both email and password", "OK");
             return;
         }
 
         try
         {
-            SetLoadingState(true);
-            HideError();
+            // Show loading state
+            LoginButton.IsVisible = false;
+            LoadingIndicator.IsVisible = true;
+            LoadingIndicator.IsRunning = true;
+            ErrorLabel.IsVisible = false;
 
-            // CORRE«√O: Garantir que o serviÁo est· inicializado
-            if (_supabaseService.Client == null)
+            Debug.WriteLine("üîê Attempting login...");
+
+            // Ensure Supabase is initialized
+            await _supabaseService.InitializeAsync();
+            Debug.WriteLine("‚úÖ Supabase initialized for login");
+
+            // Attempt login
+            var session = await _supabaseService.Client!.Auth.SignIn(EmailEntry.Text, PasswordEntry.Text);
+
+            if (session?.User != null)
             {
-                await _supabaseService.InitializeAsync();
-            }
+                Debug.WriteLine($"‚úÖ Login successful for user: {session.User.Email}");
+                Debug.WriteLine($"‚úÖ User ID: {session.User.Id}");
+                Debug.WriteLine($"‚úÖ Access Token: {session.AccessToken?[..20]}...");
 
-            // Attempt authentication
-            if (_supabaseService.Client != null)
-            {
-                var response = await _supabaseService.Client.Auth.SignIn(email!, password!);
+                // üî• CORRE√á√ÉO CR√çTICA: Salvar sess√£o IMEDIATAMENTE ap√≥s login
+                _supabaseService.SaveSession();
+                Debug.WriteLine("üíæ Session saved to preferences");
 
-                if (response?.User != null)
-                {
-                    // Save session
-                    _supabaseService.SaveSession();
+                // Verify session was saved
+                var savedSession = Preferences.Get("supabase_session", null);
+                Debug.WriteLine($"‚úÖ Session verification: {(string.IsNullOrEmpty(savedSession) ? "FAILED" : "SUCCESS")}");
 
-                    // Animate success with fade out
-                    await AnimateLoginSuccess();
+                // Verify authentication state
+                var isAuth = _supabaseService.IsAuthenticated;
+                var userId = _supabaseService.GetCurrentUserId();
+                Debug.WriteLine($"‚úÖ Auth state - Authenticated: {isAuth}, UserID: {userId}");
 
-                    // Navigate to main app
-                    await _navigationService.NavigateToMainAsync();
-                }
-                else
-                {
-                    ShowError("Invalid credentials");
-                    // Shake j· È chamado no ShowError
-                }
+                // Add delay for better UX
+                await Task.Delay(500);
+
+                // Navigate to main app
+                await _navigationService.NavigateToMainAsync();
             }
             else
             {
-                ShowError("Authentication service not initialized");
-                // Shake j· È chamado no ShowError
+                Debug.WriteLine("‚ùå Login failed - no session returned");
+                ShowError("Login failed. Please check your credentials.");
             }
         }
         catch (Exception ex)
         {
+            Debug.WriteLine($"‚ùå Login exception: {ex.Message}");
+            Debug.WriteLine($"‚ùå Stack trace: {ex.StackTrace}");
             ShowError($"Login failed: {ex.Message}");
-            // Shake j· È chamado no ShowError
         }
         finally
         {
-            SetLoadingState(false);
+            // Hide loading state
+            LoadingIndicator.IsRunning = false;
+            LoadingIndicator.IsVisible = false;
+            LoginButton.IsVisible = true;
         }
     }
 
     /// <summary>
-    /// Validates user input
-    /// </summary>
-    private bool ValidateInput(string? email, string? password)
-    {
-        if (string.IsNullOrWhiteSpace(email))
-        {
-            ShowError("Please enter your email");
-            EmailEntry.Focus();
-            return false;
-        }
-
-        if (string.IsNullOrWhiteSpace(password))
-        {
-            ShowError("Please enter your password");
-            PasswordEntry.Focus();
-            return false;
-        }
-
-        // Basic email validation
-        if (!email.Contains("@") || !email.Contains("."))
-        {
-            ShowError("Please enter a valid email address");
-            EmailEntry.Focus();
-            return false;
-        }
-
-        return true;
-    }
-
-    /// <summary>
-    /// Shows error message with animation AND SHAKE
+    /// Shows error message with animation
     /// </summary>
     private async void ShowError(string message)
     {
         ErrorLabel.Text = message;
         ErrorLabel.IsVisible = true;
-        await ErrorLabel.FadeTo(1, 200);
 
-        // SEMPRE fazer shake quando mostrar erro
-        _ = ShakeLoginCard(); // Fire and forget
-    }
-
-    /// <summary>
-    /// Hides error message
-    /// </summary>
-    private void HideError()
-    {
-        ErrorLabel.IsVisible = false;
-        ErrorLabel.Text = string.Empty;
-    }
-
-    /// <summary>
-    /// Sets the loading state of the form
-    /// </summary>
-    private void SetLoadingState(bool isLoading)
-    {
-        LoadingIndicator.IsVisible = isLoading;
-        LoadingIndicator.IsRunning = isLoading;
-        LoginButton.IsEnabled = !isLoading;
-        EmailEntry.IsEnabled = !isLoading;
-        PasswordEntry.IsEnabled = !isLoading;
-
-        // Update button text
-        LoginButton.Text = isLoading ? "Signing in..." : "Sign In";
-    }
-
-    /// <summary>
-    /// Animates the login card with a MORE EVIDENT shake effect - SEMPRE FUNCIONA
-    /// </summary>
-    private async Task ShakeLoginCard()
-    {
-        try
-        {
-            // GARANTIR que a animaÁ„o sempre funciona
-            LoginCard.IsEnabled = false; // Previne m˙ltiplos cliques
-
-            uint duration = 80;
-            double amplitude = 25; // Ainda maior para ser bem visÌvel
-
-            // SEQU NCIA MAIS DRAM¡TICA
-            await LoginCard.TranslateTo(-amplitude, 0, duration, Easing.CubicOut);
-            await LoginCard.TranslateTo(amplitude, 0, duration, Easing.CubicOut);
-            await LoginCard.TranslateTo(-amplitude * 0.8, 0, duration, Easing.CubicOut);
-            await LoginCard.TranslateTo(amplitude * 0.8, 0, duration, Easing.CubicOut);
-            await LoginCard.TranslateTo(-amplitude * 0.6, 0, duration, Easing.CubicOut);
-            await LoginCard.TranslateTo(amplitude * 0.6, 0, duration, Easing.CubicOut);
-            await LoginCard.TranslateTo(-amplitude * 0.3, 0, duration, Easing.CubicOut);
-            await LoginCard.TranslateTo(0, 0, duration, Easing.CubicOut);
-        }
-        catch (Exception ex)
-        {
-            // Se falhar, pelo menos garantir posiÁ„o normal
-            LoginCard.TranslationX = 0;
-            System.Diagnostics.Debug.WriteLine($"Shake animation failed: {ex.Message}");
-        }
-        finally
-        {
-            // SEMPRE reabilitar o card
-            LoginCard.IsEnabled = true;
-        }
-    }
-
-    /// <summary>
-    /// Animates successful login with fade out
-    /// </summary>
-    private async Task AnimateLoginSuccess()
-    {
-        await Task.WhenAll(
-            LoginCard.ScaleTo(0.95, 200, Easing.CubicIn),
-            RootGrid.FadeTo(0, 300, Easing.CubicIn)
-        );
+        // Animate error appearance
+        ErrorLabel.Opacity = 0;
+        await ErrorLabel.FadeTo(1, 300);
     }
 }
