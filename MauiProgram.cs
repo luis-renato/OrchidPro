@@ -2,6 +2,8 @@
 using Microsoft.Extensions.Logging;
 using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
+using OrchidPro.Services;
+using OrchidPro.ViewModels;
 using OrchidPro.Views.Pages;
 
 namespace OrchidPro;
@@ -54,16 +56,48 @@ public static class MauiProgram
         services.AddSingleton<SupabaseService>();
         services.AddSingleton<INavigationService, NavigationService>();
 
+        // Data services
+        services.AddSingleton<ILocalDataService, LocalDataService>();
+        services.AddSingleton<SupabaseFamilySync>(); // Novo serviço de sync
+        services.AddSingleton<IFamilyRepository, FamilyRepository>();
+
         // ViewModels
-        // services.AddTransient<LoginViewModel>();
-        // services.AddTransient<MainViewModel>();
+        services.AddTransient<FamiliesListViewModel>();
+        services.AddTransient<FamilyEditViewModel>();
 
         // Pages
         services.AddTransient<SplashPage>();
         services.AddTransient<LoginPage>();
         services.AddTransient<MainPage>();
+        services.AddTransient<FamiliesListPage>();
+        services.AddTransient<FamilyEditPage>();
 
         // Shell
         services.AddSingleton<AppShell>();
+
+        // Register routes for navigation
+        RegisterRoutes();
+    }
+
+    /// <summary>
+    /// Registers navigation routes
+    /// </summary>
+    private static void RegisterRoutes()
+    {
+        // Family management routes
+        Routing.RegisterRoute("families", typeof(FamiliesListPage));
+        Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
+        Routing.RegisterRoute("familydetails", typeof(FamilyEditPage));
+
+        // Future routes for other modules
+        Routing.RegisterRoute("genera", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("species", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("orchids", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("schedule", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("health", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("reports", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("statistics", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("settings", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("sync", typeof(MainPage)); // Placeholder
     }
 }

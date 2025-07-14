@@ -4,6 +4,7 @@
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:OrchidPro"
+    xmlns:pages="clr-namespace:OrchidPro.Views.Pages"
     Title="OrchidPro"
     FlyoutBehavior="Flyout">
 
@@ -19,29 +20,106 @@
                        FontAttributes="Bold"
                        TextColor="{StaticResource OnPrimary}" 
                        HorizontalOptions="Center" />
+                <Label Text="Botanical Management" 
+                       FontSize="12" 
+                       TextColor="{StaticResource OnPrimary}" 
+                       Opacity="0.8"
+                       HorizontalOptions="Center" />
             </VerticalStackLayout>
         </Grid>
     </Shell.FlyoutHeader>
 
-    <!-- Itens do menu -->
-    <FlyoutItem Title="Home" Icon="home.png">
+    <!-- Main Navigation Items -->
+    <FlyoutItem Title="Dashboard" Icon="home.png">
         <ShellContent Route="MainPage" ContentTemplate="{DataTemplate local:MainPage}" />
     </FlyoutItem>
 
-    <!-- Adicione mais itens conforme necessário -->
-    <FlyoutItem Title="Configurações" Icon="settings.png">
+    <!-- Botanical Management Section -->
+    <FlyoutItem Title="Botanical Data" Icon="plant.png">
+        <Tab Title="Families">
+            <ShellContent Title="Families" 
+                          Icon="family.png" 
+                          Route="families" 
+                          ContentTemplate="{DataTemplate pages:FamiliesListPage}" />
+        </Tab>
+        <Tab Title="Genera">
+            <ShellContent Title="Genera" 
+                          Icon="genus.png" 
+                          Route="genera" 
+                          ContentTemplate="{DataTemplate local:MainPage}" />
+        </Tab>
+        <Tab Title="Species">
+            <ShellContent Title="Species" 
+                          Icon="species.png" 
+                          Route="species" 
+                          ContentTemplate="{DataTemplate local:MainPage}" />
+        </Tab>
+    </FlyoutItem>
+
+    <!-- Plant Management Section -->
+    <FlyoutItem Title="My Plants" Icon="orchid.png">
+        <Tab Title="Orchid Collection">
+            <ShellContent Title="My Orchids" 
+                          Icon="orchid_collection.png" 
+                          Route="orchids" 
+                          ContentTemplate="{DataTemplate local:MainPage}" />
+        </Tab>
+        <Tab Title="Care Schedule">
+            <ShellContent Title="Care Schedule" 
+                          Icon="calendar.png" 
+                          Route="schedule" 
+                          ContentTemplate="{DataTemplate local:MainPage}" />
+        </Tab>
+        <Tab Title="Health Tracking">
+            <ShellContent Title="Health Status" 
+                          Icon="health.png" 
+                          Route="health" 
+                          ContentTemplate="{DataTemplate local:MainPage}" />
+        </Tab>
+    </FlyoutItem>
+
+    <!-- Tools & Analytics -->
+    <FlyoutItem Title="Analytics" Icon="chart.png">
+        <Tab Title="Reports">
+            <ShellContent Title="Reports" 
+                          Icon="report.png" 
+                          Route="reports" 
+                          ContentTemplate="{DataTemplate local:MainPage}" />
+        </Tab>
+        <Tab Title="Statistics">
+            <ShellContent Title="Statistics" 
+                          Icon="stats.png" 
+                          Route="statistics" 
+                          ContentTemplate="{DataTemplate local:MainPage}" />
+        </Tab>
+    </FlyoutItem>
+
+    <!-- Settings Section -->
+    <FlyoutItem Title="Settings" Icon="settings.png">
         <ShellContent Route="SettingsPage" ContentTemplate="{DataTemplate local:MainPage}" />
+    </FlyoutItem>
+
+    <!-- Sync Status -->
+    <FlyoutItem Title="Sync Status" Icon="sync.png">
+        <ShellContent Route="SyncPage" ContentTemplate="{DataTemplate local:MainPage}" />
     </FlyoutItem>
 
     <!-- Rodapé do menu com logout -->
     <Shell.FlyoutFooter>
-        <Grid BackgroundColor="{StaticResource Secondary}" HeightRequest="60">
-            <Button Text="Logout" 
-                    BackgroundColor="Transparent"
-                    TextColor="{StaticResource OnSecondary}"
-                    Clicked="OnLogoutClicked"
-                    HorizontalOptions="Center"
-                    VerticalOptions="Center" />
+        <Grid BackgroundColor="{StaticResource Secondary}" HeightRequest="80">
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="5">
+                <Button Text="Logout" 
+                        BackgroundColor="Transparent"
+                        TextColor="{StaticResource OnSecondary}"
+                        FontSize="14"
+                        Clicked="OnLogoutClicked"
+                        HorizontalOptions="Center" />
+                <Label Text="v1.0.0" 
+                       FontSize="10" 
+                       TextColor="{StaticResource OnSecondary}" 
+                       Opacity="0.6"
+                       HorizontalOptions="Center" />
+            </VerticalStackLayout>
         </Grid>
     </Shell.FlyoutFooter>
 
