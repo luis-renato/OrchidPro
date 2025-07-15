@@ -47,10 +47,10 @@
 
             <!-- Scrollable content -->
             <ScrollView>
-                <VerticalStackLayout Padding="30,20" Spacing="25">
+                <VerticalStackLayout Padding="30,20,30,30" Spacing="25">
 
-                    <!-- ✅ CORRIGIDO: Header section com conectividade sempre visível -->
-                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+                    <!-- ✅ LIMPO: Header section sem indicadores técnicos -->
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="10">
                         <!-- Title and connectivity indicator -->
                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
                             <Label Grid.Column="0"
@@ -60,7 +60,7 @@
                                    TextColor="{AppThemeBinding Light={StaticResource PrimaryDarkText}, Dark={StaticResource White}}"
                                    VerticalOptions="Center" />
 
-                            <!-- ✅ OTIMIZADO: Connectivity status sempre visível -->
+                            <!-- ✅ LIMPO: Connectivity status simples -->
                             <Border Grid.Column="1"
                                     BackgroundColor="{Binding ConnectionStatusColor}"
                                     Padding="8,4"
@@ -87,21 +87,6 @@
                                FontSize="14"
                                TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
                                HorizontalTextAlignment="Start" />
-
-                        <!-- ✅ NOVO: Connection test result -->
-                        <Border Grid.Row="2"
-                                BackgroundColor="#1976D2"
-                                Padding="10,6"
-                                IsVisible="{Binding ConnectionTestResult, Converter={StaticResource StringToBoolConverter}}">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="6" />
-                            </Border.StrokeShape>
-                            <Label Text="{Binding ConnectionTestResult}"
-                                   FontSize="12"
-                                   FontAttributes="Bold"
-                                   TextColor="White"
-                                   HorizontalOptions="Center" />
-                        </Border>
                     </Grid>
 
                     <!-- Form fields -->
@@ -143,7 +128,7 @@
                                 </Entry>
                             </Border>
 
-                            <!-- ✅ CORRIGIDO: Name validation error SIMPLES (sem Span.IsVisible) -->
+                            <!-- ✅ LIMPO: Name validation error simples -->
                             <StackLayout Orientation="Horizontal" 
                                          IsVisible="{Binding NameError, Converter={StaticResource StringToBoolConverter}}"
                                          Margin="5,0">
@@ -291,7 +276,7 @@
                             </Grid>
                         </Border>
 
-                        <!-- ✅ OTIMIZADO: Offline mode warning mais informativo -->
+                        <!-- ✅ LIMPO: Offline mode warning simples -->
                         <Border BackgroundColor="#FF9800"
                                 Padding="15,10"
                                 IsVisible="{Binding IsConnected, Converter={StaticResource InvertedBoolConverter}}">
@@ -458,8 +443,7 @@
                         </Grid>
                     </Border>
 
-                    <!-- Bottom spacing for better scroll experience -->
-                    <BoxView HeightRequest="50" Color="Transparent" />
+                    <!-- ✅ REMOVIDO: Bottom spacing que causava caixa preta -->
                 </VerticalStackLayout>
             </ScrollView>
         </Border>
@@ -493,7 +477,7 @@
                 <RoundRectangle CornerRadius="8" />
             </Border.StrokeShape>
             <VerticalStackLayout Spacing="5">
-                <Label Text="🌐 Connection Test"
+                <Label Text="Connection Test"
                        FontSize="12"
                        FontAttributes="Bold"
                        TextColor="{StaticResource OnSurface}"

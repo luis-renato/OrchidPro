@@ -9,7 +9,7 @@ using System.Diagnostics;
 namespace OrchidPro.ViewModels;
 
 /// <summary>
-/// CORRIGIDO: ViewModel para lista de famílias com conectividade otimizada
+/// CORRIGIDO: ViewModel para lista de famílias com refresh e seleção funcionando
 /// </summary>
 public partial class FamiliesListViewModel : BaseViewModel
 {
@@ -53,25 +53,19 @@ public partial class FamiliesListViewModel : BaseViewModel
     private bool fabIsVisible = true;
 
     [ObservableProperty]
-    private string fabIcon = "plus";
-
-    [ObservableProperty]
     private string fabText = "Add Family";
 
-    // ✅ CORRIGIDO: Conectividade inicializada otimisticamente
+    // ✅ CORRIGIDO: Conectividade sem indicadores técnicos
     [ObservableProperty]
-    private string connectionStatus = "🌐 Connected";
+    private string connectionStatus = "Connected";
 
     [ObservableProperty]
     private Color connectionStatusColor = Colors.Green;
 
     [ObservableProperty]
-    private bool isConnected = true; // ✅ Inicia como true
+    private bool isConnected = true;
 
-    [ObservableProperty]
-    private string cacheInfo = "Cache: Ready";
-
-    // Apenas StatusFilterOptions (sem sync)
+    // Apenas StatusFilterOptions (limpo)
     public List<string> StatusFilterOptions { get; } = new() { "All", "Active", "Inactive" };
 
     public FamiliesListViewModel(IFamilyRepository familyRepository, INavigationService navigationService)
@@ -81,16 +75,16 @@ public partial class FamiliesListViewModel : BaseViewModel
 
         Title = "Families";
 
-        // ✅ CORRIGIDO: Conectividade otimista
+        // ✅ LIMPO: Conectividade sem indicadores técnicos
         IsConnected = true;
-        ConnectionStatus = "🌐 Connected";
+        ConnectionStatus = "Connected";
         ConnectionStatusColor = Colors.Green;
 
-        Debug.WriteLine("✅ [FAMILIES_LIST_VM] Initialized with optimistic connectivity");
+        Debug.WriteLine("✅ [FAMILIES_LIST_VM] Initialized");
     }
 
     /// <summary>
-    /// ✅ OTIMIZADO: Carrega famílias otimisticamente
+    /// ✅ CORRIGIDO: Carrega famílias com loading state correto
     /// </summary>
     [RelayCommand]
     private async Task LoadFamiliesAsync()
@@ -103,15 +97,14 @@ public partial class FamiliesListViewModel : BaseViewModel
 
             Debug.WriteLine($"📥 [FAMILIES_LIST_VM] Loading families with filter: {StatusFilter}");
 
-            // ✅ OTIMIZADO: Carregar dados primeiro, testar conectividade em background
-            var loadTask = LoadFamiliesDataAsync();
-            var connectivityTask = TestConnectionInBackgroundAsync();
+            await LoadFamiliesDataAsync();
 
-            // Aguardar carregamento de dados
-            await loadTask;
-
-            // Conectividade roda em background
-            _ = connectivityTask;
+            // ✅ NOVO: Teste de conectividade em background sem afetar loading
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(500); // Espera loading terminar
+                await TestConnectionInBackgroundAsync();
+            });
 
             Debug.WriteLine($"✅ [FAMILIES_LIST_VM] Loaded {Families.Count} families");
         }
@@ -123,12 +116,13 @@ public partial class FamiliesListViewModel : BaseViewModel
         }
         finally
         {
+            // ✅ GARANTIR que loading sempre seja resetado
             IsLoading = false;
         }
     }
 
     /// <summary>
-    /// ✅ NOVO: Carregamento otimizado de dados
+    /// ✅ CORRIGIDO: Carregamento otimizado de dados
     /// </summary>
     private async Task LoadFamiliesDataAsync()
     {
@@ -168,6 +162,8 @@ public partial class FamiliesListViewModel : BaseViewModel
             {
                 EmptyStateMessage = GetEmptyStateMessage();
             }
+
+            Debug.WriteLine($"📊 [FAMILIES_LIST_VM] Data loaded: {Families.Count} families, HasData: {HasData}");
         }
         catch (Exception ex)
         {
@@ -187,14 +183,9 @@ public partial class FamiliesListViewModel : BaseViewModel
     {
         try
         {
-            await Task.Delay(100); // Deixa UI renderizar primeiro
-
             Debug.WriteLine("🔍 [FAMILIES_LIST_VM] Testing connection in background...");
 
             var connected = await _familyRepository.TestConnectionAsync();
-
-            // Update cache info
-            CacheInfo = _familyRepository.GetCacheInfo();
 
             // ✅ Só atualiza se realmente mudou
             if (IsConnected != connected)
@@ -217,35 +208,38 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Refresh com force cache refresh
+    /// ✅ CORRIGIDO: Refresh com loading state correto e dados recarregados
     /// </summary>
     [RelayCommand]
     private async Task RefreshAsync()
     {
-        if (IsRefreshing) return;
-
         try
         {
+            Debug.WriteLine("🔄 [FAMILIES_LIST_VM] === STARTING REFRESH ===");
             IsRefreshing = true;
 
-            Debug.WriteLine("🔄 [FAMILIES_LIST_VM] Force refreshing cache from server...");
-
             // ✅ NOVO: Verificar conectividade antes de tentar refresh
-            var isConnected = await _familyRepository.TestConnectionAsync();
-            if (!isConnected)
+            var isConnectedNow = await _familyRepository.TestConnectionAsync();
+            Debug.WriteLine($"🔍 [FAMILIES_LIST_VM] Connection test result: {isConnectedNow}");
+
+            if (!isConnectedNow)
             {
                 UpdateConnectionStatus(false);
                 await ShowErrorAsync("No Connection", "Cannot refresh data without internet connection.");
                 return;
             }
 
-            // Force refresh do cache
+            UpdateConnectionStatus(true);
+
+            // ✅ CRÍTICO: Force refresh do cache primeiro
+            Debug.WriteLine("🔄 [FAMILIES_LIST_VM] Forcing cache refresh...");
             await _familyRepository.RefreshCacheAsync();
 
-            // Reload data
-            await LoadFamiliesAsync();
+            // ✅ CRÍTICO: Recarregar dados após refresh do cache
+            Debug.WriteLine("🔄 [FAMILIES_LIST_VM] Reloading data after cache refresh...");
+            await LoadFamiliesDataAsync();
 
-            Debug.WriteLine("✅ [FAMILIES_LIST_VM] Refresh completed");
+            Debug.WriteLine("✅ [FAMILIES_LIST_VM] Refresh completed successfully");
         }
         catch (Exception ex)
         {
@@ -263,6 +257,8 @@ public partial class FamiliesListViewModel : BaseViewModel
         }
         finally
         {
+            // ✅ CRÍTICO: Garantir que refresh state sempre seja resetado
+            Debug.WriteLine("🔄 [FAMILIES_LIST_VM] === REFRESH COMPLETED - RESETTING STATE ===");
             IsRefreshing = false;
         }
     }
@@ -280,12 +276,9 @@ public partial class FamiliesListViewModel : BaseViewModel
             var connected = await _familyRepository.TestConnectionAsync();
             UpdateConnectionStatus(connected);
 
-            // Update cache info
-            CacheInfo = _familyRepository.GetCacheInfo();
-
             Debug.WriteLine($"🔍 [FAMILIES_LIST_VM] Manual test result: {connected}");
 
-            var message = connected ? "✅ Connected to server" : "❌ Connection failed";
+            var message = connected ? "Connected to server" : "Connection failed";
             await ShowSuccessAsync(message);
         }
         catch (Exception ex)
@@ -386,7 +379,11 @@ public partial class FamiliesListViewModel : BaseViewModel
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
-        if (!SelectedFamilies.Any()) return;
+        if (!SelectedFamilies.Any())
+        {
+            Debug.WriteLine("❌ [FAMILIES_LIST_VM] No families selected for deletion");
+            return;
+        }
 
         // ✅ NOVO: Verificar conectividade antes de deletar
         if (!IsConnected)
@@ -399,6 +396,8 @@ public partial class FamiliesListViewModel : BaseViewModel
         {
             var selectedIds = SelectedFamilies.Select(f => f.Id).ToList();
             var count = selectedIds.Count;
+
+            Debug.WriteLine($"🗑️ [FAMILIES_LIST_VM] Attempting to delete {count} families");
 
             var confirmed = await ShowConfirmAsync(
                 "Delete Families",
@@ -446,7 +445,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Toggles multi-select mode
+    /// ✅ CORRIGIDO: Toggles multi-select mode
     /// </summary>
     [RelayCommand]
     private void ToggleMultiSelect()
@@ -493,17 +492,24 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Handles family selection change
+    /// ✅ CORRIGIDO: Handles family selection change com debug detalhado
     /// </summary>
     private void OnFamilySelectionChanged(FamilyItemViewModel? family)
     {
-        if (family == null) return;
+        if (family == null)
+        {
+            Debug.WriteLine("❌ [FAMILIES_LIST_VM] OnFamilySelectionChanged called with null family");
+            return;
+        }
+
+        Debug.WriteLine($"🔘 [FAMILIES_LIST_VM] OnFamilySelectionChanged: {family.Name}, IsSelected: {family.IsSelected}");
 
         if (family.IsSelected)
         {
             if (!SelectedFamilies.Contains(family))
             {
                 SelectedFamilies.Add(family);
+                Debug.WriteLine($"➕ [FAMILIES_LIST_VM] Added {family.Name} to selection. Total: {SelectedFamilies.Count}");
             }
 
             if (!IsMultiSelectMode)
@@ -514,6 +520,7 @@ public partial class FamiliesListViewModel : BaseViewModel
         else
         {
             SelectedFamilies.Remove(family);
+            Debug.WriteLine($"➖ [FAMILIES_LIST_VM] Removed {family.Name} from selection. Total: {SelectedFamilies.Count}");
 
             if (!SelectedFamilies.Any() && IsMultiSelectMode)
             {
@@ -541,36 +548,40 @@ public partial class FamiliesListViewModel : BaseViewModel
     {
         IsMultiSelectMode = false;
         DeselectAll();
-        FabIcon = "plus";
-        FabText = "Add Family";
-        FabIsVisible = true;
+        UpdateFabForSelection();
         Debug.WriteLine("✅ [FAMILIES_LIST_VM] Exited multi-select mode");
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Updates FAB based on selection and connectivity
+    /// ✅ CORRIGIDO: Updates FAB based on selection and connectivity com debug
     /// </summary>
     private void UpdateFabForSelection()
     {
-        if (SelectedFamilies.Any())
+        var selectedCount = SelectedFamilies.Count;
+        Debug.WriteLine($"🎯 [FAMILIES_LIST_VM] UpdateFabForSelection: {selectedCount} selected, MultiSelect: {IsMultiSelectMode}, Connected: {IsConnected}");
+
+        if (selectedCount > 0)
         {
-            FabIcon = "delete";
-            FabText = $"Delete ({SelectedFamilies.Count})";
-            // ✅ Disable delete if offline
-            FabIsVisible = IsConnected;
+            FabText = $"Delete ({selectedCount})";
+            FabIsVisible = IsConnected; // Só mostra delete se conectado
+            Debug.WriteLine($"🎯 [FAMILIES_LIST_VM] FAB set to DELETE mode: {FabText}");
         }
         else if (IsMultiSelectMode)
         {
-            FabIcon = "close";
             FabText = "Cancel";
             FabIsVisible = true;
+            Debug.WriteLine($"🎯 [FAMILIES_LIST_VM] FAB set to CANCEL mode: {FabText}");
         }
         else
         {
-            FabIcon = "plus";
             FabText = IsConnected ? "Add Family" : "Offline";
             FabIsVisible = true;
+            Debug.WriteLine($"🎯 [FAMILIES_LIST_VM] FAB set to ADD mode: {FabText}");
         }
+
+        // ✅ IMPORTANTE: Notificar mudanças nas propriedades
+        OnPropertyChanged(nameof(FabText));
+        OnPropertyChanged(nameof(FabIsVisible));
     }
 
     /// <summary>
@@ -593,7 +604,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Atualiza status de conectividade
+    /// ✅ CORRIGIDO: Atualiza status de conectividade (sem indicadores técnicos)
     /// </summary>
     private void UpdateConnectionStatus(bool connected)
     {
@@ -601,12 +612,12 @@ public partial class FamiliesListViewModel : BaseViewModel
 
         if (connected)
         {
-            ConnectionStatus = "🌐 Connected";
+            ConnectionStatus = "Connected";
             ConnectionStatusColor = Colors.Green;
         }
         else
         {
-            ConnectionStatus = "📡 Disconnected";
+            ConnectionStatus = "Disconnected";
             ConnectionStatusColor = Colors.Red;
         }
 
@@ -671,5 +682,14 @@ public partial class FamiliesListViewModel : BaseViewModel
     {
         Debug.WriteLine($"🔽 [FAMILIES_LIST_VM] Status filter changed to: {value}");
         _ = LoadFamiliesAsync();
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Observer da propriedade SelectedFamilies para debug
+    /// </summary>
+    partial void OnSelectedFamiliesChanged(ObservableCollection<FamilyItemViewModel> value)
+    {
+        Debug.WriteLine($"🔘 [FAMILIES_LIST_VM] SelectedFamilies changed - Count: {value.Count}");
+        UpdateFabForSelection();
     }
 }

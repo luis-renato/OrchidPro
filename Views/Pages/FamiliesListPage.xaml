@@ -33,7 +33,7 @@
 
             <Grid RowDefinitions="Auto,Auto,*">
 
-                <!-- Header with statistics and connectivity -->
+                <!-- ✅ LIMPO: Header sem indicadores técnicos -->
                 <Border Grid.Row="0" 
                         BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SurfaceDark}}"
                         Padding="20,15">
@@ -49,12 +49,12 @@
                                        FontSize="20"
                                        FontAttributes="Bold"
                                        TextColor="{AppThemeBinding Light={StaticResource PrimaryDarkText}, Dark={StaticResource White}}" />
-                                <Label Text="Simplified architecture with direct Supabase"
+                                <Label Text="Manage your botanical family collection"
                                        FontSize="12"
                                        TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
                             </VerticalStackLayout>
 
-                            <!-- NOVO: Connectivity indicator -->
+                            <!-- ✅ LIMPO: Connectivity indicator simples -->
                             <Border Grid.Column="1"
                                     BackgroundColor="{Binding ConnectionStatusColor}"
                                     Padding="10,5"
@@ -70,8 +70,8 @@
                             </Border>
                         </Grid>
 
-                        <!-- Statistics and cache info -->
-                        <Grid Grid.Row="1" ColumnDefinitions="*,*,Auto">
+                        <!-- Statistics -->
+                        <Grid Grid.Row="1" ColumnDefinitions="*,*">
                             <!-- Total families -->
                             <Border Grid.Column="0" 
                                     BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource Gray900}}"
@@ -101,7 +101,7 @@
                                     Stroke="{StaticResource BorderColor}"
                                     StrokeThickness="1"
                                     Padding="12,8"
-                                    Margin="5,0,5,0">
+                                    Margin="5,0,0,0">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="8" />
                                 </Border.StrokeShape>
@@ -116,30 +116,6 @@
                                            TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
                                            HorizontalOptions="Center" />
                                 </VerticalStackLayout>
-                            </Border>
-
-                            <!-- NOVO: Cache status -->
-                            <Border Grid.Column="2" 
-                                    BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource Gray900}}"
-                                    Stroke="{StaticResource BorderColor}"
-                                    StrokeThickness="1"
-                                    Padding="12,8"
-                                    Margin="5,0,0,0">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="8" />
-                                </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="2">
-                                    <Label Text="💾"
-                                           FontSize="16"
-                                           HorizontalOptions="Center" />
-                                    <Label Text="Cache"
-                                           FontSize="10"
-                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
-                                           HorizontalOptions="Center" />
-                                </VerticalStackLayout>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding TestConnectionCommand}" />
-                                </Border.GestureRecognizers>
                             </Border>
                         </Grid>
                     </Grid>
@@ -195,6 +171,7 @@
                             FontSize="12"
                             Padding="12,8"
                             CornerRadius="15"
+                            Clicked="OnFilterTapped"
                             IsEnabled="{Binding IsConnected}" />
 
                     <Button Grid.Row="1" Grid.Column="1"
@@ -280,7 +257,7 @@
                                         IsVisible="{Binding IsConnected, Converter={StaticResource InvertedBoolConverter}}" />
                             </VerticalStackLayout>
 
-                            <!-- Families list -->
+                            <!-- ✅ CORRIGIDO: Families list com seleção funcionando -->
                             <CollectionView ItemsSource="{Binding Families}"
                                             IsVisible="{Binding HasData}"
                                             SelectionMode="None"
@@ -294,7 +271,7 @@
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate x:DataType="vm:FamilyItemViewModel">
 
-                                        <!-- Family item card -->
+                                        <!-- ✅ CORRIGIDO: Family item card -->
                                         <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
                                                 Stroke="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#A47764|#D0B8AE'}"
                                                 StrokeThickness="{Binding IsSelected, Converter={StaticResource BoolToIntConverter}, ConverterParameter='2|1'}"
@@ -309,9 +286,9 @@
                                                   ColumnSpacing="15"
                                                   RowSpacing="8">
 
-                                                <!-- Selection checkbox -->
+                                                <!-- ✅ FIX: Selection checkbox -->
                                                 <CheckBox Grid.Row="0" Grid.Column="0" Grid.RowSpan="2"
-                                                          IsChecked="{Binding IsSelected}"
+                                                          IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                                           Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
                                                           VerticalOptions="Center"
                                                           IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:FamiliesListViewModel}}, Path=IsMultiSelectMode}">
@@ -321,30 +298,50 @@
                                                     </CheckBox.Behaviors>
                                                 </CheckBox>
 
-                                                <!-- Family info -->
-                                                <VerticalStackLayout Grid.Row="0" Grid.Column="1" 
-                                                                     Spacing="4">
-                                                    <Grid ColumnDefinitions="*,Auto">
-                                                        <Label Grid.Column="0"
-                                                               Text="{Binding DisplayName}"
-                                                               FontSize="16"
-                                                               FontAttributes="Bold"
-                                                               TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
-                                                               LineBreakMode="TailTruncation" />
+                                                <!-- ✅ FIX: Family info with overlaid button for tap -->
+                                                <Grid Grid.Row="0" Grid.Column="1">
+                                                    <!-- Content -->
+                                                    <VerticalStackLayout Spacing="4">
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <Label Grid.Column="0"
+                                                                   Text="{Binding DisplayName}"
+                                                                   FontSize="16"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
+                                                                   LineBreakMode="TailTruncation" />
 
-                                                        <!-- NOVO: Recent indicator -->
-                                                        <Label Grid.Column="1"
-                                                               Text="{Binding RecentIndicator}"
+                                                            <!-- Recent indicator -->
+                                                            <Label Grid.Column="1"
+                                                                   Text="{Binding RecentIndicator}"
+                                                                   FontSize="12"
+                                                                   IsVisible="{Binding IsRecent}" />
+                                                        </Grid>
+
+                                                        <Label Text="{Binding DescriptionPreview}"
                                                                FontSize="12"
-                                                               IsVisible="{Binding IsRecent}" />
-                                                    </Grid>
+                                                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                                                               LineBreakMode="TailTruncation"
+                                                               MaxLines="2" />
+                                                    </VerticalStackLayout>
 
-                                                    <Label Text="{Binding DescriptionPreview}"
-                                                           FontSize="12"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
-                                                           LineBreakMode="TailTruncation"
-                                                           MaxLines="2" />
-                                                </VerticalStackLayout>
+                                                    <!-- ✅ FIX: Button invisível para tap - só ativo quando não em modo seleção -->
+                                                    <Button BackgroundColor="Transparent"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FamiliesListViewModel}}, Path=EditFamilyCommand}"
+                                                            CommandParameter="{Binding .}">
+                                                        <Button.Style>
+                                                            <Style TargetType="Button">
+                                                                <Setter Property="IsVisible" Value="True" />
+                                                                <Style.Triggers>
+                                                                    <DataTrigger TargetType="Button"
+                                                                                 Binding="{Binding Source={RelativeSource AncestorType={x:Type vm:FamiliesListViewModel}}, Path=IsMultiSelectMode}"
+                                                                                 Value="True">
+                                                                        <Setter Property="IsVisible" Value="False" />
+                                                                    </DataTrigger>
+                                                                </Style.Triggers>
+                                                            </Style>
+                                                        </Button.Style>
+                                                    </Button>
+                                                </Grid>
 
                                                 <!-- Status indicators -->
                                                 <VerticalStackLayout Grid.Row="0" Grid.Column="2" 
@@ -363,12 +360,6 @@
                                                                FontAttributes="Bold"
                                                                TextColor="White" />
                                                     </Border>
-
-                                                    <!-- SIMPLIFICADO: Always synced in new architecture -->
-                                                    <Label Text="{Binding SyncStatusDisplay}"
-                                                           FontSize="10"
-                                                           TextColor="{Binding SyncStatusColor}"
-                                                           HorizontalOptions="End" />
                                                 </VerticalStackLayout>
 
                                                 <!-- Metadata -->
@@ -381,13 +372,6 @@
                                                            FontSize="10"
                                                            TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
 
-                                                    <!-- NOVO: Connectivity indicator -->
-                                                    <Label Grid.Column="1"
-                                                           Text="{Binding ConnectivityStatus}"
-                                                           FontSize="10"
-                                                           TextColor="{Binding ConnectivityColor}"
-                                                           HorizontalOptions="Center" />
-
                                                     <Label Grid.Column="2"
                                                            Text="System Default"
                                                            FontSize="10"
@@ -395,12 +379,6 @@
                                                            TextColor="{AppThemeBinding Light={StaticResource InfoColor}, Dark={StaticResource InfoColor}}"
                                                            IsVisible="{Binding IsSystemDefault}" />
                                                 </Grid>
-
-                                                <!-- Tap gesture for navigation -->
-                                                <Grid.GestureRecognizers>
-                                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FamiliesListViewModel}}, Path=EditFamilyCommand}"
-                                                                          CommandParameter="{Binding .}" />
-                                                </Grid.GestureRecognizers>
                                             </Grid>
                                         </Border>
                                     </DataTemplate>
@@ -429,12 +407,9 @@
             </Grid>
         </Border>
 
-        <!-- Floating Action Button -->
+        <!-- ✅ CORRIGIDO: Floating Action Button -->
         <Button x:Name="FabButton"
                 Text="{Binding FabText}"
-                Command="{Binding AddFamilyCommand}"
-                BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                TextColor="{StaticResource OnPrimary}"
                 FontSize="14"
                 FontAttributes="Bold"
                 CornerRadius="28"
@@ -445,48 +420,48 @@
                 Margin="20,20,30,30"
                 IsVisible="{Binding FabIsVisible}"
                 IsEnabled="{Binding IsConnected}"
-                Scale="0.9">
+                Scale="0.9"
+                Clicked="OnFabPressed">
 
-            <!-- Change command based on selection state -->
-            <Button.Triggers>
-                <DataTrigger TargetType="Button"
-                             Binding="{Binding SelectedFamilies.Count, Converter={StaticResource IntToBoolConverter}}"
-                             Value="True">
-                    <Setter Property="Command" Value="{Binding DeleteSelectedCommand}" />
-                    <Setter Property="BackgroundColor" Value="#D32F2F" />
-                </DataTrigger>
-                <DataTrigger TargetType="Button"
-                             Binding="{Binding IsMultiSelectMode}"
-                             Value="True">
-                    <Setter Property="Command" Value="{Binding ToggleMultiSelectCommand}" />
-                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray600}}" />
-                    <Setter Property="Text" Value="Cancel" />
-                </DataTrigger>
-                <!-- NOVO: Disabled state when offline -->
-                <DataTrigger TargetType="Button"
-                             Binding="{Binding IsConnected}"
-                             Value="False">
-                    <Setter Property="BackgroundColor" Value="{StaticResource Gray400}" />
-                    <Setter Property="Text" Value="Offline" />
-                </DataTrigger>
-            </Button.Triggers>
+            <!-- ✅ FIX: Comando baseado no modo atual -->
+            <Button.Style>
+                <Style TargetType="Button">
+                    <!-- Default style -->
+                    <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
+                    <Setter Property="TextColor" Value="{StaticResource OnPrimary}" />
+                    <Setter Property="Command" Value="{Binding AddFamilyCommand}" />
+
+                    <Style.Triggers>
+                        <!-- Delete mode when items selected -->
+                        <DataTrigger TargetType="Button"
+                                     Binding="{Binding SelectedFamilies.Count, Converter={StaticResource IntToBoolConverter}}"
+                                     Value="True">
+                            <Setter Property="Command" Value="{Binding DeleteSelectedCommand}" />
+                            <Setter Property="BackgroundColor" Value="#D32F2F" />
+                            <Setter Property="TextColor" Value="White" />
+                        </DataTrigger>
+
+                        <!-- Cancel mode when in multi-select but no items selected -->
+                        <MultiTrigger TargetType="Button">
+                            <MultiTrigger.Conditions>
+                                <BindingCondition Binding="{Binding IsMultiSelectMode}" Value="True" />
+                                <BindingCondition Binding="{Binding SelectedFamilies.Count}" Value="0" />
+                            </MultiTrigger.Conditions>
+                            <Setter Property="Command" Value="{Binding ToggleMultiSelectCommand}" />
+                            <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray600}}" />
+                            <Setter Property="TextColor" Value="White" />
+                        </MultiTrigger>
+
+                        <!-- Offline state -->
+                        <DataTrigger TargetType="Button"
+                                     Binding="{Binding IsConnected}"
+                                     Value="False">
+                            <Setter Property="BackgroundColor" Value="{StaticResource Gray400}" />
+                            <Setter Property="IsEnabled" Value="False" />
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Button.Style>
         </Button>
-
-        <!-- NOVO: Cache info overlay (appears on tap) -->
-        <Border BackgroundColor="#E0FFFFFF"
-                Padding="15,10"
-                HorizontalOptions="Center"
-                VerticalOptions="End"
-                Margin="20,20,20,100"
-                IsVisible="False"
-                x:Name="CacheInfoOverlay">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="8" />
-            </Border.StrokeShape>
-            <Label Text="{Binding CacheInfo}"
-                   FontSize="12"
-                   TextColor="{StaticResource OnSurface}"
-                   HorizontalOptions="Center" />
-        </Border>
     </Grid>
 </ContentPage>

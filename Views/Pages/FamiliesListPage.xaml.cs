@@ -3,7 +3,7 @@
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// CORRIGIDO: Families list page com conectividade otimizada
+/// CORRIGIDO: Families list page com UX otimizada
 /// </summary>
 public partial class FamiliesListPage : ContentPage
 {
@@ -98,7 +98,7 @@ public partial class FamiliesListPage : ContentPage
     }
 
     /// <summary>
-    /// ✅ SIMPLIFICADO: Handles filter selection apenas Status (sem Sync)
+    /// ✅ LIMPO: Handles filter selection apenas Status
     /// </summary>
     private async void OnFilterTapped(object sender, EventArgs e)
     {
@@ -119,42 +119,11 @@ public partial class FamiliesListPage : ContentPage
                     _viewModel.StatusFilter = action;
                 }
             }
-            // ✅ REMOVIDO: Sync filter (não existe mais na arquitetura simplificada)
         }
     }
 
     /// <summary>
-    /// ✅ NOVO: Handles connectivity status tap (test connection)
-    /// </summary>
-    private async void OnConnectivityStatusTapped(object sender, EventArgs e)
-    {
-        try
-        {
-            // Mostrar overlay temporário
-            if (CacheInfoOverlay != null)
-            {
-                CacheInfoOverlay.IsVisible = true;
-                await CacheInfoOverlay.ScaleTo(1.1, 150, Easing.CubicOut);
-                await CacheInfoOverlay.ScaleTo(1, 150, Easing.CubicOut);
-
-                // Executar teste
-                await _viewModel.TestConnectionCommand.ExecuteAsync(null);
-
-                // Esconder após 3 segundos
-                await Task.Delay(3000);
-                await CacheInfoOverlay.FadeTo(0, 200);
-                CacheInfoOverlay.IsVisible = false;
-                CacheInfoOverlay.Opacity = 1; // Reset para próxima vez
-            }
-        }
-        catch (Exception ex)
-        {
-            await DisplayAlert("Connection Test", $"Test failed: {ex.Message}", "OK");
-        }
-    }
-
-    /// <summary>
-    /// ✅ NOVO: Handle FAB button with special effects
+    /// ✅ CORRIGIDO: Handle FAB button com animação especial
     /// </summary>
     private async void OnFabPressed(object sender, EventArgs e)
     {

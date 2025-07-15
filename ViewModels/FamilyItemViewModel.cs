@@ -1,11 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OrchidPro.Models;
+using System.Diagnostics;
 
 namespace OrchidPro.ViewModels;
 
 /// <summary>
-/// CORRIGIDO: ViewModel para itens individuais na lista de famílias (com indicadores de conectividade)
+/// CORRIGIDO: ViewModel para itens individuais com debug de seleção
 /// </summary>
 public partial class FamilyItemViewModel : ObservableObject
 {
@@ -38,6 +39,8 @@ public partial class FamilyItemViewModel : ObservableObject
         StatusDisplay = family.StatusDisplay;
         CreatedAt = family.CreatedAt;
         UpdatedAt = family.UpdatedAt;
+
+        Debug.WriteLine($"🔨 [FAMILY_ITEM_VM] Created for: {Name}");
     }
 
     /// <summary>
@@ -46,13 +49,43 @@ public partial class FamilyItemViewModel : ObservableObject
     public Family ToModel() => _model;
 
     /// <summary>
-    /// Toggles selection state
+    /// ✅ CORRIGIDO: Toggles selection state com debug detalhado
     /// </summary>
     [RelayCommand]
     private void ToggleSelection()
     {
+        Debug.WriteLine($"🔘 [FAMILY_ITEM_VM] ToggleSelection called for: {Name}");
+        Debug.WriteLine($"🔘 [FAMILY_ITEM_VM] Current IsSelected: {IsSelected}");
+
         IsSelected = !IsSelected;
-        SelectionChangedCommand?.Execute(this);
+
+        Debug.WriteLine($"🔘 [FAMILY_ITEM_VM] New IsSelected: {IsSelected}");
+        Debug.WriteLine($"🔘 [FAMILY_ITEM_VM] SelectionChangedCommand is null: {SelectionChangedCommand == null}");
+
+        if (SelectionChangedCommand != null)
+        {
+            Debug.WriteLine($"🔘 [FAMILY_ITEM_VM] Executing SelectionChangedCommand for: {Name}");
+            SelectionChangedCommand.Execute(this);
+        }
+        else
+        {
+            Debug.WriteLine($"❌ [FAMILY_ITEM_VM] SelectionChangedCommand is NULL for: {Name}");
+        }
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Observer da propriedade IsSelected
+    /// </summary>
+    partial void OnIsSelectedChanged(bool value)
+    {
+        Debug.WriteLine($"🔄 [FAMILY_ITEM_VM] OnIsSelectedChanged: {Name} -> {value}");
+
+        // Notificar comando se existir
+        if (SelectionChangedCommand != null)
+        {
+            Debug.WriteLine($"🔄 [FAMILY_ITEM_VM] Notifying SelectionChangedCommand: {Name}");
+            SelectionChangedCommand.Execute(this);
+        }
     }
 
     /// <summary>
@@ -107,26 +140,6 @@ public partial class FamilyItemViewModel : ObservableObject
     public string RecentIndicator => IsRecent ? "🆕" : "";
 
     /// <summary>
-    /// ✅ NOVO: Sync status display - sempre "synced" na arquitetura limpa
-    /// </summary>
-    public string SyncStatusDisplay => "✅ Synced";
-
-    /// <summary>
-    /// ✅ NOVO: Sync status color - sempre verde na arquitetura limpa
-    /// </summary>
-    public Color SyncStatusColor => Colors.Green;
-
-    /// <summary>
-    /// ✅ NOVO: Connectivity status (sempre conectado se não houver erro)
-    /// </summary>
-    public string ConnectivityStatus => "🌐 Online";
-
-    /// <summary>
-    /// ✅ NOVO: Connectivity color
-    /// </summary>
-    public Color ConnectivityColor => Colors.Green;
-
-    /// <summary>
     /// Full status display combining multiple indicators
     /// </summary>
     public string FullStatusDisplay
@@ -138,5 +151,17 @@ public partial class FamilyItemViewModel : ObservableObject
             if (IsRecent) status += " • New";
             return status;
         }
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Método para debug de seleção
+    /// </summary>
+    public void DebugSelection()
+    {
+        Debug.WriteLine($"🔍 [FAMILY_ITEM_VM] DEBUG SELECTION for {Name}:");
+        Debug.WriteLine($"    IsSelected: {IsSelected}");
+        Debug.WriteLine($"    SelectionChangedCommand: {(SelectionChangedCommand != null ? "EXISTS" : "NULL")}");
+        Debug.WriteLine($"    CanEdit: {CanEdit}");
+        Debug.WriteLine($"    CanDelete: {CanDelete}");
     }
 }
