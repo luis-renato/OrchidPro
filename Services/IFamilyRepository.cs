@@ -3,8 +3,7 @@
 namespace OrchidPro.Services;
 
 /// <summary>
-/// MIGRADO: Interface simplificada para operações com Family
-/// Remove complexidade de sincronização, foca em operações diretas
+/// LIMPO: Interface para operações com Family (sem conceitos de sync)
 /// </summary>
 public interface IFamilyRepository
 {
@@ -20,12 +19,10 @@ public interface IFamilyRepository
     /// </summary>
     /// <param name="searchText">Text to search in name and description</param>
     /// <param name="statusFilter">Filter by active/inactive status</param>
-    /// <param name="syncFilter">Filter by synchronization status (ignored in simplified architecture)</param>
     /// <returns>Filtered list of families</returns>
     Task<List<Family>> GetFilteredAsync(
         string? searchText = null,
-        bool? statusFilter = null,
-        SyncStatus? syncFilter = null);
+        bool? statusFilter = null);
 
     /// <summary>
     /// Gets a family by its ID
@@ -84,40 +81,36 @@ public interface IFamilyRepository
     Task<FamilyStatistics> GetStatisticsAsync();
 
     /// <summary>
-    /// MIGRADO: Forces cache refresh from server (replaces complex sync)
+    /// RENOMEADO: Forces cache refresh from server (ex "ForceFullSyncAsync")
     /// </summary>
     /// <returns>Refresh result with statistics</returns>
-    Task<SyncResult> ForceFullSyncAsync();
+    Task<OperationResult> RefreshAllDataAsync();
 
     /// <summary>
-    /// NOVO: Manually refresh cache from server
+    /// Manually refresh cache from server
     /// </summary>
     Task RefreshCacheAsync();
 
     /// <summary>
-    /// NOVO: Test connectivity with server
+    /// Test connectivity with server
     /// </summary>
     Task<bool> TestConnectionAsync();
 
     /// <summary>
-    /// NOVO: Get cache information for debugging
+    /// Get cache information for debugging
     /// </summary>
     string GetCacheInfo();
 }
 
 /// <summary>
-/// Statistics for family data
+/// Statistics for family data (sem campos de sync)
 /// </summary>
 public class FamilyStatistics
 {
     public int TotalCount { get; set; }
     public int ActiveCount { get; set; }
     public int InactiveCount { get; set; }
-    public int SyncedCount { get; set; }
-    public int LocalCount { get; set; }
-    public int PendingCount { get; set; }
-    public int ErrorCount { get; set; }
     public int SystemDefaultCount { get; set; }
     public int UserCreatedCount { get; set; }
-    public DateTime LastSyncTime { get; set; }
+    public DateTime LastRefreshTime { get; set; }
 }

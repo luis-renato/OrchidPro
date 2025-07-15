@@ -1,9 +1,10 @@
 ﻿namespace OrchidPro.Models;
 
 /// <summary>
-/// Resultado de sincronização
+/// LIMPO: Resultado de operações (substitui SyncResult)
+/// Sem conceitos de sync - apenas operações diretas
 /// </summary>
-public class SyncResult
+public class OperationResult
 {
     public DateTime StartTime { get; set; }
     public DateTime EndTime { get; set; }
@@ -12,31 +13,30 @@ public class SyncResult
     public int Successful { get; set; }
     public int Failed { get; set; }
     public List<string> ErrorMessages { get; set; } = new();
+    public bool IsSuccess => Failed == 0 && ErrorMessages.Count == 0;
 }
 
 /// <summary>
-/// Resultado de sincronização de uma família individual
+/// LIMPO: Resultado de operação individual
 /// </summary>
-public class FamilySyncResult
+public class FamilyOperationResult
 {
     public Guid FamilyId { get; set; }
     public string FamilyName { get; set; } = string.Empty;
     public bool Success { get; set; }
     public string? ErrorMessage { get; set; }
-    public SyncAction Action { get; set; }
-    public DateTime SyncTime { get; set; }
-    public string? ConflictData { get; set; }
+    public OperationAction Action { get; set; }
+    public DateTime OperationTime { get; set; }
 }
 
 /// <summary>
-/// Tipo de ação de sincronização
+/// LIMPO: Tipo de operação (sem conceitos de sync)
 /// </summary>
-public enum SyncAction
+public enum OperationAction
 {
     Created,
     Updated,
     Deleted,
-    Conflict,
-    NoChange,
-    Downloaded
+    Loaded,
+    Validated
 }

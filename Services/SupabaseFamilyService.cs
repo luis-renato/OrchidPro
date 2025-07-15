@@ -7,8 +7,8 @@ using System.Diagnostics;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// MIGRADO: Modelo da Family para Supabase - SCHEMA PUBLIC (families)
-/// Versão simplificada para operações diretas sem sincronização complexa
+/// CORRIGIDO: Modelo da Family para Supabase - SCHEMA PUBLIC (families)
+/// Versão limpa sem conceitos de sync
 /// </summary>
 [Table("families")]
 public class SupabaseFamily : BaseModel
@@ -63,15 +63,13 @@ public class SupabaseFamily : BaseModel
             IsSystemDefault = this.IsSystemDefault ?? false,
             IsActive = this.IsActive ?? true,
             CreatedAt = this.CreatedAt ?? DateTime.UtcNow,
-            UpdatedAt = this.UpdatedAt ?? DateTime.UtcNow,
-            SyncStatus = SyncStatus.Synced // Sempre synced na nova arquitetura
+            UpdatedAt = this.UpdatedAt ?? DateTime.UtcNow
         };
     }
 }
 
 /// <summary>
-/// NOVO: Serviço simplificado para operações diretas com Supabase
-/// Remove toda a complexidade de sincronização - operações diretas apenas
+/// CORRIGIDO: Serviço limpo para operações diretas com Supabase (sem sync)
 /// </summary>
 public class SupabaseFamilyService
 {
@@ -430,7 +428,7 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// Calcula estatísticas das famílias
+    /// CORRIGIDO: Calcula estatísticas das famílias (sem campos sync)
     /// </summary>
     public async Task<FamilyStatistics> GetStatisticsAsync()
     {
@@ -443,13 +441,9 @@ public class SupabaseFamilyService
                 TotalCount = families.Count,
                 ActiveCount = families.Count(f => f.IsActive),
                 InactiveCount = families.Count(f => !f.IsActive),
-                SyncedCount = families.Count, // Todas sempre synced na nova arquitetura
-                LocalCount = 0, // Não há apenas local na nova arquitetura
-                PendingCount = 0, // Não há pending na nova arquitetura
-                ErrorCount = 0, // Não há errors na nova arquitetura
                 SystemDefaultCount = families.Count(f => f.IsSystemDefault),
                 UserCreatedCount = families.Count(f => !f.IsSystemDefault),
-                LastSyncTime = DateTime.UtcNow // Sempre atual
+                LastRefreshTime = DateTime.UtcNow // Sempre atual na arquitetura direta
             };
         }
         catch (Exception ex)

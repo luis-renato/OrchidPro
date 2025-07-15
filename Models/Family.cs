@@ -3,8 +3,7 @@
 namespace OrchidPro.Models;
 
 /// <summary>
-/// MIGRADO: Modelo simplificado da Family para arquitetura Supabase direto
-/// Remove complexidade de sincronização, mantém apenas o essencial
+/// LIMPO: Modelo Family sem conceitos de sync (arquitetura Supabase direta)
 /// </summary>
 public class Family
 {
@@ -52,11 +51,6 @@ public class Family
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// SIMPLIFICADO: Status de sincronização - sempre Synced na nova arquitetura
-    /// </summary>
-    public SyncStatus SyncStatus { get; set; } = SyncStatus.Synced;
-
-    /// <summary>
     /// Display name for UI purposes
     /// </summary>
     public string DisplayName => $"{Name}{(IsSystemDefault ? " (System)" : "")}";
@@ -65,16 +59,6 @@ public class Family
     /// Status display text for UI
     /// </summary>
     public string StatusDisplay => IsActive ? "Active" : "Inactive";
-
-    /// <summary>
-    /// SIMPLIFICADO: Sync status display - sempre synced
-    /// </summary>
-    public string SyncStatusDisplay => "✅ Synced";
-
-    /// <summary>
-    /// SIMPLIFICADO: Color for sync status - sempre verde
-    /// </summary>
-    public Color SyncStatusColor => Colors.Green;
 
     /// <summary>
     /// Validates the family data
@@ -109,45 +93,7 @@ public class Family
             IsSystemDefault = this.IsSystemDefault,
             IsActive = this.IsActive,
             CreatedAt = this.CreatedAt,
-            UpdatedAt = this.UpdatedAt,
-            SyncStatus = this.SyncStatus
+            UpdatedAt = this.UpdatedAt
         };
     }
-
-    /// <summary>
-    /// NOVO: Indicates if family requires internet connection (always true in simplified architecture)
-    /// </summary>
-    public bool RequiresConnection => true;
-
-    /// <summary>
-    /// NOVO: Connectivity status for UI
-    /// </summary>
-    public string ConnectivityStatus => "🌐 Online";
-}
-
-/// <summary>
-/// SIMPLIFICADO: Enumeração para status de sincronização
-/// Na nova arquitetura, principalmente apenas Synced é usado
-/// </summary>
-public enum SyncStatus
-{
-    /// <summary>
-    /// Successfully synchronized with server (padrão na nova arquitetura)
-    /// </summary>
-    Synced = 1,
-
-    /// <summary>
-    /// Only exists locally, not yet synced (raro na nova arquitetura)
-    /// </summary>
-    Local = 0,
-
-    /// <summary>
-    /// Waiting to be synchronized (raro na nova arquitetura)
-    /// </summary>
-    Pending = 2,
-
-    /// <summary>
-    /// Error occurred during synchronization
-    /// </summary>
-    Error = 3
 }

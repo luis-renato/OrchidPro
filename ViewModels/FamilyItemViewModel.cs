@@ -5,8 +5,7 @@ using OrchidPro.Models;
 namespace OrchidPro.ViewModels;
 
 /// <summary>
-/// MIGRADO: ViewModel para itens individuais na lista de famílias
-/// Simplificado para arquitetura direta Supabase
+/// LIMPO: ViewModel para itens individuais na lista de famílias (sem sync)
 /// </summary>
 public partial class FamilyItemViewModel : ObservableObject
 {
@@ -22,14 +21,6 @@ public partial class FamilyItemViewModel : ObservableObject
     public string StatusDisplay { get; }
     public DateTime CreatedAt { get; }
     public DateTime UpdatedAt { get; }
-
-    // SIMPLIFICADO: Status de sync sempre "synced" na nova arquitetura
-    public string SyncStatusDisplay => "✅ Synced";
-    public Color SyncStatusColor => Colors.Green;
-
-    // NOVO: Indicadores de conectividade
-    public string ConnectivityStatus => "🌐 Online";
-    public Color ConnectivityColor => Colors.Green;
 
     public IRelayCommand<FamilyItemViewModel>? SelectionChangedCommand { get; set; }
 
@@ -65,27 +56,27 @@ public partial class FamilyItemViewModel : ObservableObject
     }
 
     /// <summary>
-    /// NOVO: Indicates if item can be edited (requires connection)
+    /// Indicates if item can be edited
     /// </summary>
-    public bool CanEdit => true; // Na nova arquitetura sempre conectado quando visível
+    public bool CanEdit => true;
 
     /// <summary>
-    /// NOVO: Indicates if item can be deleted
+    /// Indicates if item can be deleted
     /// </summary>
     public bool CanDelete => !IsSystemDefault;
 
     /// <summary>
-    /// NOVO: Status badge color based on active state
+    /// Status badge color based on active state
     /// </summary>
     public Color StatusBadgeColor => IsActive ? Colors.Green : Colors.Red;
 
     /// <summary>
-    /// NOVO: Status badge text
+    /// Status badge text
     /// </summary>
     public string StatusBadge => IsActive ? "ACTIVE" : "INACTIVE";
 
     /// <summary>
-    /// NOVO: Description preview for UI (truncated)
+    /// Description preview for UI (truncated)
     /// </summary>
     public string DescriptionPreview
     {
@@ -101,22 +92,22 @@ public partial class FamilyItemViewModel : ObservableObject
     }
 
     /// <summary>
-    /// NOVO: Formatted creation date
+    /// Formatted creation date
     /// </summary>
     public string CreatedAtFormatted => CreatedAt.ToString("MMM dd, yyyy");
 
     /// <summary>
-    /// NOVO: Indicates if this is a recent item (created in last 7 days)
+    /// Indicates if this is a recent item (created in last 7 days)
     /// </summary>
     public bool IsRecent => DateTime.UtcNow - CreatedAt <= TimeSpan.FromDays(7);
 
     /// <summary>
-    /// NOVO: Recent indicator for UI
+    /// Recent indicator for UI
     /// </summary>
     public string RecentIndicator => IsRecent ? "🆕" : "";
 
     /// <summary>
-    /// NOVO: Full status display combining multiple indicators
+    /// Full status display combining multiple indicators
     /// </summary>
     public string FullStatusDisplay
     {

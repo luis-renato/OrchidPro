@@ -4,14 +4,12 @@ using OrchidPro.Models;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using System.Collections.ObjectModel;
-using System.Data;
 using System.Diagnostics;
 
 namespace OrchidPro.ViewModels;
 
 /// <summary>
-/// MIGRADO: ViewModel para lista de famílias com arquitetura simplificada
-/// Remove complexidade de sincronização, adiciona indicadores de conectividade
+/// COMPLETO: ViewModel para lista de famílias SEM propriedades de sync (arquitetura limpa)
 /// </summary>
 public partial class FamiliesListViewModel : BaseViewModel
 {
@@ -60,7 +58,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     [ObservableProperty]
     private string fabText = "Add Family";
 
-    // NOVO: Indicadores de conectividade
+    // Indicadores de conectividade
     [ObservableProperty]
     private string connectionStatus = "🌐 Connected";
 
@@ -73,6 +71,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     [ObservableProperty]
     private string cacheInfo = "Cache: Ready";
 
+    // Apenas StatusFilterOptions (sem sync)
     public List<string> StatusFilterOptions { get; } = new() { "All", "Active", "Inactive" };
 
     public FamiliesListViewModel(IFamilyRepository familyRepository, INavigationService navigationService)
@@ -82,11 +81,11 @@ public partial class FamiliesListViewModel : BaseViewModel
 
         Title = "Families";
 
-        Debug.WriteLine("✅ [FAMILIES_LIST_VM] Initialized with simplified architecture");
+        Debug.WriteLine("✅ [FAMILIES_LIST_VM] Initialized with clean architecture (no sync)");
     }
 
     /// <summary>
-    /// MIGRADO: Carrega famílias com teste de conectividade
+    /// Carrega famílias com teste de conectividade
     /// </summary>
     [RelayCommand]
     private async Task LoadFamiliesAsync()
@@ -116,11 +115,8 @@ public partial class FamiliesListViewModel : BaseViewModel
                 _ => null
             };
 
-            // Get filtered data
-            var familyList = await _familyRepository.GetFilteredAsync(
-                SearchText,
-                statusFilter,
-                null); // syncFilter ignorado na nova arquitetura
+            // Get filtered data (sem syncFilter)
+            var familyList = await _familyRepository.GetFilteredAsync(SearchText, statusFilter);
 
             // Convert to ViewModels
             var familyViewModels = familyList.Select(f => new FamilyItemViewModel(f)
@@ -161,7 +157,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// MIGRADO: Refresh com force cache refresh
+    /// Refresh com force cache refresh
     /// </summary>
     [RelayCommand]
     private async Task RefreshAsync()
@@ -195,7 +191,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// NOVO: Testa conectividade com servidor
+    /// Testa conectividade com servidor
     /// </summary>
     [RelayCommand]
     private async Task TestConnectionAsync()
@@ -296,7 +292,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// MIGRADO: Deletes selected families
+    /// Deletes selected families
     /// </summary>
     [RelayCommand]
     private async Task DeleteSelectedAsync()
@@ -495,7 +491,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// NOVO: Atualiza status de conectividade
+    /// Atualiza status de conectividade
     /// </summary>
     private void UpdateConnectionStatus(bool connected)
     {
@@ -514,7 +510,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// NOVO: Atualiza empty state para offline
+    /// Atualiza empty state para offline
     /// </summary>
     private void UpdateEmptyStateForOffline()
     {

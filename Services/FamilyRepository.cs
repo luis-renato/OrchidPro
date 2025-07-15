@@ -5,8 +5,7 @@ using System.Diagnostics;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// MIGRADO: Repository simplificado com cache inteligente
-/// Remove complexidade de sincronização, usa Supabase direto com cache para performance
+/// CORRIGIDO: Repository limpo com cache inteligente (sem conceitos de sync)
 /// </summary>
 public class FamilyRepository : IFamilyRepository
 {
@@ -23,7 +22,7 @@ public class FamilyRepository : IFamilyRepository
         _supabaseService = supabaseService;
         _familyService = familyService;
 
-        Debug.WriteLine("✅ [FAMILY_REPO] Initialized with simplified architecture and intelligent cache");
+        Debug.WriteLine("✅ [FAMILY_REPO] Initialized with clean architecture (no sync concepts)");
     }
 
     /// <summary>
@@ -54,9 +53,9 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Busca famílias com filtros
+    /// CORRIGIDO: Busca famílias com filtros (assinatura simplificada)
     /// </summary>
-    public async Task<List<Family>> GetFilteredAsync(string? searchText = null, bool? statusFilter = null, SyncStatus? syncFilter = null)
+    public async Task<List<Family>> GetFilteredAsync(string? searchText = null, bool? statusFilter = null)
     {
         var families = await GetAllAsync(true); // Include inactive for filtering
 
@@ -75,8 +74,6 @@ public class FamilyRepository : IFamilyRepository
         {
             families = families.Where(f => f.IsActive == statusFilter.Value).ToList();
         }
-
-        // SyncFilter ignorado na nova arquitetura (todos sempre synced)
 
         Debug.WriteLine($"🔍 [FAMILY_REPO] Filtered results: {families.Count} families");
         return families.OrderBy(f => f.Name).ToList();
@@ -227,12 +224,12 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Force refresh do cache
+    /// RENOMEADO: Force refresh do cache (ex ForceFullSyncAsync)
     /// </summary>
-    public async Task<SyncResult> ForceFullSyncAsync()
+    public async Task<OperationResult> RefreshAllDataAsync()
     {
         var startTime = DateTime.UtcNow;
-        Debug.WriteLine("🔄 [FAMILY_REPO] Force refresh cache from server...");
+        Debug.WriteLine("🔄 [FAMILY_REPO] Refreshing all data from server...");
 
         try
         {
@@ -241,7 +238,7 @@ public class FamilyRepository : IFamilyRepository
             var families = GetFromCache(true);
             var endTime = DateTime.UtcNow;
 
-            return new SyncResult
+            return new OperationResult
             {
                 StartTime = startTime,
                 EndTime = endTime,
@@ -253,9 +250,9 @@ public class FamilyRepository : IFamilyRepository
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILY_REPO] Force refresh failed: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILY_REPO] Refresh all data failed: {ex.Message}");
 
-            return new SyncResult
+            return new OperationResult
             {
                 StartTime = startTime,
                 EndTime = DateTime.UtcNow,

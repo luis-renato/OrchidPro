@@ -3,7 +3,7 @@
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// Families list page with enhanced animations and professional UI
+/// CORRIGIDO: Families list page sem referências a sync (arquitetura simplificada)
 /// </summary>
 public partial class FamiliesListPage : ContentPage
 {
@@ -97,7 +97,7 @@ public partial class FamiliesListPage : ContentPage
     }
 
     /// <summary>
-    /// Handles filter selection with action sheet
+    /// CORRIGIDO: Handles filter selection com apenas Status (sem Sync)
     /// </summary>
     private async void OnFilterTapped(object sender, EventArgs e)
     {
@@ -118,19 +118,7 @@ public partial class FamiliesListPage : ContentPage
                     _viewModel.StatusFilter = action;
                 }
             }
-            else if (button.Text?.Contains("Sync") == true)
-            {
-                action = await DisplayActionSheet(
-                    "Filter by Sync Status",
-                    "Cancel",
-                    null,
-                    _viewModel.SyncFilterOptions.ToArray());
-
-                if (!string.IsNullOrEmpty(action) && action != "Cancel")
-                {
-                    _viewModel.SyncFilter = action;
-                }
-            }
+            // REMOVIDO: Sync filter (não existe mais na arquitetura simplificada)
         }
     }
 }
