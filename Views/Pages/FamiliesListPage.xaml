@@ -33,7 +33,7 @@
 
             <Grid RowDefinitions="Auto,Auto,*">
 
-                <!-- Header with statistics -->
+                <!-- Header with statistics and connectivity -->
                 <Border Grid.Row="0" 
                         BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SurfaceDark}}"
                         Padding="20,15">
@@ -41,97 +41,120 @@
                         <RoundRectangle CornerRadius="16,16,0,0" />
                     </Border.StrokeShape>
 
-                    <Grid ColumnDefinitions="*,Auto,Auto,Auto">
-                        <!-- Page title -->
-                        <VerticalStackLayout Grid.Column="0" Spacing="5">
-                            <Label Text="Botanical Families"
-                                   FontSize="20"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryDarkText}, Dark={StaticResource White}}" />
-                            <Label Text="Manage your plant family classifications"
-                                   FontSize="12"
-                                   TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
-                        </VerticalStackLayout>
-
-                        <!-- Statistics -->
-                        <Border Grid.Column="1" 
-                                BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource Gray900}}"
-                                Stroke="{StaticResource BorderColor}"
-                                StrokeThickness="1"
-                                Padding="12,8"
-                                Margin="5,0">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="8" />
-                            </Border.StrokeShape>
-                            <VerticalStackLayout Spacing="2">
-                                <Label Text="{Binding TotalCount}"
-                                       FontSize="16"
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="10">
+                        <!-- Title and connectivity status -->
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout Grid.Column="0" Spacing="5">
+                                <Label Text="Botanical Families"
+                                       FontSize="20"
                                        FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
-                                       HorizontalOptions="Center" />
-                                <Label Text="Total"
-                                       FontSize="10"
-                                       TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
-                                       HorizontalOptions="Center" />
+                                       TextColor="{AppThemeBinding Light={StaticResource PrimaryDarkText}, Dark={StaticResource White}}" />
+                                <Label Text="Simplified architecture with direct Supabase"
+                                       FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
                             </VerticalStackLayout>
-                        </Border>
 
-                        <Border Grid.Column="2" 
-                                BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource Gray900}}"
-                                Stroke="{StaticResource BorderColor}"
-                                StrokeThickness="1"
-                                Padding="12,8"
-                                Margin="5,0">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="8" />
-                            </Border.StrokeShape>
-                            <VerticalStackLayout Spacing="2">
-                                <Label Text="{Binding ActiveCount}"
-                                       FontSize="16"
+                            <!-- NOVO: Connectivity indicator -->
+                            <Border Grid.Column="1"
+                                    BackgroundColor="{Binding ConnectionStatusColor}"
+                                    Padding="10,5"
+                                    VerticalOptions="Start">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="12" />
+                                </Border.StrokeShape>
+                                <Label Text="{Binding ConnectionStatus}"
+                                       FontSize="11"
                                        FontAttributes="Bold"
-                                       TextColor="{StaticResource SuccessColor}"
+                                       TextColor="White"
                                        HorizontalOptions="Center" />
-                                <Label Text="Active"
-                                       FontSize="10"
-                                       TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Border>
+                            </Border>
+                        </Grid>
 
-                        <Border Grid.Column="3" 
-                                BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource Gray900}}"
-                                Stroke="{StaticResource BorderColor}"
-                                StrokeThickness="1"
-                                Padding="12,8"
-                                Margin="5,0">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="8" />
-                            </Border.StrokeShape>
-                            <VerticalStackLayout Spacing="2">
-                                <Label Text="{Binding PendingSyncCount}"
-                                       FontSize="16"
-                                       FontAttributes="Bold"
-                                       TextColor="{StaticResource WarningColor}"
-                                       HorizontalOptions="Center" />
-                                <Label Text="Pending"
-                                       FontSize="10"
-                                       TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
-                                       HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Border>
+                        <!-- Statistics and cache info -->
+                        <Grid Grid.Row="1" ColumnDefinitions="*,*,Auto">
+                            <!-- Total families -->
+                            <Border Grid.Column="0" 
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource Gray900}}"
+                                    Stroke="{StaticResource BorderColor}"
+                                    StrokeThickness="1"
+                                    Padding="12,8"
+                                    Margin="0,0,5,0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="{Binding TotalCount}"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="Total"
+                                           FontSize="10"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                                           HorizontalOptions="Center" />
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <!-- Active families -->
+                            <Border Grid.Column="1" 
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource Gray900}}"
+                                    Stroke="{StaticResource BorderColor}"
+                                    StrokeThickness="1"
+                                    Padding="12,8"
+                                    Margin="5,0,5,0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="{Binding ActiveCount}"
+                                           FontSize="16"
+                                           FontAttributes="Bold"
+                                           TextColor="{StaticResource SuccessColor}"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="Active"
+                                           FontSize="10"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                                           HorizontalOptions="Center" />
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <!-- NOVO: Cache status -->
+                            <Border Grid.Column="2" 
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource Gray900}}"
+                                    Stroke="{StaticResource BorderColor}"
+                                    StrokeThickness="1"
+                                    Padding="12,8"
+                                    Margin="5,0,0,0">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="8" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="💾"
+                                           FontSize="16"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="Cache"
+                                           FontSize="10"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                                           HorizontalOptions="Center" />
+                                </VerticalStackLayout>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding TestConnectionCommand}" />
+                                </Border.GestureRecognizers>
+                            </Border>
+                        </Grid>
                     </Grid>
                 </Border>
 
                 <!-- Search and filters section -->
                 <Grid Grid.Row="1" 
                       Padding="20,15,20,10"
-                      ColumnDefinitions="*,Auto,Auto"
+                      ColumnDefinitions="*,Auto"
                       RowDefinitions="Auto,Auto"
                       ColumnSpacing="10"
                       RowSpacing="10">
 
                     <!-- Search bar -->
-                    <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3"
+                    <Border Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
                             BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
                             Stroke="{StaticResource BorderColor}"
                             StrokeThickness="1"
@@ -147,7 +170,8 @@
                                    BackgroundColor="Transparent"
                                    TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
                                    PlaceholderColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
-                                   ReturnCommand="{Binding SearchCommand}" />
+                                   ReturnCommand="{Binding SearchCommand}"
+                                   IsEnabled="{Binding IsConnected}" />
 
                             <Button Grid.Column="1"
                                     Text="✕"
@@ -158,7 +182,8 @@
                                     HeightRequest="30"
                                     CornerRadius="15"
                                     Padding="0"
-                                    IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}" />
+                                    IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}"
+                                    IsEnabled="{Binding IsConnected}" />
                         </Grid>
                     </Border>
 
@@ -169,24 +194,18 @@
                             TextColor="{AppThemeBinding Light={StaticResource OnPrimary}, Dark={StaticResource White}}"
                             FontSize="12"
                             Padding="12,8"
-                            CornerRadius="15" />
+                            CornerRadius="15"
+                            IsEnabled="{Binding IsConnected}" />
 
                     <Button Grid.Row="1" Grid.Column="1"
-                            Text="{Binding SyncFilter, StringFormat='Sync: {0}'}"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource InfoColor}, Dark={StaticResource Gray600}}"
-                            TextColor="{StaticResource OnPrimary}"
-                            FontSize="12"
-                            Padding="12,8"
-                            CornerRadius="15" />
-
-                    <Button Grid.Row="1" Grid.Column="2"
                             Text="Select"
                             BackgroundColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
                             TextColor="{StaticResource OnPrimary}"
                             FontSize="12"
                             Padding="12,8"
                             CornerRadius="15"
-                            Command="{Binding ToggleMultiSelectCommand}" />
+                            Command="{Binding ToggleMultiSelectCommand}"
+                            IsEnabled="{Binding IsConnected}" />
                 </Grid>
 
                 <!-- Main content area -->
@@ -195,7 +214,8 @@
                     <!-- RefreshView for pull-to-refresh -->
                     <RefreshView IsRefreshing="{Binding IsRefreshing}"
                                  Command="{Binding RefreshCommand}"
-                                 RefreshColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}">
+                                 RefreshColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                                 IsEnabled="{Binding IsConnected}">
 
                         <Grid>
                             <!-- Empty state -->
@@ -205,10 +225,23 @@
                                                  HorizontalOptions="Center"
                                                  Padding="40">
 
-                                <Label Text="🌺"
-                                       FontSize="48"
+                                <!-- Different icons based on connection status -->
+                                <Label FontSize="48"
                                        HorizontalOptions="Center"
-                                       Opacity="0.3" />
+                                       Opacity="0.3">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label"
+                                                     Binding="{Binding IsConnected}"
+                                                     Value="False">
+                                            <Setter Property="Text" Value="📡" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Label"
+                                                     Binding="{Binding IsConnected}"
+                                                     Value="True">
+                                            <Setter Property="Text" Value="🌺" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
 
                                 <Label Text="{Binding EmptyStateMessage}"
                                        FontSize="16"
@@ -216,13 +249,35 @@
                                        HorizontalOptions="Center"
                                        HorizontalTextAlignment="Center" />
 
-                                <Button Text="Add First Family"
-                                        Command="{Binding AddFamilyCommand}"
+                                <!-- Show different actions based on connection -->
+                                <Button Command="{Binding AddFamilyCommand}"
                                         BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                         TextColor="{StaticResource OnPrimary}"
                                         CornerRadius="25"
                                         Padding="30,15"
-                                        IsVisible="{Binding SearchText, Converter={StaticResource InvertedStringToBoolConverter}}" />
+                                        IsVisible="{Binding IsConnected}">
+                                    <Button.Triggers>
+                                        <DataTrigger TargetType="Button"
+                                                     Binding="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}"
+                                                     Value="False">
+                                            <Setter Property="Text" Value="Add First Family" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Button"
+                                                     Binding="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}"
+                                                     Value="True">
+                                            <Setter Property="Text" Value="Clear Search" />
+                                            <Setter Property="Command" Value="{Binding ClearSearchCommand}" />
+                                        </DataTrigger>
+                                    </Button.Triggers>
+                                </Button>
+
+                                <Button Text="Test Connection"
+                                        Command="{Binding TestConnectionCommand}"
+                                        BackgroundColor="{StaticResource InfoColor}"
+                                        TextColor="White"
+                                        CornerRadius="25"
+                                        Padding="30,15"
+                                        IsVisible="{Binding IsConnected, Converter={StaticResource InvertedBoolConverter}}" />
                             </VerticalStackLayout>
 
                             <!-- Families list -->
@@ -269,18 +324,26 @@
                                                 <!-- Family info -->
                                                 <VerticalStackLayout Grid.Row="0" Grid.Column="1" 
                                                                      Spacing="4">
-                                                    <Label Text="{Binding DisplayName}"
-                                                           FontSize="16"
-                                                           FontAttributes="Bold"
-                                                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
-                                                           LineBreakMode="TailTruncation" />
+                                                    <Grid ColumnDefinitions="*,Auto">
+                                                        <Label Grid.Column="0"
+                                                               Text="{Binding DisplayName}"
+                                                               FontSize="16"
+                                                               FontAttributes="Bold"
+                                                               TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
+                                                               LineBreakMode="TailTruncation" />
 
-                                                    <Label Text="{Binding Description}"
+                                                        <!-- NOVO: Recent indicator -->
+                                                        <Label Grid.Column="1"
+                                                               Text="{Binding RecentIndicator}"
+                                                               FontSize="12"
+                                                               IsVisible="{Binding IsRecent}" />
+                                                    </Grid>
+
+                                                    <Label Text="{Binding DescriptionPreview}"
                                                            FontSize="12"
                                                            TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
                                                            LineBreakMode="TailTruncation"
-                                                           MaxLines="2"
-                                                           IsVisible="{Binding Description, Converter={StaticResource StringToBoolConverter}}" />
+                                                           MaxLines="2" />
                                                 </VerticalStackLayout>
 
                                                 <!-- Status indicators -->
@@ -289,19 +352,19 @@
                                                                      HorizontalOptions="End">
 
                                                     <!-- Active/Inactive status -->
-                                                    <Border BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#388E3C|#D32F2F'}"
+                                                    <Border BackgroundColor="{Binding StatusBadgeColor}"
                                                             Padding="8,4"
                                                             HorizontalOptions="End">
                                                         <Border.StrokeShape>
                                                             <RoundRectangle CornerRadius="10" />
                                                         </Border.StrokeShape>
-                                                        <Label Text="{Binding StatusDisplay}"
+                                                        <Label Text="{Binding StatusBadge}"
                                                                FontSize="10"
                                                                FontAttributes="Bold"
                                                                TextColor="White" />
                                                     </Border>
 
-                                                    <!-- Sync status -->
+                                                    <!-- SIMPLIFICADO: Always synced in new architecture -->
                                                     <Label Text="{Binding SyncStatusDisplay}"
                                                            FontSize="10"
                                                            TextColor="{Binding SyncStatusColor}"
@@ -314,9 +377,16 @@
                                                       ColumnSpacing="10">
 
                                                     <Label Grid.Column="0"
-                                                           Text="{Binding CreatedAt, StringFormat='Created: {0:MMM dd, yyyy}'}"
+                                                           Text="{Binding CreatedAtFormatted, StringFormat='Created: {0}'}"
                                                            FontSize="10"
                                                            TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+
+                                                    <!-- NOVO: Connectivity indicator -->
+                                                    <Label Grid.Column="1"
+                                                           Text="{Binding ConnectivityStatus}"
+                                                           FontSize="10"
+                                                           TextColor="{Binding ConnectivityColor}"
+                                                           HorizontalOptions="Center" />
 
                                                     <Label Grid.Column="2"
                                                            Text="System Default"
@@ -374,6 +444,7 @@
                 VerticalOptions="End"
                 Margin="20,20,30,30"
                 IsVisible="{Binding FabIsVisible}"
+                IsEnabled="{Binding IsConnected}"
                 Scale="0.9">
 
             <!-- Change command based on selection state -->
@@ -391,7 +462,31 @@
                     <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray600}}" />
                     <Setter Property="Text" Value="Cancel" />
                 </DataTrigger>
+                <!-- NOVO: Disabled state when offline -->
+                <DataTrigger TargetType="Button"
+                             Binding="{Binding IsConnected}"
+                             Value="False">
+                    <Setter Property="BackgroundColor" Value="{StaticResource Gray400}" />
+                    <Setter Property="Text" Value="Offline" />
+                </DataTrigger>
             </Button.Triggers>
         </Button>
+
+        <!-- NOVO: Cache info overlay (appears on tap) -->
+        <Border BackgroundColor="#E0FFFFFF"
+                Padding="15,10"
+                HorizontalOptions="Center"
+                VerticalOptions="End"
+                Margin="20,20,20,100"
+                IsVisible="False"
+                x:Name="CacheInfoOverlay">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <Label Text="{Binding CacheInfo}"
+                   FontSize="12"
+                   TextColor="{StaticResource OnSurface}"
+                   HorizontalOptions="Center" />
+        </Border>
     </Grid>
 </ContentPage>

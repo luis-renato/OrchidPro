@@ -53,22 +53,23 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<!-- MAUI Core -->
+		<!-- ✅ CORE MAUI PACKAGES (mantidos) -->
 		<PackageReference Include="Microsoft.Maui.Controls" Version="9.0.81" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.6" />
 
-		<!-- Community Toolkit - ESSENCIAL para MVVM -->
+		<!-- ✅ COMMUNITY TOOLKIT - ESSENCIAL para MVVM (mantidos) -->
 		<PackageReference Include="CommunityToolkit.Maui" Version="12.1.0" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 
-		<!-- Database/API -->
+		<!-- ✅ SUPABASE - BACKEND DIRETO (mantido) -->
 		<PackageReference Include="Supabase" Version="1.1.1" />
 
-		<!-- Validation -->
+		<!-- ✅ VALIDATION (mantido) -->
 		<PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
 
-		<!-- Adicional para SQLite local (futuro) -->
-		<PackageReference Include="sqlite-net-pcl" Version="1.9.172" />
+		<!-- ❌ REMOVIDO: SQLite dependencies (não necessários na arquitetura simplificada) -->
+		<!-- <PackageReference Include="sqlite-net-pcl" Version="1.9.172" /> -->
+		<!-- <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="9.0.0" /> -->
 	</ItemGroup>
 
 	<ItemGroup>
@@ -90,7 +91,7 @@
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Views\Pages\TestSyncPage.xaml">
-		  <Generator>MSBuild:Compile</Generator>
+			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 	</ItemGroup>
 

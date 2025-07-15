@@ -3,7 +3,8 @@
 namespace OrchidPro.Services;
 
 /// <summary>
-/// Interface for Family repository operations with user isolation and sync support
+/// MIGRADO: Interface simplificada para operações com Family
+/// Remove complexidade de sincronização, foca em operações diretas
 /// </summary>
 public interface IFamilyRepository
 {
@@ -19,7 +20,7 @@ public interface IFamilyRepository
     /// </summary>
     /// <param name="searchText">Text to search in name and description</param>
     /// <param name="statusFilter">Filter by active/inactive status</param>
-    /// <param name="syncFilter">Filter by synchronization status</param>
+    /// <param name="syncFilter">Filter by synchronization status (ignored in simplified architecture)</param>
     /// <returns>Filtered list of families</returns>
     Task<List<Family>> GetFilteredAsync(
         string? searchText = null,
@@ -83,20 +84,25 @@ public interface IFamilyRepository
     Task<FamilyStatistics> GetStatisticsAsync();
 
     /// <summary>
-    /// ADICIONADO: Forces full synchronization of all pending families
+    /// MIGRADO: Forces cache refresh from server (replaces complex sync)
     /// </summary>
-    /// <returns>Sync result with statistics</returns>
+    /// <returns>Refresh result with statistics</returns>
     Task<SyncResult> ForceFullSyncAsync();
-}
 
-/// <summary>
-/// Interface for local data operations
-/// </summary>
-public interface ILocalDataService
-{
-    Task<List<Family>> GetAllFamiliesAsync();
-    Task SaveFamilyAsync(Family family);
-    Task DeleteFamilyAsync(Guid id);
+    /// <summary>
+    /// NOVO: Manually refresh cache from server
+    /// </summary>
+    Task RefreshCacheAsync();
+
+    /// <summary>
+    /// NOVO: Test connectivity with server
+    /// </summary>
+    Task<bool> TestConnectionAsync();
+
+    /// <summary>
+    /// NOVO: Get cache information for debugging
+    /// </summary>
+    string GetCacheInfo();
 }
 
 /// <summary>

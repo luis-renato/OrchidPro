@@ -9,7 +9,8 @@ using OrchidPro.Views.Pages;
 namespace OrchidPro;
 
 /// <summary>
-/// CORRIGIDO: Configures the MAUI application with proper service lifetimes
+/// MIGRADO: Configures the MAUI application with simplified architecture
+/// Remove old services, add new simplified services
 /// </summary>
 public static class MauiProgram
 {
@@ -48,7 +49,7 @@ public static class MauiProgram
     }
 
     /// <summary>
-    /// CORRIGIDO: Configures dependency injection services with proper lifetimes
+    /// MIGRADO: Configures dependency injection services for simplified architecture
     /// </summary>
     private static void ConfigureServices(IServiceCollection services)
     {
@@ -57,11 +58,14 @@ public static class MauiProgram
         services.AddSingleton<SupabaseService>();
         services.AddSingleton<INavigationService, NavigationService>();
 
-        // ✅ DATA SERVICES - SINGLETON (shared repositories and caching)
-        // Critical: These MUST be singletons to share data between pages
-        services.AddSingleton<ILocalDataService, LocalDataService>();
-        services.AddSingleton<SupabaseFamilySync>();
+        // ✅ SIMPLIFIED DATA SERVICES - SINGLETON (direct Supabase + cache)
+        // NOVO: Services simplificados para arquitetura direta
+        services.AddSingleton<SupabaseFamilyService>();
         services.AddSingleton<IFamilyRepository, FamilyRepository>();
+
+        // ❌ REMOVIDO: Services da arquitetura complexa anterior
+        // services.AddSingleton<ILocalDataService, LocalDataService>(); // <- REMOVIDO
+        // services.AddSingleton<SupabaseFamilySync>(); // <- REMOVIDO
 
         // ✅ VIEWMODELS - TRANSIENT (new instance per page navigation)
         // ViewModels should be transient to get fresh state per navigation

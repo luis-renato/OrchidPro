@@ -2,24 +2,24 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="OrchidPro.Views.Pages.TestSyncPage"
-             Title="Sync Debug Console"
+             Title="Architecture Debug Console"
              BackgroundColor="{StaticResource Primary}">
 
     <Grid RowDefinitions="Auto,*">
 
-        <!-- Enhanced header with comprehensive test buttons -->
+        <!-- Enhanced header for simplified architecture -->
         <VerticalStackLayout Grid.Row="0" 
                              Padding="20"
                              Spacing="15"
                              BackgroundColor="{StaticResource Secondary}">
 
-            <Label Text="🧪 Sync Debug Console"
+            <Label Text="🧪 Simplified Architecture Console"
                    FontSize="20"
                    FontAttributes="Bold"
                    TextColor="{StaticResource PrimaryDarkText}"
                    HorizontalOptions="Center" />
 
-            <Label Text="Duplicate Detection &amp; Resolution Tools"
+            <Label Text="Direct Supabase with Intelligent Cache"
                    FontSize="12"
                    TextColor="{StaticResource Gray600}"
                    HorizontalOptions="Center" />
@@ -30,12 +30,12 @@
                   Margin="0,10,0,0">
 
                 <Border Grid.Column="0" 
-                        BackgroundColor="{StaticResource InfoColor}"
+                        BackgroundColor="{StaticResource SuccessColor}"
                         Padding="8,4">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <Label Text="🔧 RLS: DISABLED"
+                    <Label Text="✅ SIMPLIFIED"
                            FontSize="10"
                            FontAttributes="Bold"
                            TextColor="White"
@@ -43,12 +43,12 @@
                 </Border>
 
                 <Border Grid.Column="1" 
-                        BackgroundColor="{StaticResource WarningColor}"
+                        BackgroundColor="{StaticResource InfoColor}"
                         Padding="8,4">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <Label Text="🎯 DEBUG MODE"
+                    <Label Text="🚀 DIRECT SUPABASE"
                            FontSize="10"
                            FontAttributes="Bold"
                            TextColor="White"
@@ -56,12 +56,12 @@
                 </Border>
 
                 <Border Grid.Column="2" 
-                        BackgroundColor="{StaticResource SuccessColor}"
+                        BackgroundColor="{StaticResource Primary}"
                         Padding="8,4">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <Label Text="📊 SCHEMA: PUBLIC"
+                    <Label Text="💾 SMART CACHE"
                            FontSize="10"
                            FontAttributes="Bold"
                            TextColor="White"
@@ -69,9 +69,9 @@
                 </Border>
             </Grid>
 
-            <!-- Primary test buttons -->
+            <!-- Updated test buttons for simplified architecture -->
             <Grid ColumnDefinitions="*,*" 
-                  RowDefinitions="Auto,Auto,Auto,Auto,Auto"
+                  RowDefinitions="Auto,Auto,Auto,Auto"
                   ColumnSpacing="12"
                   RowSpacing="12"
                   Margin="0,15,0,0">
@@ -93,7 +93,7 @@
                         FontSize="12"
                         HeightRequest="45" />
 
-                <!-- Row 2: Create and sync -->
+                <!-- Row 2: CRUD operations -->
                 <Button Grid.Row="1" Grid.Column="0"
                         Text="➕ Create Test Family"
                         Clicked="OnCreateTestFamilyClicked"
@@ -103,18 +103,18 @@
                         HeightRequest="45" />
 
                 <Button Grid.Row="1" Grid.Column="1"
-                        Text="🔄 Force Full Sync"
+                        Text="🔄 Force Cache Refresh"
                         Clicked="OnForceFullSyncClicked"
                         BackgroundColor="{StaticResource InfoColor}"
                         TextColor="White"
                         FontSize="12"
                         HeightRequest="45" />
 
-                <!-- Row 3: Cleanup tools -->
+                <!-- Row 3: Performance and debugging -->
                 <Button Grid.Row="2" Grid.Column="0"
-                        Text="🧹 Cleanup Duplicates"
-                        Clicked="OnCleanupDuplicatesClicked"
-                        BackgroundColor="{StaticResource WarningColor}"
+                        Text="⚡ Performance Test"
+                        Clicked="OnPerformanceTestClicked"
+                        BackgroundColor="#9C27B0"
                         TextColor="White"
                         FontSize="12"
                         HeightRequest="45" />
@@ -127,25 +127,8 @@
                         FontSize="12"
                         HeightRequest="45" />
 
-                <!-- Row 4: Debug tools -->
-                <Button Grid.Row="3" Grid.Column="0"
-                        Text="🔧 Debug Services"
-                        Clicked="OnDebugServicesClicked"
-                        BackgroundColor="#9C27B0"
-                        TextColor="White"
-                        FontSize="12"
-                        HeightRequest="45" />
-
-                <Button Grid.Row="3" Grid.Column="1"
-                        Text="🔄 Force Refresh"
-                        Clicked="OnForceRefreshClicked"
-                        BackgroundColor="#FF5722"
-                        TextColor="White"
-                        FontSize="12"
-                        HeightRequest="45" />
-
-                <!-- Row 5: Utility -->
-                <Button Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2"
+                <!-- Row 4: Utility -->
+                <Button Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2"
                         Text="🗑️ Clear Log"
                         Clicked="OnClearLogClicked"
                         BackgroundColor="{StaticResource Gray400}"
@@ -173,7 +156,7 @@
                                FontAttributes="Bold"
                                TextColor="{StaticResource Primary}"
                                HorizontalOptions="Center" />
-                        <Label Text="Local"
+                        <Label Text="Total"
                                FontSize="9"
                                TextColor="{StaticResource Gray600}"
                                HorizontalOptions="Center" />
@@ -210,9 +193,9 @@
                                Text="--"
                                FontSize="14"
                                FontAttributes="Bold"
-                               TextColor="{StaticResource ErrorColor}"
+                               TextColor="{StaticResource SuccessColor}"
                                HorizontalOptions="Center" />
-                        <Label Text="Duplicates"
+                        <Label Text="Cache"
                                FontSize="9"
                                TextColor="{StaticResource Gray600}"
                                HorizontalOptions="Center" />
@@ -244,7 +227,7 @@
 
                     <Grid ColumnDefinitions="*,Auto">
                         <Label Grid.Column="0"
-                               Text="📝 Debug Log Output"
+                               Text="📝 Simplified Architecture Debug Log"
                                FontSize="14"
                                FontAttributes="Bold"
                                TextColor="White"
@@ -267,7 +250,7 @@
                 <!-- Scrollable log content -->
                 <ScrollView Grid.Row="1" x:Name="LogScrollView">
                     <Label x:Name="StatusLabel"
-                           Text="🚀 Ready for sync debugging...\n💡 Click 'Test Connection' to start analysis\n"
+                           Text="🚀 SIMPLIFIED ARCHITECTURE - Ready for testing...\n✅ Direct Supabase with intelligent cache\n💡 Click 'Test Connection' to start analysis\n"
                            FontFamily="Courier New, Consolas, Monaco, monospace"
                            FontSize="11"
                            TextColor="{StaticResource OnSurface}"

@@ -3,7 +3,8 @@
 namespace OrchidPro.Models;
 
 /// <summary>
-/// Represents a botanical family entity with user isolation and sync support
+/// MIGRADO: Modelo simplificado da Family para arquitetura Supabase direto
+/// Remove complexidade de sincronização, mantém apenas o essencial
 /// </summary>
 public class Family
 {
@@ -51,19 +52,9 @@ public class Family
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Synchronization status with Supabase
+    /// SIMPLIFICADO: Status de sincronização - sempre Synced na nova arquitetura
     /// </summary>
-    public SyncStatus SyncStatus { get; set; } = SyncStatus.Local;
-
-    /// <summary>
-    /// When the family was last synchronized
-    /// </summary>
-    public DateTime? LastSyncAt { get; set; }
-
-    /// <summary>
-    /// Hash for conflict detection during sync
-    /// </summary>
-    public string? SyncHash { get; set; }
+    public SyncStatus SyncStatus { get; set; } = SyncStatus.Synced;
 
     /// <summary>
     /// Display name for UI purposes
@@ -76,28 +67,14 @@ public class Family
     public string StatusDisplay => IsActive ? "Active" : "Inactive";
 
     /// <summary>
-    /// Sync status display text for UI
+    /// SIMPLIFICADO: Sync status display - sempre synced
     /// </summary>
-    public string SyncStatusDisplay => SyncStatus switch
-    {
-        SyncStatus.Synced => "✅ Synced",
-        SyncStatus.Local => "📱 Local",
-        SyncStatus.Pending => "⏳ Pending",
-        SyncStatus.Error => "❌ Error",
-        _ => "❓ Unknown"
-    };
+    public string SyncStatusDisplay => "✅ Synced";
 
     /// <summary>
-    /// Color for sync status indicator
+    /// SIMPLIFICADO: Color for sync status - sempre verde
     /// </summary>
-    public Color SyncStatusColor => SyncStatus switch
-    {
-        SyncStatus.Synced => Colors.Green,
-        SyncStatus.Local => Colors.Orange,
-        SyncStatus.Pending => Colors.Blue,
-        SyncStatus.Error => Colors.Red,
-        _ => Colors.Gray
-    };
+    public Color SyncStatusColor => Colors.Green;
 
     /// <summary>
     /// Validates the family data
@@ -133,40 +110,44 @@ public class Family
             IsActive = this.IsActive,
             CreatedAt = this.CreatedAt,
             UpdatedAt = this.UpdatedAt,
-            SyncStatus = this.SyncStatus,
-            LastSyncAt = this.LastSyncAt,
-            SyncHash = this.SyncHash
+            SyncStatus = this.SyncStatus
         };
     }
+
+    /// <summary>
+    /// NOVO: Indicates if family requires internet connection (always true in simplified architecture)
+    /// </summary>
+    public bool RequiresConnection => true;
+
+    /// <summary>
+    /// NOVO: Connectivity status for UI
+    /// </summary>
+    public string ConnectivityStatus => "🌐 Online";
 }
 
 /// <summary>
-/// Enumeration for synchronization status
+/// SIMPLIFICADO: Enumeração para status de sincronização
+/// Na nova arquitetura, principalmente apenas Synced é usado
 /// </summary>
 public enum SyncStatus
 {
     /// <summary>
-    /// Only exists locally, not yet synced
-    /// </summary>
-    Local = 0,
-
-    /// <summary>
-    /// Successfully synchronized with server
+    /// Successfully synchronized with server (padrão na nova arquitetura)
     /// </summary>
     Synced = 1,
 
     /// <summary>
-    /// Waiting to be synchronized
+    /// Only exists locally, not yet synced (raro na nova arquitetura)
+    /// </summary>
+    Local = 0,
+
+    /// <summary>
+    /// Waiting to be synchronized (raro na nova arquitetura)
     /// </summary>
     Pending = 2,
 
     /// <summary>
     /// Error occurred during synchronization
     /// </summary>
-    Error = 3,
-
-    /// <summary>
-    /// Marked for deletion
-    /// </summary>
-    Deleted = 4
+    Error = 3
 }

@@ -3,12 +3,14 @@ using CommunityToolkit.Mvvm.Input;
 using OrchidPro.Models;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
+using System.Data;
 using System.Diagnostics;
 
 namespace OrchidPro.ViewModels;
 
 /// <summary>
-/// ViewModel for creating and editing Family entities
+/// MIGRADO: ViewModel para criação e edição de Family com arquitetura simplificada
+/// Adiciona indicadores de conectividade, remove complexidade de sincronização
 /// </summary>
 public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
 {
@@ -38,9 +40,6 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
 
     [ObservableProperty]
     private DateTime updatedAt;
-
-    [ObservableProperty]
-    private SyncStatus syncStatus;
 
     [ObservableProperty]
     private bool hasUnsavedChanges;
@@ -75,6 +74,22 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     [ObservableProperty]
     private Color saveButtonColor;
 
+    // NOVO: Indicadores de conectividade
+    [ObservableProperty]
+    private string connectionStatus = "🌐 Connected";
+
+    [ObservableProperty]
+    private Color connectionStatusColor = Colors.Green;
+
+    [ObservableProperty]
+    private bool isConnected = true;
+
+    [ObservableProperty]
+    private string syncStatus = "✅ Synced"; // Na nova arquitetura sempre synced
+
+    [ObservableProperty]
+    private Color syncStatusColor = Colors.Green;
+
     public string PageTitle => _isEditMode ? "Edit Family" : "Add Family";
     public string PageSubtitle => _isEditMode ? "Modify family information" : "Create a new botanical family";
 
@@ -88,6 +103,8 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
 
         // Set up validation
         SetupValidation();
+
+        Debug.WriteLine("✅ [FAMILY_EDIT_VM] Initialized with simplified architecture");
     }
 
     /// <summary>
@@ -99,11 +116,13 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         {
             FamilyId = id;
             _isEditMode = true;
+            Debug.WriteLine($"📝 [FAMILY_EDIT_VM] Edit mode for family: {id}");
         }
         else
         {
             _isEditMode = false;
             FamilyId = null;
+            Debug.WriteLine("➕ [FAMILY_EDIT_VM] Create mode");
         }
 
         Title = PageTitle;
@@ -111,10 +130,12 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     }
 
     /// <summary>
-    /// Initializes the ViewModel
+    /// MIGRADO: Inicializa o ViewModel com teste de conectividade
     /// </summary>
     protected override async Task InitializeAsync()
     {
+        await TestConnectionAsync();
+
         if (_isEditMode && FamilyId.HasValue)
         {
             await LoadFamilyAsync();
@@ -128,7 +149,29 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     }
 
     /// <summary>
-    /// Loads family data for editing
+    /// NOVO: Testa conectividade com servidor
+    /// </summary>
+    [RelayCommand]
+    private async Task TestConnectionAsync()
+    {
+        try
+        {
+            Debug.WriteLine("🔍 [FAMILY_EDIT_VM] Testing connection...");
+
+            var connected = await _familyRepository.TestConnectionAsync();
+            UpdateConnectionStatus(connected);
+
+            Debug.WriteLine($"🔍 [FAMILY_EDIT_VM] Connection test result: {connected}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Connection test failed: {ex.Message}");
+            UpdateConnectionStatus(false);
+        }
+    }
+
+    /// <summary>
+    /// MIGRADO: Carrega dados da família para edição
     /// </summary>
     [RelayCommand]
     private async Task LoadFamilyAsync()
@@ -139,23 +182,29 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         {
             IsBusy = true;
 
+            Debug.WriteLine($"📥 [FAMILY_EDIT_VM] Loading family: {FamilyId}");
+
             var family = await _familyRepository.GetByIdAsync(FamilyId.Value);
             if (family != null)
             {
                 _originalFamily = family.Clone();
                 PopulateFromFamily(family);
                 CanDelete = !family.IsSystemDefault;
+
+                Debug.WriteLine($"✅ [FAMILY_EDIT_VM] Loaded family: {family.Name}");
             }
             else
             {
+                Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Family not found: {FamilyId}");
                 await ShowErrorAsync("Family Not Found", "The requested family could not be found.");
                 await _navigationService.GoBackAsync();
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error loading family: {ex.Message}");
-            await ShowErrorAsync("Load Error", "Failed to load family data.");
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Load error: {ex.Message}");
+            await ShowErrorAsync("Load Error", "Failed to load family data. Check your connection.");
+            UpdateConnectionStatus(false);
         }
         finally
         {
@@ -171,13 +220,16 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         var now = DateTime.UtcNow;
         CreatedAt = now;
         UpdatedAt = now;
-        SyncStatus = SyncStatus.Local;
         IsActive = true;
         IsSystemDefault = false;
         CanDelete = false;
+        SyncStatus = "📝 Ready to save";
+        SyncStatusColor = Colors.Orange;
 
         // Focus on name field for new entries
         IsNameFocused = true;
+
+        Debug.WriteLine("📝 [FAMILY_EDIT_VM] Set up new family form");
     }
 
     /// <summary>
@@ -191,25 +243,36 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         IsSystemDefault = family.IsSystemDefault;
         CreatedAt = family.CreatedAt;
         UpdatedAt = family.UpdatedAt;
-        SyncStatus = family.SyncStatus;
 
         // Reset change tracking after loading
         HasUnsavedChanges = false;
+
+        // In new architecture, always synced
+        SyncStatus = "✅ Synced";
+        SyncStatusColor = Colors.Green;
     }
 
     /// <summary>
-    /// Saves the family (create or update)
+    /// MIGRADO: Salva a família (criar ou atualizar)
     /// </summary>
     [RelayCommand]
     private async Task SaveAsync()
     {
         if (!await ValidateFormAsync()) return;
 
+        if (!IsConnected)
+        {
+            await ShowErrorAsync("No Connection", "Cannot save without internet connection. Please check your connection and try again.");
+            return;
+        }
+
         try
         {
             IsBusy = true;
             SaveButtonText = "Saving...";
             SaveButtonColor = Colors.Orange;
+            SyncStatus = "⏳ Saving...";
+            SyncStatusColor = Colors.Orange;
 
             Family family;
 
@@ -221,8 +284,12 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
                 family.Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim();
                 family.IsActive = IsActive;
 
+                Debug.WriteLine($"📝 [FAMILY_EDIT_VM] Updating family: {family.Name}");
+
                 family = await _familyRepository.UpdateAsync(family);
                 await ShowSuccessAsync("Family updated successfully!");
+
+                Debug.WriteLine($"✅ [FAMILY_EDIT_VM] Updated family: {family.Name}");
             }
             else
             {
@@ -234,20 +301,31 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
                     IsActive = IsActive
                 };
 
+                Debug.WriteLine($"➕ [FAMILY_EDIT_VM] Creating family: {family.Name}");
+
                 family = await _familyRepository.CreateAsync(family);
                 await ShowSuccessAsync("Family created successfully!");
+
+                Debug.WriteLine($"✅ [FAMILY_EDIT_VM] Created family: {family.Name}");
             }
 
             // Reset change tracking
             HasUnsavedChanges = false;
+            SyncStatus = "✅ Synced";
+            SyncStatusColor = Colors.Green;
 
             // Navigate back to list
             await _navigationService.GoBackAsync();
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error saving family: {ex.Message}");
-            await ShowErrorAsync("Save Error", "Failed to save family. Please try again.");
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Save error: {ex.Message}");
+
+            SyncStatus = "❌ Save failed";
+            SyncStatusColor = Colors.Red;
+
+            await ShowErrorAsync("Save Error", "Failed to save family. Please check your connection and try again.");
+            UpdateConnectionStatus(false);
         }
         finally
         {
@@ -258,12 +336,18 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     }
 
     /// <summary>
-    /// Deletes the family
+    /// MIGRADO: Exclui a família
     /// </summary>
     [RelayCommand]
     private async Task DeleteAsync()
     {
         if (!_isEditMode || !FamilyId.HasValue || IsSystemDefault) return;
+
+        if (!IsConnected)
+        {
+            await ShowErrorAsync("No Connection", "Cannot delete without internet connection.");
+            return;
+        }
 
         var confirmed = await ShowConfirmAsync(
             "Delete Family",
@@ -274,6 +358,10 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         try
         {
             IsBusy = true;
+            SyncStatus = "🗑️ Deleting...";
+            SyncStatusColor = Colors.Red;
+
+            Debug.WriteLine($"🗑️ [FAMILY_EDIT_VM] Deleting family: {Name}");
 
             var success = await _familyRepository.DeleteAsync(FamilyId.Value);
 
@@ -281,6 +369,8 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
             {
                 await ShowSuccessAsync("Family deleted successfully!");
                 await _navigationService.GoBackAsync();
+
+                Debug.WriteLine($"✅ [FAMILY_EDIT_VM] Deleted family: {Name}");
             }
             else
             {
@@ -289,12 +379,15 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error deleting family: {ex.Message}");
-            await ShowErrorAsync("Delete Error", "Failed to delete family. Please try again.");
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Delete error: {ex.Message}");
+            await ShowErrorAsync("Delete Error", "Failed to delete family. Please check your connection and try again.");
+            UpdateConnectionStatus(false);
         }
         finally
         {
             IsBusy = false;
+            SyncStatus = "✅ Synced";
+            SyncStatusColor = Colors.Green;
         }
     }
 
@@ -313,11 +406,12 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
             if (!confirmed) return;
         }
 
+        Debug.WriteLine("🚫 [FAMILY_EDIT_VM] Cancelled editing");
         await _navigationService.GoBackAsync();
     }
 
     /// <summary>
-    /// Validates the name field
+    /// MIGRADO: Valida o campo nome
     /// </summary>
     [RelayCommand]
     private async Task ValidateNameAsync()
@@ -365,9 +459,10 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error validating name: {ex.Message}");
-            NameError = "Error validating name";
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Name validation error: {ex.Message}");
+            NameError = "Error validating name - check connection";
             IsNameValid = false;
+            UpdateConnectionStatus(false);
         }
         finally
         {
@@ -413,7 +508,31 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     /// </summary>
     private void UpdateSaveButton()
     {
-        CanSave = IsNameValid && IsDescriptionValid && !string.IsNullOrWhiteSpace(Name);
+        CanSave = IsNameValid && IsDescriptionValid && !string.IsNullOrWhiteSpace(Name) && IsConnected;
+    }
+
+    /// <summary>
+    /// NOVO: Atualiza status de conectividade
+    /// </summary>
+    private void UpdateConnectionStatus(bool connected)
+    {
+        IsConnected = connected;
+
+        if (connected)
+        {
+            ConnectionStatus = "🌐 Connected";
+            ConnectionStatusColor = Colors.Green;
+        }
+        else
+        {
+            ConnectionStatus = "📡 Disconnected";
+            ConnectionStatusColor = Colors.Red;
+
+            SyncStatus = "📡 Offline";
+            SyncStatusColor = Colors.Red;
+        }
+
+        UpdateSaveButton();
     }
 
     /// <summary>
@@ -459,27 +578,9 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     private async Task ShowInfoAsync()
     {
         var message = _isEditMode
-            ? $"Family ID: {FamilyId}\nCreated: {CreatedAt:F}\nLast Updated: {UpdatedAt:F}\nSync Status: {SyncStatus}"
-            : "This will create a new botanical family in your collection.";
+            ? $"Family ID: {FamilyId}\nCreated: {CreatedAt:F}\nLast Updated: {UpdatedAt:F}\nConnection: {ConnectionStatus}\nSync: {SyncStatus}"
+            : $"This will create a new botanical family in your collection.\nConnection: {ConnectionStatus}";
 
         await ShowErrorAsync("Family Information", message);
     }
-
-    public string SyncStatusDisplay => SyncStatus switch
-    {
-        SyncStatus.Synced => "✅ Synced with server",
-        SyncStatus.Local => "📱 Local only",
-        SyncStatus.Pending => "⏳ Pending sync",
-        SyncStatus.Error => "❌ Sync error",
-        _ => "❓ Unknown status"
-    };
-
-    public Color SyncStatusColor => SyncStatus switch
-    {
-        SyncStatus.Synced => Colors.Green,
-        SyncStatus.Local => Colors.Orange,
-        SyncStatus.Pending => Colors.Blue,
-        SyncStatus.Error => Colors.Red,
-        _ => Colors.Gray
-    };
 }

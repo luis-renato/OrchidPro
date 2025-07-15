@@ -1,391 +1,141 @@
 ﻿using OrchidPro.Models;
 using OrchidPro.Services.Data;
-using System.Security.Cryptography;
-using System.Text;
 using System.Diagnostics;
 
 namespace OrchidPro.Services;
 
 /// <summary>
-/// CORRIGIDO: Repository com controle de duplicatas e sync melhorado
-/// Versão sem await dentro de lock
+/// MIGRADO: Repository simplificado com cache inteligente
+/// Remove complexidade de sincronização, usa Supabase direto com cache para performance
 /// </summary>
 public class FamilyRepository : IFamilyRepository
 {
     private readonly SupabaseService _supabaseService;
-    private readonly ILocalDataService _localDataService;
-    private readonly SupabaseFamilySync _syncService;
-    private readonly List<Family> _localFamilies = new();
-    private Guid? _currentUserId;
-    private readonly object _localLock = new object();
-    private readonly HashSet<Guid> _pendingAutoSync = new(); // Previne auto-sync duplicado
-    private readonly SemaphoreSlim _semaphore = new(1, 1); // Para operações async thread-safe
+    private readonly SupabaseFamilyService _familyService;
+    private readonly List<Family> _cache = new();
+    private DateTime? _lastCacheUpdate;
+    private readonly TimeSpan _cacheValidTime = TimeSpan.FromMinutes(5);
+    private readonly SemaphoreSlim _semaphore = new(1, 1);
+    private readonly object _cacheLock = new object();
 
-    public FamilyRepository(SupabaseService supabaseService, ILocalDataService localDataService, SupabaseFamilySync syncService)
+    public FamilyRepository(SupabaseService supabaseService, SupabaseFamilyService familyService)
     {
         _supabaseService = supabaseService;
-        _localDataService = localDataService;
-        _syncService = syncService;
-        _ = InitializeAsync();
+        _familyService = familyService;
+
+        Debug.WriteLine("✅ [FAMILY_REPO] Initialized with simplified architecture and intelligent cache");
     }
 
-    private async Task InitializeAsync()
-    {
-        try
-        {
-            Debug.WriteLine("🔄 [REPO] Initializing FamilyRepository...");
-
-            // Get current user ID
-            var currentUserIdString = _supabaseService.GetCurrentUserId();
-            if (!string.IsNullOrEmpty(currentUserIdString) && Guid.TryParse(currentUserIdString, out var userId))
-            {
-                _currentUserId = userId;
-                Debug.WriteLine($"✅ [REPO] Current user ID: {_currentUserId}");
-            }
-
-            // Load local data
-            await LoadLocalDataAsync();
-
-            // Test connection and try sync if possible
-            var canSync = await _syncService.TestConnectionAsync();
-            Debug.WriteLine($"🌐 [REPO] Sync available: {canSync}");
-
-            if (canSync && _supabaseService.IsAuthenticated)
-            {
-                await PerformInitialSyncAsync();
-            }
-            else
-            {
-                bool hasOrchidaceae;
-                lock (_localLock)
-                {
-                    hasOrchidaceae = _localFamilies.Any(f => f.Name == "Orchidaceae");
-                }
-
-                if (!hasOrchidaceae)
-                {
-                    await SeedMinimalDefaultFamiliesAsync();
-                }
-            }
-
-            Debug.WriteLine("✅ [REPO] FamilyRepository initialized");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [REPO] FamilyRepository init error: {ex.Message}");
-
-            // Fallback - ensure we have at least Orchidaceae
-            bool hasOrchidaceae;
-            lock (_localLock)
-            {
-                hasOrchidaceae = _localFamilies.Any();
-            }
-
-            if (!hasOrchidaceae)
-            {
-                await SeedMinimalDefaultFamiliesAsync();
-            }
-        }
-    }
-
-    private async Task PerformInitialSyncAsync()
-    {
-        try
-        {
-            Debug.WriteLine("📥 [REPO] Initial sync...");
-
-            var serverFamilies = await _syncService.DownloadFamiliesAsync();
-
-            if (serverFamilies.Any())
-            {
-                Debug.WriteLine($"📥 [REPO] Downloaded {serverFamilies.Count} families from server");
-
-                // Process merges without blocking the lock for async operations
-                var mergeOperations = new List<Task>();
-
-                foreach (var serverFamily in serverFamilies)
-                {
-                    Family? localFamily;
-                    Family? localByName;
-
-                    lock (_localLock)
-                    {
-                        localFamily = _localFamilies.FirstOrDefault(f => f.Id == serverFamily.Id);
-                        localByName = localFamily == null ? _localFamilies.FirstOrDefault(f =>
-                            string.Equals(f.Name, serverFamily.Name, StringComparison.OrdinalIgnoreCase) &&
-                            f.UserId == serverFamily.UserId) : null;
-                    }
-
-                    if (localFamily == null)
-                    {
-                        if (localByName != null)
-                        {
-                            // Merge by name - replace local with server version
-                            Debug.WriteLine($"📥 [REPO] Merging by name: {serverFamily.Name} (Local ID: {localByName.Id} → Server ID: {serverFamily.Id})");
-
-                            lock (_localLock)
-                            {
-                                _localFamilies.Remove(localByName);
-                                serverFamily.SyncStatus = SyncStatus.Synced;
-                                serverFamily.LastSyncAt = DateTime.UtcNow;
-                                _localFamilies.Add(serverFamily);
-                            }
-
-                            mergeOperations.Add(_localDataService.SaveFamilyAsync(serverFamily));
-                        }
-                        else
-                        {
-                            // New family from server
-                            lock (_localLock)
-                            {
-                                serverFamily.SyncStatus = SyncStatus.Synced;
-                                serverFamily.LastSyncAt = DateTime.UtcNow;
-                                _localFamilies.Add(serverFamily);
-                            }
-
-                            mergeOperations.Add(_localDataService.SaveFamilyAsync(serverFamily));
-                            Debug.WriteLine($"📥 [REPO] Added from server: {serverFamily.Name}");
-                        }
-                    }
-                    else if (serverFamily.UpdatedAt > localFamily.UpdatedAt)
-                    {
-                        // Update with more recent server data
-                        lock (_localLock)
-                        {
-                            var index = _localFamilies.IndexOf(localFamily);
-                            serverFamily.SyncStatus = SyncStatus.Synced;
-                            serverFamily.LastSyncAt = DateTime.UtcNow;
-                            _localFamilies[index] = serverFamily;
-                        }
-
-                        mergeOperations.Add(_localDataService.SaveFamilyAsync(serverFamily));
-                        Debug.WriteLine($"📥 [REPO] Updated from server: {serverFamily.Name}");
-                    }
-                    else
-                    {
-                        // Local is equal or more recent - mark as synced
-                        lock (_localLock)
-                        {
-                            localFamily.SyncStatus = SyncStatus.Synced;
-                            localFamily.LastSyncAt = DateTime.UtcNow;
-                        }
-
-                        mergeOperations.Add(_localDataService.SaveFamilyAsync(localFamily));
-                    }
-                }
-
-                // Wait for all merge operations to complete
-                await Task.WhenAll(mergeOperations);
-
-                // Upload pending local families
-                List<Family> pendingFamilies;
-                lock (_localLock)
-                {
-                    pendingFamilies = _localFamilies.Where(f =>
-                        f.SyncStatus == SyncStatus.Local || f.SyncStatus == SyncStatus.Pending
-                    ).ToList();
-                }
-
-                Debug.WriteLine($"📤 [REPO] Found {pendingFamilies.Count} local families to upload");
-
-                foreach (var pendingFamily in pendingFamilies)
-                {
-                    var success = await _syncService.UploadFamilyAsync(pendingFamily);
-
-                    lock (_localLock)
-                    {
-                        if (success)
-                        {
-                            pendingFamily.SyncStatus = SyncStatus.Synced;
-                            pendingFamily.LastSyncAt = DateTime.UtcNow;
-                            Debug.WriteLine($"📤 [REPO] Uploaded: {pendingFamily.Name}");
-                        }
-                        else
-                        {
-                            pendingFamily.SyncStatus = SyncStatus.Error;
-                            Debug.WriteLine($"❌ [REPO] Upload failed: {pendingFamily.Name}");
-                        }
-                    }
-
-                    await _localDataService.SaveFamilyAsync(pendingFamily);
-
-                    // Delay para evitar rate limiting
-                    await Task.Delay(100);
-                }
-            }
-            else
-            {
-                bool hasOrchidaceae;
-                lock (_localLock)
-                {
-                    hasOrchidaceae = _localFamilies.Any(f => f.Name == "Orchidaceae");
-                }
-
-                if (!hasOrchidaceae)
-                {
-                    await SeedMinimalDefaultFamiliesAsync();
-
-                    Family? orchidFamily;
-                    lock (_localLock)
-                    {
-                        orchidFamily = _localFamilies.FirstOrDefault(f => f.Name == "Orchidaceae");
-                    }
-
-                    if (orchidFamily != null)
-                    {
-                        await TryAutoSyncFamilyAsync(orchidFamily);
-                    }
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [REPO] Initial sync failed: {ex.Message}");
-        }
-    }
-
-    private async Task LoadLocalDataAsync()
-    {
-        try
-        {
-            var localData = await _localDataService.GetAllFamiliesAsync();
-
-            lock (_localLock)
-            {
-                _localFamilies.Clear();
-                _localFamilies.AddRange(localData);
-            }
-
-            Debug.WriteLine($"💾 [REPO] Loaded {localData.Count} local families");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [REPO] Error loading local families: {ex.Message}");
-        }
-    }
-
-    private async Task SeedMinimalDefaultFamiliesAsync()
-    {
-        var orchidFamily = new Family
-        {
-            Name = "Orchidaceae",
-            Description = "The orchid family - largest family of flowering plants with over 25,000 species worldwide.",
-            IsSystemDefault = true,
-            IsActive = true,
-            SyncStatus = SyncStatus.Local,
-            UserId = null,
-            CreatedAt = DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
-
-        orchidFamily.SyncHash = GenerateHash(orchidFamily);
-
-        lock (_localLock)
-        {
-            _localFamilies.Add(orchidFamily);
-        }
-
-        await _localDataService.SaveFamilyAsync(orchidFamily);
-        Debug.WriteLine("🌺 [REPO] Seeded Orchidaceae");
-    }
-
-    // MÉTODOS PRINCIPAIS
+    /// <summary>
+    /// Busca todas as famílias com cache inteligente
+    /// </summary>
     public async Task<List<Family>> GetAllAsync(bool includeInactive = false)
     {
-        await LoadLocalDataAsync();
-
-        lock (_localLock)
+        await _semaphore.WaitAsync();
+        try
         {
-            var families = _localFamilies.Where(f =>
-                (f.UserId == _currentUserId || f.UserId == null) &&
-                (includeInactive || f.IsActive)
-            ).ToList();
+            // Verificar se cache é válido
+            if (IsCacheValid())
+            {
+                Debug.WriteLine("💾 [FAMILY_REPO] Using cached data");
+                return GetFromCache(includeInactive);
+            }
 
-            return families.OrderBy(f => f.Name).ToList();
+            // Cache inválido - buscar do servidor
+            Debug.WriteLine("🔄 [FAMILY_REPO] Cache expired - fetching from server");
+            await RefreshCacheInternalAsync();
+
+            return GetFromCache(includeInactive);
+        }
+        finally
+        {
+            _semaphore.Release();
         }
     }
 
+    /// <summary>
+    /// Busca famílias com filtros
+    /// </summary>
     public async Task<List<Family>> GetFilteredAsync(string? searchText = null, bool? statusFilter = null, SyncStatus? syncFilter = null)
     {
-        var families = await GetAllAsync(true);
+        var families = await GetAllAsync(true); // Include inactive for filtering
 
+        // Aplicar filtro de texto
         if (!string.IsNullOrWhiteSpace(searchText))
         {
-            searchText = searchText.ToLowerInvariant();
+            var searchLower = searchText.ToLowerInvariant();
             families = families.Where(f =>
-                f.Name.ToLowerInvariant().Contains(searchText) ||
-                (!string.IsNullOrEmpty(f.Description) && f.Description.ToLowerInvariant().Contains(searchText))
+                f.Name.ToLowerInvariant().Contains(searchLower) ||
+                (!string.IsNullOrEmpty(f.Description) && f.Description.ToLowerInvariant().Contains(searchLower))
             ).ToList();
         }
 
+        // Aplicar filtro de status
         if (statusFilter.HasValue)
         {
             families = families.Where(f => f.IsActive == statusFilter.Value).ToList();
         }
 
-        if (syncFilter.HasValue)
-        {
-            families = families.Where(f => f.SyncStatus == syncFilter.Value).ToList();
-        }
+        // SyncFilter ignorado na nova arquitetura (todos sempre synced)
 
+        Debug.WriteLine($"🔍 [FAMILY_REPO] Filtered results: {families.Count} families");
         return families.OrderBy(f => f.Name).ToList();
     }
 
+    /// <summary>
+    /// Busca família por ID
+    /// </summary>
     public async Task<Family?> GetByIdAsync(Guid id)
     {
-        await LoadLocalDataAsync();
+        var families = await GetAllAsync(true);
+        var family = families.FirstOrDefault(f => f.Id == id);
 
-        lock (_localLock)
+        if (family != null)
         {
-            return _localFamilies.FirstOrDefault(f => f.Id == id);
+            Debug.WriteLine($"✅ [FAMILY_REPO] Found family by ID: {family.Name}");
         }
+        else
+        {
+            Debug.WriteLine($"❌ [FAMILY_REPO] Family not found by ID: {id}");
+        }
+
+        return family;
     }
 
+    /// <summary>
+    /// Busca família por nome
+    /// </summary>
     public async Task<Family?> GetByNameAsync(string name)
     {
-        await LoadLocalDataAsync();
+        var families = await GetAllAsync(true);
+        var family = families.FirstOrDefault(f =>
+            string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase));
 
-        lock (_localLock)
+        if (family != null)
         {
-            return _localFamilies.FirstOrDefault(f =>
-                string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase) &&
-                (f.UserId == _currentUserId || f.UserId == null)
-            );
+            Debug.WriteLine($"✅ [FAMILY_REPO] Found family by name: {family.Name}");
         }
+
+        return family;
     }
 
+    /// <summary>
+    /// Cria nova família
+    /// </summary>
     public async Task<Family> CreateAsync(Family family)
     {
         await _semaphore.WaitAsync();
         try
         {
-            // Verificar se nome já existe
-            var existing = await GetByNameAsync(family.Name);
-            if (existing != null)
-            {
-                throw new InvalidOperationException($"A family with the name '{family.Name}' already exists");
-            }
+            Debug.WriteLine($"➕ [FAMILY_REPO] Creating family: {family.Name}");
 
-            // Configurar nova família
-            family.Id = Guid.NewGuid();
-            family.UserId = _currentUserId;
-            family.CreatedAt = DateTime.UtcNow;
-            family.UpdatedAt = DateTime.UtcNow;
-            family.SyncStatus = SyncStatus.Local;
-            family.SyncHash = GenerateHash(family);
+            var created = await _familyService.CreateAsync(family);
 
-            lock (_localLock)
-            {
-                _localFamilies.Add(family);
-            }
+            // Invalidar cache para forçar refresh na próxima consulta
+            InvalidateCache();
 
-            await _localDataService.SaveFamilyAsync(family);
-
-            // Auto-sync em background (com controle de duplicação)
-            _ = Task.Run(async () => await TryAutoSyncFamilyAsync(family));
-
-            Debug.WriteLine($"✅ [REPO] Created family: {family.Name} (ID: {family.Id})");
-            return family;
+            Debug.WriteLine($"✅ [FAMILY_REPO] Created and cache invalidated: {created.Name}");
+            return created;
         }
         finally
         {
@@ -393,50 +143,23 @@ public class FamilyRepository : IFamilyRepository
         }
     }
 
+    /// <summary>
+    /// Atualiza família existente
+    /// </summary>
     public async Task<Family> UpdateAsync(Family family)
     {
         await _semaphore.WaitAsync();
         try
         {
-            Family existingFamily;
+            Debug.WriteLine($"📝 [FAMILY_REPO] Updating family: {family.Name}");
 
-            lock (_localLock)
-            {
-                var existingIndex = _localFamilies.FindIndex(f => f.Id == family.Id);
-                if (existingIndex == -1)
-                {
-                    throw new InvalidOperationException("Family not found");
-                }
-                existingFamily = _localFamilies[existingIndex];
-            }
+            var updated = await _familyService.UpdateAsync(family);
 
-            // Verificar se nome já existe em outra família
-            var nameConflict = await GetByNameAsync(family.Name);
-            if (nameConflict != null && nameConflict.Id != family.Id)
-            {
-                throw new InvalidOperationException($"A family with the name '{family.Name}' already exists");
-            }
+            // Invalidar cache
+            InvalidateCache();
 
-            family.UpdatedAt = DateTime.UtcNow;
-            if (family.SyncStatus == SyncStatus.Synced)
-            {
-                family.SyncStatus = SyncStatus.Pending;
-            }
-            family.SyncHash = GenerateHash(family);
-
-            lock (_localLock)
-            {
-                var existingIndex = _localFamilies.FindIndex(f => f.Id == family.Id);
-                _localFamilies[existingIndex] = family;
-            }
-
-            await _localDataService.SaveFamilyAsync(family);
-
-            // Auto-sync em background
-            _ = Task.Run(async () => await TryAutoSyncFamilyAsync(family));
-
-            Debug.WriteLine($"✅ [REPO] Updated family: {family.Name}");
-            return family;
+            Debug.WriteLine($"✅ [FAMILY_REPO] Updated and cache invalidated: {updated.Name}");
+            return updated;
         }
         finally
         {
@@ -444,34 +167,26 @@ public class FamilyRepository : IFamilyRepository
         }
     }
 
+    /// <summary>
+    /// Soft delete de família
+    /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
         await _semaphore.WaitAsync();
         try
         {
-            Family? family;
+            Debug.WriteLine($"🗑️ [FAMILY_REPO] Deleting family: {id}");
 
-            lock (_localLock)
+            var success = await _familyService.DeleteAsync(id);
+
+            if (success)
             {
-                family = _localFamilies.FirstOrDefault(f => f.Id == id);
+                // Invalidar cache
+                InvalidateCache();
+                Debug.WriteLine($"✅ [FAMILY_REPO] Deleted and cache invalidated");
             }
 
-            if (family == null || family.IsSystemDefault)
-            {
-                return false;
-            }
-
-            family.IsActive = false;
-            family.UpdatedAt = DateTime.UtcNow;
-            family.SyncStatus = SyncStatus.Pending;
-
-            await _localDataService.SaveFamilyAsync(family);
-
-            // Auto-sync em background
-            _ = Task.Run(async () => await TryAutoSyncFamilyAsync(family));
-
-            Debug.WriteLine($"✅ [REPO] Soft deleted family: {family.Name}");
-            return true;
+            return success;
         }
         finally
         {
@@ -479,6 +194,9 @@ public class FamilyRepository : IFamilyRepository
         }
     }
 
+    /// <summary>
+    /// Delete múltiplo
+    /// </summary>
     public async Task<int> DeleteMultipleAsync(IEnumerable<Guid> ids)
     {
         int count = 0;
@@ -492,179 +210,179 @@ public class FamilyRepository : IFamilyRepository
         return count;
     }
 
+    /// <summary>
+    /// Verifica se nome existe
+    /// </summary>
     public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
     {
-        var families = await GetAllAsync(true);
-        return families.Any(f =>
-            string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase) &&
-            f.Id != excludeId
-        );
-    }
-
-    public async Task<FamilyStatistics> GetStatisticsAsync()
-    {
-        var families = await GetAllAsync(true);
-
-        return new FamilyStatistics
-        {
-            TotalCount = families.Count,
-            ActiveCount = families.Count(f => f.IsActive),
-            InactiveCount = families.Count(f => !f.IsActive),
-            SyncedCount = families.Count(f => f.SyncStatus == SyncStatus.Synced),
-            LocalCount = families.Count(f => f.SyncStatus == SyncStatus.Local),
-            PendingCount = families.Count(f => f.SyncStatus == SyncStatus.Pending),
-            ErrorCount = families.Count(f => f.SyncStatus == SyncStatus.Error),
-            SystemDefaultCount = families.Count(f => f.IsSystemDefault),
-            UserCreatedCount = families.Count(f => !f.IsSystemDefault),
-            LastSyncTime = families.Where(f => f.LastSyncAt.HasValue).Max(f => f.LastSyncAt) ?? DateTime.MinValue
-        };
+        return await _familyService.NameExistsAsync(name, excludeId);
     }
 
     /// <summary>
-    /// CORRIGIDO: Auto-sync com controle de duplicação
+    /// Obtém estatísticas
     /// </summary>
-    private async Task TryAutoSyncFamilyAsync(Family family)
+    public async Task<FamilyStatistics> GetStatisticsAsync()
     {
-        // Prevenir sync simultâneo da mesma família
-        lock (_pendingAutoSync)
-        {
-            if (_pendingAutoSync.Contains(family.Id))
-            {
-                Debug.WriteLine($"⏸️ [REPO] Auto-sync already in progress for: {family.Name}");
-                return;
-            }
-            _pendingAutoSync.Add(family.Id);
-        }
+        return await _familyService.GetStatisticsAsync();
+    }
+
+    /// <summary>
+    /// Force refresh do cache
+    /// </summary>
+    public async Task<SyncResult> ForceFullSyncAsync()
+    {
+        var startTime = DateTime.UtcNow;
+        Debug.WriteLine("🔄 [FAMILY_REPO] Force refresh cache from server...");
 
         try
         {
-            if (!_supabaseService.IsAuthenticated)
+            await RefreshCacheAsync();
+
+            var families = GetFromCache(true);
+            var endTime = DateTime.UtcNow;
+
+            return new SyncResult
             {
-                Debug.WriteLine($"⏸️ [REPO] Auto-sync skipped (not authenticated): {family.Name}");
-                return;
-            }
-
-            // Delay inicial para evitar sync imediato
-            await Task.Delay(2000);
-
-            Debug.WriteLine($"🔄 [REPO] Auto-syncing: {family.Name}");
-
-            var success = await _syncService.UploadFamilyAsync(family);
-
-            Family? localFamily;
-            lock (_localLock)
-            {
-                localFamily = _localFamilies.FirstOrDefault(f => f.Id == family.Id);
-            }
-
-            if (localFamily != null)
-            {
-                if (success)
-                {
-                    lock (_localLock)
-                    {
-                        localFamily.SyncStatus = SyncStatus.Synced;
-                        localFamily.LastSyncAt = DateTime.UtcNow;
-                    }
-                    Debug.WriteLine($"✅ [REPO] Auto-synced: {family.Name}");
-                }
-                else
-                {
-                    lock (_localLock)
-                    {
-                        localFamily.SyncStatus = SyncStatus.Error;
-                    }
-                    Debug.WriteLine($"❌ [REPO] Auto-sync failed: {family.Name}");
-                }
-
-                await _localDataService.SaveFamilyAsync(localFamily);
-            }
+                StartTime = startTime,
+                EndTime = endTime,
+                Duration = endTime - startTime,
+                TotalProcessed = families.Count,
+                Successful = families.Count,
+                Failed = 0
+            };
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [REPO] Auto-sync error for {family.Name}: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILY_REPO] Force refresh failed: {ex.Message}");
 
-            Family? localFamily;
-            lock (_localLock)
+            return new SyncResult
             {
-                localFamily = _localFamilies.FirstOrDefault(f => f.Id == family.Id);
-            }
+                StartTime = startTime,
+                EndTime = DateTime.UtcNow,
+                Duration = DateTime.UtcNow - startTime,
+                TotalProcessed = 0,
+                Successful = 0,
+                Failed = 1,
+                ErrorMessages = { ex.Message }
+            };
+        }
+    }
 
-            if (localFamily != null)
-            {
-                lock (_localLock)
-                {
-                    localFamily.SyncStatus = SyncStatus.Error;
-                }
-                await _localDataService.SaveFamilyAsync(localFamily);
-            }
+    /// <summary>
+    /// Refresh manual do cache
+    /// </summary>
+    public async Task RefreshCacheAsync()
+    {
+        await _semaphore.WaitAsync();
+        try
+        {
+            await RefreshCacheInternalAsync();
         }
         finally
         {
-            lock (_pendingAutoSync)
-            {
-                _pendingAutoSync.Remove(family.Id);
-            }
+            _semaphore.Release();
         }
     }
 
-    public async Task<SyncResult> ForceFullSyncAsync()
+    /// <summary>
+    /// Testa conectividade
+    /// </summary>
+    public async Task<bool> TestConnectionAsync()
     {
-        Debug.WriteLine("🔄 [REPO] Manual full sync started...");
-
-        if (!_supabaseService.IsAuthenticated)
-        {
-            return new SyncResult
-            {
-                StartTime = DateTime.UtcNow,
-                EndTime = DateTime.UtcNow,
-                ErrorMessages = { "User not authenticated" }
-            };
-        }
-
-        List<Family> localFamiliesCopy;
-        lock (_localLock)
-        {
-            localFamiliesCopy = _localFamilies.ToList();
-        }
-
-        var result = await _syncService.PerformFullSyncAsync(localFamiliesCopy);
-
-        // Update local status based on sync results
-        if (result.Successful > 0)
-        {
-            await LoadLocalDataAsync(); // Reload to get updated data
-
-            List<Family> familiesToUpdate;
-            lock (_localLock)
-            {
-                familiesToUpdate = _localFamilies.Where(f =>
-                    f.SyncStatus == SyncStatus.Pending || f.SyncStatus == SyncStatus.Local).ToList();
-            }
-
-            var updateTasks = new List<Task>();
-            foreach (var family in familiesToUpdate)
-            {
-                lock (_localLock)
-                {
-                    family.SyncStatus = SyncStatus.Synced;
-                    family.LastSyncAt = DateTime.UtcNow;
-                }
-                updateTasks.Add(_localDataService.SaveFamilyAsync(family));
-            }
-
-            await Task.WhenAll(updateTasks);
-        }
-
-        Debug.WriteLine($"✅ [REPO] Manual sync completed: {result.Successful}/{result.TotalProcessed} successful");
-        return result;
+        return await _familyService.TestConnectionAsync();
     }
 
-    private static string GenerateHash(Family family)
+    /// <summary>
+    /// Obtém informações do cache
+    /// </summary>
+    public string GetCacheInfo()
     {
-        var data = $"{family.Name}|{family.Description}|{family.IsActive}|{family.UpdatedAt:O}";
-        using var sha256 = SHA256.Create();
-        var hash = sha256.ComputeHash(Encoding.UTF8.GetBytes(data));
-        return Convert.ToBase64String(hash);
+        lock (_cacheLock)
+        {
+            if (_lastCacheUpdate == null)
+            {
+                return "Cache empty";
+            }
+
+            var age = DateTime.UtcNow - _lastCacheUpdate.Value;
+            var isValid = age < _cacheValidTime;
+            var status = isValid ? "VALID" : "EXPIRED";
+
+            return $"Cache: {_cache.Count} families, {age.TotalMinutes:F1}min old, {status}";
+        }
+    }
+
+    /// <summary>
+    /// Refresh interno do cache
+    /// </summary>
+    private async Task RefreshCacheInternalAsync()
+    {
+        try
+        {
+            Debug.WriteLine("📥 [FAMILY_REPO] Refreshing cache from server...");
+
+            var families = await _familyService.GetAllAsync();
+
+            lock (_cacheLock)
+            {
+                _cache.Clear();
+                _cache.AddRange(families);
+                _lastCacheUpdate = DateTime.UtcNow;
+            }
+
+            Debug.WriteLine($"💾 [FAMILY_REPO] Cache refreshed with {families.Count} families");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_REPO] Cache refresh failed: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Verifica se cache é válido
+    /// </summary>
+    private bool IsCacheValid()
+    {
+        lock (_cacheLock)
+        {
+            if (_lastCacheUpdate == null || !_cache.Any())
+            {
+                return false;
+            }
+
+            var age = DateTime.UtcNow - _lastCacheUpdate.Value;
+            return age < _cacheValidTime;
+        }
+    }
+
+    /// <summary>
+    /// Obtém dados do cache com filtro
+    /// </summary>
+    private List<Family> GetFromCache(bool includeInactive)
+    {
+        lock (_cacheLock)
+        {
+            var families = _cache.AsEnumerable();
+
+            if (!includeInactive)
+            {
+                families = families.Where(f => f.IsActive);
+            }
+
+            return families.OrderBy(f => f.Name).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Invalida o cache
+    /// </summary>
+    private void InvalidateCache()
+    {
+        lock (_cacheLock)
+        {
+            _lastCacheUpdate = null;
+            Debug.WriteLine("🗑️ [FAMILY_REPO] Cache invalidated");
+        }
     }
 }

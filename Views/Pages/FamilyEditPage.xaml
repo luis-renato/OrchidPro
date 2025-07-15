@@ -22,7 +22,8 @@
     <ContentPage.ToolbarItems>
         <ToolbarItem Text="Info"
                      Command="{Binding ShowInfoCommand}"
-                     Order="Secondary" />
+                     Order="Secondary"
+                     IsEnabled="{Binding IsConnected}" />
         <ToolbarItem Text="Cancel"
                      Command="{Binding CancelCommand}"
                      Order="Primary" />
@@ -45,20 +46,55 @@
             <ScrollView>
                 <VerticalStackLayout Padding="30,20" Spacing="25">
 
-                    <!-- Header section -->
-                    <VerticalStackLayout Spacing="10">
-                        <Label Text="{Binding PageTitle}"
-                               FontSize="28"
-                               FontAttributes="Bold"
-                               TextColor="{AppThemeBinding Light={StaticResource PrimaryDarkText}, Dark={StaticResource White}}"
-                               HorizontalOptions="Center" />
+                    <!-- Header section with connectivity status -->
+                    <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
+                        <!-- Title and connectivity indicator -->
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0"
+                                   Text="{Binding PageTitle}"
+                                   FontSize="28"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryDarkText}, Dark={StaticResource White}}"
+                                   VerticalOptions="Center" />
 
-                        <Label Text="{Binding PageSubtitle}"
+                            <!-- NOVO: Connectivity status indicator -->
+                            <Border Grid.Column="1"
+                                    BackgroundColor="{Binding ConnectionStatusColor}"
+                                    Padding="8,4"
+                                    VerticalOptions="Start">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="10" />
+                                </Border.StrokeShape>
+                                <Label Text="{Binding ConnectionStatus}"
+                                       FontSize="10"
+                                       FontAttributes="Bold"
+                                       TextColor="White"
+                                       HorizontalOptions="Center" />
+                            </Border>
+                        </Grid>
+
+                        <!-- Subtitle -->
+                        <Label Grid.Row="1"
+                               Text="{Binding PageSubtitle}"
                                FontSize="14"
                                TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
-                               HorizontalOptions="Center"
-                               HorizontalTextAlignment="Center" />
-                    </VerticalStackLayout>
+                               HorizontalTextAlignment="Start" />
+
+                        <!-- NOVO: Auto-save status -->
+                        <Border Grid.Row="2"
+                                BackgroundColor="{Binding AutoSaveStatusColor}"
+                                Padding="10,6"
+                                IsVisible="{Binding ShowAutoSaveStatus}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="6" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding AutoSaveStatus}"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="White"
+                                   HorizontalOptions="Center" />
+                        </Border>
+                    </Grid>
 
                     <!-- Form fields -->
                     <VerticalStackLayout Spacing="20">
@@ -85,12 +121,15 @@
                                        PlaceholderColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
                                        FontSize="16"
                                        ReturnType="Next"
-                                       MaxLength="255">
+                                       MaxLength="255"
+                                       IsEnabled="{Binding IsConnected}">
                                     <Entry.Behaviors>
                                         <mct:EventToCommandBehavior EventName="Focused"
                                                                     Command="{Binding OnNameFocusedCommand}" />
                                         <mct:EventToCommandBehavior EventName="Unfocused"
                                                                     Command="{Binding OnNameUnfocusedCommand}" />
+                                        <mct:EventToCommandBehavior EventName="TextChanged"
+                                                                    Command="{Binding OnNameChangedCommand}" />
                                     </Entry.Behaviors>
                                 </Entry>
                             </Border>
@@ -119,7 +158,8 @@
                                         TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
                                         FontSize="12"
                                         Padding="10,5"
-                                        IsVisible="{Binding Description, Converter={StaticResource StringToBoolConverter}}" />
+                                        IsVisible="{Binding Description, Converter={StaticResource StringToBoolConverter}}"
+                                        IsEnabled="{Binding IsConnected}" />
                             </Grid>
 
                             <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
@@ -138,12 +178,15 @@
                                         FontSize="14"
                                         HeightRequest="120"
                                         MaxLength="2000"
-                                        AutoSize="TextChanges">
+                                        AutoSize="TextChanges"
+                                        IsEnabled="{Binding IsConnected}">
                                     <Editor.Behaviors>
                                         <mct:EventToCommandBehavior EventName="Focused"
                                                                     Command="{Binding OnDescriptionFocusedCommand}" />
                                         <mct:EventToCommandBehavior EventName="Unfocused"
                                                                     Command="{Binding OnDescriptionUnfocusedCommand}" />
+                                        <mct:EventToCommandBehavior EventName="TextChanged"
+                                                                    Command="{Binding OnDescriptionChangedCommand}" />
                                     </Editor.Behaviors>
                                 </Editor>
                             </Border>
@@ -195,7 +238,8 @@
                                     <Switch Grid.Column="1"
                                             IsToggled="{Binding IsActive}"
                                             OnColor="#388E3C"
-                                            VerticalOptions="Center">
+                                            VerticalOptions="Center"
+                                            IsEnabled="{Binding IsConnected}">
                                         <Switch.Behaviors>
                                             <mct:EventToCommandBehavior EventName="Toggled"
                                                                         Command="{Binding ToggleActiveStatusCommand}" />
@@ -233,6 +277,35 @@
                                 </VerticalStackLayout>
                             </Grid>
                         </Border>
+
+                        <!-- NOVO: Offline mode warning -->
+                        <Border BackgroundColor="#FF9800"
+                                Padding="15,10"
+                                IsVisible="{Binding IsConnected, Converter={StaticResource InvertedBoolConverter}}">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="8" />
+                            </Border.StrokeShape>
+
+                            <Grid ColumnDefinitions="Auto,*">
+                                <Label Grid.Column="0"
+                                       Text="📡"
+                                       FontSize="16"
+                                       VerticalOptions="Center"
+                                       Margin="0,0,10,0" />
+
+                                <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                    <Label Text="Offline Mode"
+                                           FontSize="14"
+                                           FontAttributes="Bold"
+                                           TextColor="White" />
+
+                                    <Label Text="Changes will be saved when connection is restored"
+                                           FontSize="12"
+                                           TextColor="White"
+                                           Opacity="0.9" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
                     </VerticalStackLayout>
 
                     <!-- Action Buttons -->
@@ -247,7 +320,24 @@
                                 FontAttributes="Bold"
                                 HeightRequest="56"
                                 CornerRadius="28"
-                                IsEnabled="{Binding CanSave}" />
+                                IsEnabled="{Binding CanSave}">
+                            <!-- NOVO: Different states based on connectivity -->
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button"
+                                             Binding="{Binding IsConnected}"
+                                             Value="False">
+                                    <Setter Property="BackgroundColor" Value="#FF9800" />
+                                    <Setter Property="Text" Value="Save Offline" />
+                                </DataTrigger>
+                                <DataTrigger TargetType="Button"
+                                             Binding="{Binding IsSaving}"
+                                             Value="True">
+                                    <Setter Property="BackgroundColor" Value="#FBC02D" />
+                                    <Setter Property="Text" Value="Saving..." />
+                                    <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
 
                         <!-- Secondary Actions -->
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="15"
@@ -291,6 +381,31 @@
                                 IsVisible="{Binding FamilyId, Converter={StaticResource InvertedNullToBoolConverter}}" />
                     </VerticalStackLayout>
 
+                    <!-- NOVO: Auto-save indicator -->
+                    <Border BackgroundColor="#4CAF50"
+                            Padding="15,10"
+                            IsVisible="{Binding ShowAutoSaveSuccess}"
+                            Margin="0,10,0,0">
+                        <Border.StrokeShape>
+                            <RoundRectangle CornerRadius="8" />
+                        </Border.StrokeShape>
+
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Label Grid.Column="0"
+                                   Text="✅"
+                                   FontSize="16"
+                                   VerticalOptions="Center"
+                                   Margin="0,0,10,0" />
+
+                            <Label Grid.Column="1"
+                                   Text="{Binding AutoSaveMessage}"
+                                   FontSize="12"
+                                   FontAttributes="Bold"
+                                   TextColor="White"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                    </Border>
+
                     <!-- Unsaved Changes Warning -->
                     <Border BackgroundColor="#FBC02D"
                             Padding="15,10"
@@ -332,11 +447,35 @@
                                    Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
                                    WidthRequest="40"
                                    HeightRequest="40" />
-                <Label Text="Processing..."
+                <Label Text="{Binding LoadingMessage}"
                        TextColor="White"
                        FontSize="14"
                        HorizontalOptions="Center" />
             </VerticalStackLayout>
         </Grid>
+
+        <!-- NOVO: Connection test overlay -->
+        <Border BackgroundColor="#E0FFFFFF"
+                Padding="15,10"
+                HorizontalOptions="Center"
+                VerticalOptions="End"
+                Margin="20,20,20,100"
+                IsVisible="False"
+                x:Name="ConnectionTestOverlay">
+            <Border.StrokeShape>
+                <RoundRectangle CornerRadius="8" />
+            </Border.StrokeShape>
+            <VerticalStackLayout Spacing="5">
+                <Label Text="🌐 Connection Test"
+                       FontSize="12"
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource OnSurface}"
+                       HorizontalOptions="Center" />
+                <Label Text="{Binding ConnectionTestResult}"
+                       FontSize="10"
+                       TextColor="{StaticResource OnSurface}"
+                       HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Border>
     </Grid>
 </ContentPage>

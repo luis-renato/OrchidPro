@@ -4,12 +4,14 @@ using OrchidPro.Models;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using System.Collections.ObjectModel;
+using System.Data;
 using System.Diagnostics;
 
 namespace OrchidPro.ViewModels;
 
 /// <summary>
-/// ViewModel for the Families list page with filtering, selection, and sync capabilities
+/// MIGRADO: ViewModel para lista de famílias com arquitetura simplificada
+/// Remove complexidade de sincronização, adiciona indicadores de conectividade
 /// </summary>
 public partial class FamiliesListViewModel : BaseViewModel
 {
@@ -44,16 +46,10 @@ public partial class FamiliesListViewModel : BaseViewModel
     private string statusFilter = "All";
 
     [ObservableProperty]
-    private string syncFilter = "All";
-
-    [ObservableProperty]
     private int totalCount;
 
     [ObservableProperty]
     private int activeCount;
-
-    [ObservableProperty]
-    private int pendingSyncCount;
 
     [ObservableProperty]
     private bool fabIsVisible = true;
@@ -64,8 +60,20 @@ public partial class FamiliesListViewModel : BaseViewModel
     [ObservableProperty]
     private string fabText = "Add Family";
 
+    // NOVO: Indicadores de conectividade
+    [ObservableProperty]
+    private string connectionStatus = "🌐 Connected";
+
+    [ObservableProperty]
+    private Color connectionStatusColor = Colors.Green;
+
+    [ObservableProperty]
+    private bool isConnected = true;
+
+    [ObservableProperty]
+    private string cacheInfo = "Cache: Ready";
+
     public List<string> StatusFilterOptions { get; } = new() { "All", "Active", "Inactive" };
-    public List<string> SyncFilterOptions { get; } = new() { "All", "Synced", "Local", "Pending", "Error" };
 
     public FamiliesListViewModel(IFamilyRepository familyRepository, INavigationService navigationService)
     {
@@ -73,10 +81,12 @@ public partial class FamiliesListViewModel : BaseViewModel
         _navigationService = navigationService;
 
         Title = "Families";
+
+        Debug.WriteLine("✅ [FAMILIES_LIST_VM] Initialized with simplified architecture");
     }
 
     /// <summary>
-    /// Loads families data with current filters
+    /// MIGRADO: Carrega famílias com teste de conectividade
     /// </summary>
     [RelayCommand]
     private async Task LoadFamiliesAsync()
@@ -87,6 +97,17 @@ public partial class FamiliesListViewModel : BaseViewModel
         {
             IsLoading = true;
 
+            // Testar conectividade primeiro
+            await TestConnectionAsync();
+
+            if (!IsConnected)
+            {
+                UpdateEmptyStateForOffline();
+                return;
+            }
+
+            Debug.WriteLine($"📥 [FAMILIES_LIST_VM] Loading families with filter: {StatusFilter}");
+
             // Parse filters
             bool? statusFilter = StatusFilter switch
             {
@@ -95,20 +116,11 @@ public partial class FamiliesListViewModel : BaseViewModel
                 _ => null
             };
 
-            SyncStatus? syncFilter = SyncFilter switch
-            {
-                "Synced" => SyncStatus.Synced,
-                "Local" => SyncStatus.Local,
-                "Pending" => SyncStatus.Pending,
-                "Error" => SyncStatus.Error,
-                _ => null
-            };
-
             // Get filtered data
             var familyList = await _familyRepository.GetFilteredAsync(
                 SearchText,
                 statusFilter,
-                syncFilter);
+                null); // syncFilter ignorado na nova arquitetura
 
             // Convert to ViewModels
             var familyViewModels = familyList.Select(f => new FamilyItemViewModel(f)
@@ -133,11 +145,14 @@ public partial class FamiliesListViewModel : BaseViewModel
             {
                 EmptyStateMessage = GetEmptyStateMessage();
             }
+
+            Debug.WriteLine($"✅ [FAMILIES_LIST_VM] Loaded {Families.Count} families");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error loading families: {ex.Message}");
-            await ShowErrorAsync("Failed to load families", ex.Message);
+            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Load error: {ex.Message}");
+            await ShowErrorAsync("Failed to load families", "Check your connection and try again.");
+            UpdateConnectionStatus(false);
         }
         finally
         {
@@ -146,7 +161,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Refreshes the families list
+    /// MIGRADO: Refresh com force cache refresh
     /// </summary>
     [RelayCommand]
     private async Task RefreshAsync()
@@ -156,11 +171,51 @@ public partial class FamiliesListViewModel : BaseViewModel
         try
         {
             IsRefreshing = true;
+
+            Debug.WriteLine("🔄 [FAMILIES_LIST_VM] Force refreshing cache from server...");
+
+            // Force refresh do cache
+            await _familyRepository.RefreshCacheAsync();
+
+            // Reload data
             await LoadFamiliesAsync();
+
+            Debug.WriteLine("✅ [FAMILIES_LIST_VM] Refresh completed");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Refresh error: {ex.Message}");
+            await ShowErrorAsync("Refresh Failed", "Failed to refresh data from server.");
+            UpdateConnectionStatus(false);
         }
         finally
         {
             IsRefreshing = false;
+        }
+    }
+
+    /// <summary>
+    /// NOVO: Testa conectividade com servidor
+    /// </summary>
+    [RelayCommand]
+    private async Task TestConnectionAsync()
+    {
+        try
+        {
+            Debug.WriteLine("🔍 [FAMILIES_LIST_VM] Testing connection...");
+
+            var connected = await _familyRepository.TestConnectionAsync();
+            UpdateConnectionStatus(connected);
+
+            // Update cache info
+            CacheInfo = _familyRepository.GetCacheInfo();
+
+            Debug.WriteLine($"🔍 [FAMILIES_LIST_VM] Connection test result: {connected}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Connection test failed: {ex.Message}");
+            UpdateConnectionStatus(false);
         }
     }
 
@@ -170,6 +225,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     [RelayCommand]
     private async Task SearchAsync()
     {
+        Debug.WriteLine($"🔍 [FAMILIES_LIST_VM] Searching for: '{SearchText}'");
         await LoadFamiliesAsync();
     }
 
@@ -189,13 +245,20 @@ public partial class FamiliesListViewModel : BaseViewModel
     [RelayCommand]
     private async Task AddFamilyAsync()
     {
+        if (!IsConnected)
+        {
+            await ShowErrorAsync("No Connection", "Cannot add family without internet connection.");
+            return;
+        }
+
         try
         {
+            Debug.WriteLine("➕ [FAMILIES_LIST_VM] Navigating to add family");
             await _navigationService.NavigateToAsync("familyedit");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error navigating to add family: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Navigation error: {ex.Message}");
             await ShowErrorAsync("Navigation Error", "Failed to open add family page");
         }
     }
@@ -208,8 +271,16 @@ public partial class FamiliesListViewModel : BaseViewModel
     {
         if (family == null) return;
 
+        if (!IsConnected)
+        {
+            await ShowErrorAsync("No Connection", "Cannot edit family without internet connection.");
+            return;
+        }
+
         try
         {
+            Debug.WriteLine($"📝 [FAMILIES_LIST_VM] Navigating to edit family: {family.Name}");
+
             var parameters = new Dictionary<string, object>
             {
                 ["FamilyId"] = family.Id
@@ -219,18 +290,24 @@ public partial class FamiliesListViewModel : BaseViewModel
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error navigating to edit family: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Edit navigation error: {ex.Message}");
             await ShowErrorAsync("Navigation Error", "Failed to open edit family page");
         }
     }
 
     /// <summary>
-    /// Deletes selected families
+    /// MIGRADO: Deletes selected families
     /// </summary>
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
         if (!SelectedFamilies.Any()) return;
+
+        if (!IsConnected)
+        {
+            await ShowErrorAsync("No Connection", "Cannot delete families without internet connection.");
+            return;
+        }
 
         try
         {
@@ -245,6 +322,8 @@ public partial class FamiliesListViewModel : BaseViewModel
 
             IsLoading = true;
 
+            Debug.WriteLine($"🗑️ [FAMILIES_LIST_VM] Deleting {count} families");
+
             var deletedCount = await _familyRepository.DeleteMultipleAsync(selectedIds);
 
             if (deletedCount > 0)
@@ -252,6 +331,8 @@ public partial class FamiliesListViewModel : BaseViewModel
                 await ShowSuccessAsync($"Successfully deleted {deletedCount} {(deletedCount == 1 ? "family" : "families")}");
                 ExitMultiSelectMode();
                 await LoadFamiliesAsync();
+
+                Debug.WriteLine($"✅ [FAMILIES_LIST_VM] Deleted {deletedCount} families");
             }
             else
             {
@@ -260,8 +341,9 @@ public partial class FamiliesListViewModel : BaseViewModel
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error deleting families: {ex.Message}");
-            await ShowErrorAsync("Delete Error", "Failed to delete families");
+            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Delete error: {ex.Message}");
+            await ShowErrorAsync("Delete Error", "Failed to delete families. Check your connection.");
+            UpdateConnectionStatus(false);
         }
         finally
         {
@@ -355,6 +437,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     {
         IsMultiSelectMode = true;
         UpdateFabForSelection();
+        Debug.WriteLine("✅ [FAMILIES_LIST_VM] Entered multi-select mode");
     }
 
     /// <summary>
@@ -367,6 +450,7 @@ public partial class FamiliesListViewModel : BaseViewModel
         FabIcon = "plus";
         FabText = "Add Family";
         FabIsVisible = true;
+        Debug.WriteLine("✅ [FAMILIES_LIST_VM] Exited multi-select mode");
     }
 
     /// <summary>
@@ -401,12 +485,42 @@ public partial class FamiliesListViewModel : BaseViewModel
             var stats = await _familyRepository.GetStatisticsAsync();
             TotalCount = stats.TotalCount;
             ActiveCount = stats.ActiveCount;
-            PendingSyncCount = stats.PendingCount + stats.LocalCount;
+
+            Debug.WriteLine($"📊 [FAMILIES_LIST_VM] Stats updated - Total: {TotalCount}, Active: {ActiveCount}");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error updating statistics: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Stats update error: {ex.Message}");
         }
+    }
+
+    /// <summary>
+    /// NOVO: Atualiza status de conectividade
+    /// </summary>
+    private void UpdateConnectionStatus(bool connected)
+    {
+        IsConnected = connected;
+
+        if (connected)
+        {
+            ConnectionStatus = "🌐 Connected";
+            ConnectionStatusColor = Colors.Green;
+        }
+        else
+        {
+            ConnectionStatus = "📡 Disconnected";
+            ConnectionStatusColor = Colors.Red;
+        }
+    }
+
+    /// <summary>
+    /// NOVO: Atualiza empty state para offline
+    /// </summary>
+    private void UpdateEmptyStateForOffline()
+    {
+        HasData = false;
+        EmptyStateMessage = "No internet connection\nConnect to view your families";
+        Families.Clear();
     }
 
     /// <summary>
@@ -414,14 +528,19 @@ public partial class FamiliesListViewModel : BaseViewModel
     /// </summary>
     private string GetEmptyStateMessage()
     {
+        if (!IsConnected)
+        {
+            return "No internet connection\nConnect to view your families";
+        }
+
         if (!string.IsNullOrWhiteSpace(SearchText))
         {
             return $"No families found matching '{SearchText}'";
         }
 
-        if (StatusFilter != "All" || SyncFilter != "All")
+        if (StatusFilter != "All")
         {
-            return "No families match the current filters";
+            return $"No {StatusFilter.ToLower()} families found";
         }
 
         return "No families yet. Add your first family to get started!";
@@ -433,6 +552,8 @@ public partial class FamiliesListViewModel : BaseViewModel
     public override async Task OnAppearingAsync()
     {
         await base.OnAppearingAsync();
+
+        Debug.WriteLine("👁️ [FAMILIES_LIST_VM] Page appearing - loading data");
         await LoadFamiliesAsync();
     }
 
@@ -457,14 +578,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     /// </summary>
     partial void OnStatusFilterChanged(string value)
     {
-        _ = LoadFamiliesAsync();
-    }
-
-    /// <summary>
-    /// Handles sync filter changes
-    /// </summary>
-    partial void OnSyncFilterChanged(string value)
-    {
+        Debug.WriteLine($"🔽 [FAMILIES_LIST_VM] Status filter changed to: {value}");
         _ = LoadFamiliesAsync();
     }
 }
