@@ -9,7 +9,7 @@ using OrchidPro.Views.Pages;
 namespace OrchidPro;
 
 /// <summary>
-/// Configures the MAUI application with services and dependencies
+/// CORRIGIDO: Configures the MAUI application with proper service lifetimes
 /// </summary>
 public static class MauiProgram
 {
@@ -48,31 +48,36 @@ public static class MauiProgram
     }
 
     /// <summary>
-    /// Configures dependency injection services
+    /// CORRIGIDO: Configures dependency injection services with proper lifetimes
     /// </summary>
     private static void ConfigureServices(IServiceCollection services)
     {
-        // Core services
+        // ✅ CORE SERVICES - SINGLETON (shared state across app)
+        // These need to maintain state and be shared across the entire application
         services.AddSingleton<SupabaseService>();
         services.AddSingleton<INavigationService, NavigationService>();
 
-        // Data services
+        // ✅ DATA SERVICES - SINGLETON (shared repositories and caching)
+        // Critical: These MUST be singletons to share data between pages
         services.AddSingleton<ILocalDataService, LocalDataService>();
-        services.AddSingleton<SupabaseFamilySync>(); // Novo serviço de sync
+        services.AddSingleton<SupabaseFamilySync>();
         services.AddSingleton<IFamilyRepository, FamilyRepository>();
 
-        // ViewModels
+        // ✅ VIEWMODELS - TRANSIENT (new instance per page navigation)
+        // ViewModels should be transient to get fresh state per navigation
         services.AddTransient<FamiliesListViewModel>();
         services.AddTransient<FamilyEditViewModel>();
 
-        // Pages
+        // ✅ PAGES - TRANSIENT (new instance per navigation)
+        // Pages should be transient for proper Shell navigation
         services.AddTransient<SplashPage>();
         services.AddTransient<LoginPage>();
         services.AddTransient<MainPage>();
         services.AddTransient<FamiliesListPage>();
         services.AddTransient<FamilyEditPage>();
+        services.AddTransient<TestSyncPage>();
 
-        // Shell
+        // ✅ SHELL - SINGLETON (app navigation structure)
         services.AddSingleton<AppShell>();
 
         // Register routes for navigation
@@ -89,6 +94,9 @@ public static class MauiProgram
         Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
         Routing.RegisterRoute("familydetails", typeof(FamilyEditPage));
 
+        // Testing and debug routes
+        Routing.RegisterRoute("testsync", typeof(TestSyncPage));
+
         // Future routes for other modules
         Routing.RegisterRoute("genera", typeof(MainPage)); // Placeholder
         Routing.RegisterRoute("species", typeof(MainPage)); // Placeholder
@@ -99,7 +107,5 @@ public static class MauiProgram
         Routing.RegisterRoute("statistics", typeof(MainPage)); // Placeholder
         Routing.RegisterRoute("settings", typeof(MainPage)); // Placeholder
         Routing.RegisterRoute("sync", typeof(MainPage)); // Placeholder
-
-        Routing.RegisterRoute("testsync", typeof(TestSyncPage));
     }
 }
