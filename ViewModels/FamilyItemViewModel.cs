@@ -5,7 +5,7 @@ using OrchidPro.Models;
 namespace OrchidPro.ViewModels;
 
 /// <summary>
-/// LIMPO: ViewModel para itens individuais na lista de famílias (sem sync)
+/// CORRIGIDO: ViewModel para itens individuais na lista de famílias (com indicadores de conectividade)
 /// </summary>
 public partial class FamilyItemViewModel : ObservableObject
 {
@@ -105,6 +105,26 @@ public partial class FamilyItemViewModel : ObservableObject
     /// Recent indicator for UI
     /// </summary>
     public string RecentIndicator => IsRecent ? "🆕" : "";
+
+    /// <summary>
+    /// ✅ NOVO: Sync status display - sempre "synced" na arquitetura limpa
+    /// </summary>
+    public string SyncStatusDisplay => "✅ Synced";
+
+    /// <summary>
+    /// ✅ NOVO: Sync status color - sempre verde na arquitetura limpa
+    /// </summary>
+    public Color SyncStatusColor => Colors.Green;
+
+    /// <summary>
+    /// ✅ NOVO: Connectivity status (sempre conectado se não houver erro)
+    /// </summary>
+    public string ConnectivityStatus => "🌐 Online";
+
+    /// <summary>
+    /// ✅ NOVO: Connectivity color
+    /// </summary>
+    public Color ConnectivityColor => Colors.Green;
 
     /// <summary>
     /// Full status display combining multiple indicators

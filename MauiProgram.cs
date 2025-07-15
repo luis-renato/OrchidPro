@@ -9,8 +9,7 @@ using OrchidPro.Views.Pages;
 namespace OrchidPro;
 
 /// <summary>
-/// MIGRADO: Configures the MAUI application with simplified architecture
-/// Remove old services, add new simplified services
+/// CORRIGIDO: Configures the MAUI application with proper DI for TestSyncPage
 /// </summary>
 public static class MauiProgram
 {
@@ -49,7 +48,7 @@ public static class MauiProgram
     }
 
     /// <summary>
-    /// MIGRADO: Configures dependency injection services for simplified architecture
+    /// CORRIGIDO: Configures dependency injection services with proper TestSyncPage registration
     /// </summary>
     private static void ConfigureServices(IServiceCollection services)
     {
@@ -59,13 +58,8 @@ public static class MauiProgram
         services.AddSingleton<INavigationService, NavigationService>();
 
         // ✅ SIMPLIFIED DATA SERVICES - SINGLETON (direct Supabase + cache)
-        // NOVO: Services simplificados para arquitetura direta
         services.AddSingleton<SupabaseFamilyService>();
         services.AddSingleton<IFamilyRepository, FamilyRepository>();
-
-        // ❌ REMOVIDO: Services da arquitetura complexa anterior
-        // services.AddSingleton<ILocalDataService, LocalDataService>(); // <- REMOVIDO
-        // services.AddSingleton<SupabaseFamilySync>(); // <- REMOVIDO
 
         // ✅ VIEWMODELS - TRANSIENT (new instance per page navigation)
         // ViewModels should be transient to get fresh state per navigation
@@ -73,7 +67,7 @@ public static class MauiProgram
         services.AddTransient<FamilyEditViewModel>();
 
         // ✅ PAGES - TRANSIENT (new instance per navigation)
-        // Pages should be transient for proper Shell navigation
+        // ✅ CORRIGIDO: Todas as páginas registradas com DI
         services.AddTransient<SplashPage>();
         services.AddTransient<LoginPage>();
         services.AddTransient<MainPage>();
@@ -98,7 +92,7 @@ public static class MauiProgram
         Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
         Routing.RegisterRoute("familydetails", typeof(FamilyEditPage));
 
-        // Testing and debug routes
+        // ✅ CORRIGIDO: Testing and debug routes with proper DI
         Routing.RegisterRoute("testsync", typeof(TestSyncPage));
 
         // Future routes for other modules

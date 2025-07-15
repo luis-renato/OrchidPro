@@ -20,10 +20,13 @@
 
     <!-- Toolbar items -->
     <ContentPage.ToolbarItems>
+        <ToolbarItem Text="Test"
+                     Command="{Binding TestConnectionCommand}"
+                     Order="Secondary"
+                     IconImageSource="wifi.png" />
         <ToolbarItem Text="Info"
                      Command="{Binding ShowInfoCommand}"
-                     Order="Secondary"
-                     IsEnabled="{Binding IsConnected}" />
+                     Order="Secondary" />
         <ToolbarItem Text="Cancel"
                      Command="{Binding CancelCommand}"
                      Order="Primary" />
@@ -46,7 +49,7 @@
             <ScrollView>
                 <VerticalStackLayout Padding="30,20" Spacing="25">
 
-                    <!-- Header section with connectivity status -->
+                    <!-- ✅ CORRIGIDO: Header section com conectividade sempre visível -->
                     <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10">
                         <!-- Title and connectivity indicator -->
                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
@@ -57,7 +60,7 @@
                                    TextColor="{AppThemeBinding Light={StaticResource PrimaryDarkText}, Dark={StaticResource White}}"
                                    VerticalOptions="Center" />
 
-                            <!-- NOVO: Connectivity status indicator -->
+                            <!-- ✅ OTIMIZADO: Connectivity status sempre visível -->
                             <Border Grid.Column="1"
                                     BackgroundColor="{Binding ConnectionStatusColor}"
                                     Padding="8,4"
@@ -70,6 +73,11 @@
                                        FontAttributes="Bold"
                                        TextColor="White"
                                        HorizontalOptions="Center" />
+
+                                <!-- ✅ NOVO: Tap para testar conectividade -->
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding TestConnectionCommand}" />
+                                </Border.GestureRecognizers>
                             </Border>
                         </Grid>
 
@@ -80,15 +88,15 @@
                                TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
                                HorizontalTextAlignment="Start" />
 
-                        <!-- NOVO: Auto-save status -->
+                        <!-- ✅ NOVO: Connection test result -->
                         <Border Grid.Row="2"
-                                BackgroundColor="{Binding AutoSaveStatusColor}"
+                                BackgroundColor="#1976D2"
                                 Padding="10,6"
-                                IsVisible="{Binding ShowAutoSaveStatus}">
+                                IsVisible="{Binding ConnectionTestResult, Converter={StaticResource StringToBoolConverter}}">
                             <Border.StrokeShape>
                                 <RoundRectangle CornerRadius="6" />
                             </Border.StrokeShape>
-                            <Label Text="{Binding AutoSaveStatus}"
+                            <Label Text="{Binding ConnectionTestResult}"
                                    FontSize="12"
                                    FontAttributes="Bold"
                                    TextColor="White"
@@ -122,7 +130,8 @@
                                        FontSize="16"
                                        ReturnType="Next"
                                        MaxLength="255"
-                                       IsEnabled="{Binding IsConnected}">
+                                       Focused="OnEntryFocused"
+                                       Unfocused="OnEntryUnfocused">
                                     <Entry.Behaviors>
                                         <mct:EventToCommandBehavior EventName="Focused"
                                                                     Command="{Binding OnNameFocusedCommand}" />
@@ -134,12 +143,18 @@
                                 </Entry>
                             </Border>
 
-                            <!-- Name validation error -->
-                            <Label Text="{Binding NameError}"
-                                   TextColor="#D32F2F"
-                                   FontSize="12"
-                                   IsVisible="{Binding NameError, Converter={StaticResource StringToBoolConverter}}"
-                                   Margin="5,0" />
+                            <!-- ✅ CORRIGIDO: Name validation error SIMPLES (sem Span.IsVisible) -->
+                            <StackLayout Orientation="Horizontal" 
+                                         IsVisible="{Binding NameError, Converter={StaticResource StringToBoolConverter}}"
+                                         Margin="5,0">
+                                <Label Text="{Binding NameError}"
+                                       TextColor="#D32F2F"
+                                       FontSize="12" />
+                                <Label Text="(offline mode)"
+                                       TextColor="#FF9800" 
+                                       FontSize="12"
+                                       IsVisible="{Binding IsConnected, Converter={StaticResource InvertedBoolConverter}}" />
+                            </StackLayout>
                         </VerticalStackLayout>
 
                         <!-- Description Field -->
@@ -158,8 +173,7 @@
                                         TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
                                         FontSize="12"
                                         Padding="10,5"
-                                        IsVisible="{Binding Description, Converter={StaticResource StringToBoolConverter}}"
-                                        IsEnabled="{Binding IsConnected}" />
+                                        IsVisible="{Binding Description, Converter={StaticResource StringToBoolConverter}}" />
                             </Grid>
 
                             <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
@@ -178,8 +192,7 @@
                                         FontSize="14"
                                         HeightRequest="120"
                                         MaxLength="2000"
-                                        AutoSize="TextChanges"
-                                        IsEnabled="{Binding IsConnected}">
+                                        AutoSize="TextChanges">
                                     <Editor.Behaviors>
                                         <mct:EventToCommandBehavior EventName="Focused"
                                                                     Command="{Binding OnDescriptionFocusedCommand}" />
@@ -239,7 +252,7 @@
                                             IsToggled="{Binding IsActive}"
                                             OnColor="#388E3C"
                                             VerticalOptions="Center"
-                                            IsEnabled="{Binding IsConnected}">
+                                            Toggled="OnSwitchToggled">
                                         <Switch.Behaviors>
                                             <mct:EventToCommandBehavior EventName="Toggled"
                                                                         Command="{Binding ToggleActiveStatusCommand}" />
@@ -278,7 +291,7 @@
                             </Grid>
                         </Border>
 
-                        <!-- NOVO: Offline mode warning -->
+                        <!-- ✅ OTIMIZADO: Offline mode warning mais informativo -->
                         <Border BackgroundColor="#FF9800"
                                 Padding="15,10"
                                 IsVisible="{Binding IsConnected, Converter={StaticResource InvertedBoolConverter}}">
@@ -286,7 +299,7 @@
                                 <RoundRectangle CornerRadius="8" />
                             </Border.StrokeShape>
 
-                            <Grid ColumnDefinitions="Auto,*">
+                            <Grid ColumnDefinitions="Auto,*,Auto">
                                 <Label Grid.Column="0"
                                        Text="📡"
                                        FontSize="16"
@@ -299,11 +312,23 @@
                                            FontAttributes="Bold"
                                            TextColor="White" />
 
-                                    <Label Text="Changes will be saved when connection is restored"
+                                    <Label Text="Limited functionality - connect to internet for full features"
                                            FontSize="12"
                                            TextColor="White"
                                            Opacity="0.9" />
                                 </VerticalStackLayout>
+
+                                <!-- ✅ NOVO: Botão para testar conectividade -->
+                                <Button Grid.Column="2"
+                                        Text="Test"
+                                        Command="{Binding TestConnectionCommand}"
+                                        BackgroundColor="Transparent"
+                                        TextColor="White"
+                                        FontSize="12"
+                                        Padding="8,4"
+                                        BorderColor="White"
+                                        BorderWidth="1"
+                                        CornerRadius="4" />
                             </Grid>
                         </Border>
                     </VerticalStackLayout>
@@ -311,7 +336,7 @@
                     <!-- Action Buttons -->
                     <VerticalStackLayout Spacing="15" Margin="0,20,0,0">
 
-                        <!-- Save Button -->
+                        <!-- ✅ CORRIGIDO: Save Button com estados mais claros -->
                         <Button Text="{Binding SaveButtonText}"
                                 Command="{Binding SaveCommand}"
                                 BackgroundColor="{Binding SaveButtonColor}"
@@ -320,21 +345,34 @@
                                 FontAttributes="Bold"
                                 HeightRequest="56"
                                 CornerRadius="28"
-                                IsEnabled="{Binding CanSave}">
-                            <!-- NOVO: Different states based on connectivity -->
+                                IsEnabled="{Binding CanSave}"
+                                Clicked="OnButtonPressed">
+
+                            <!-- ✅ NOVO: Estados dinâmicos baseados em conectividade -->
                             <Button.Triggers>
+                                <!-- Offline state -->
                                 <DataTrigger TargetType="Button"
                                              Binding="{Binding IsConnected}"
                                              Value="False">
-                                    <Setter Property="BackgroundColor" Value="#FF9800" />
-                                    <Setter Property="Text" Value="Save Offline" />
+                                    <Setter Property="BackgroundColor" Value="#9E9E9E" />
+                                    <Setter Property="Text" Value="Offline - Cannot Save" />
+                                    <Setter Property="IsEnabled" Value="False" />
                                 </DataTrigger>
+
+                                <!-- Saving state -->
                                 <DataTrigger TargetType="Button"
                                              Binding="{Binding IsSaving}"
                                              Value="True">
                                     <Setter Property="BackgroundColor" Value="#FBC02D" />
                                     <Setter Property="Text" Value="Saving..." />
                                     <Setter Property="IsEnabled" Value="False" />
+                                </DataTrigger>
+
+                                <!-- Invalid state -->
+                                <DataTrigger TargetType="Button"
+                                             Binding="{Binding CanSave}"
+                                             Value="False">
+                                    <Setter Property="BackgroundColor" Value="#BDBDBD" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
@@ -353,7 +391,19 @@
                                     HeightRequest="48"
                                     CornerRadius="24"
                                     IsEnabled="{Binding CanDelete}"
-                                    IsVisible="{Binding CanDelete}" />
+                                    IsVisible="{Binding CanDelete}"
+                                    Clicked="OnButtonPressed">
+
+                                <!-- Disable if offline -->
+                                <Button.Triggers>
+                                    <DataTrigger TargetType="Button"
+                                                 Binding="{Binding IsConnected}"
+                                                 Value="False">
+                                        <Setter Property="BackgroundColor" Value="#9E9E9E" />
+                                        <Setter Property="IsEnabled" Value="False" />
+                                    </DataTrigger>
+                                </Button.Triggers>
+                            </Button>
 
                             <!-- Cancel Button -->
                             <Button Grid.Column="1"
@@ -365,7 +415,8 @@
                                     BorderWidth="1"
                                     FontSize="14"
                                     HeightRequest="48"
-                                    CornerRadius="24" />
+                                    CornerRadius="24"
+                                    Clicked="OnButtonPressed" />
                         </Grid>
 
                         <!-- Cancel Button for New Items -->
@@ -378,33 +429,9 @@
                                 FontSize="14"
                                 HeightRequest="48"
                                 CornerRadius="24"
-                                IsVisible="{Binding FamilyId, Converter={StaticResource InvertedNullToBoolConverter}}" />
+                                IsVisible="{Binding FamilyId, Converter={StaticResource InvertedNullToBoolConverter}}"
+                                Clicked="OnButtonPressed" />
                     </VerticalStackLayout>
-
-                    <!-- NOVO: Auto-save indicator -->
-                    <Border BackgroundColor="#4CAF50"
-                            Padding="15,10"
-                            IsVisible="{Binding ShowAutoSaveSuccess}"
-                            Margin="0,10,0,0">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="8" />
-                        </Border.StrokeShape>
-
-                        <Grid ColumnDefinitions="Auto,*">
-                            <Label Grid.Column="0"
-                                   Text="✅"
-                                   FontSize="16"
-                                   VerticalOptions="Center"
-                                   Margin="0,0,10,0" />
-
-                            <Label Grid.Column="1"
-                                   Text="{Binding AutoSaveMessage}"
-                                   FontSize="12"
-                                   FontAttributes="Bold"
-                                   TextColor="White"
-                                   VerticalOptions="Center" />
-                        </Grid>
-                    </Border>
 
                     <!-- Unsaved Changes Warning -->
                     <Border BackgroundColor="#FBC02D"
@@ -454,13 +481,13 @@
             </VerticalStackLayout>
         </Grid>
 
-        <!-- NOVO: Connection test overlay -->
+        <!-- ✅ CORRIGIDO: Connection test overlay sempre disponível -->
         <Border BackgroundColor="#E0FFFFFF"
                 Padding="15,10"
                 HorizontalOptions="Center"
                 VerticalOptions="End"
                 Margin="20,20,20,100"
-                IsVisible="False"
+                IsVisible="{Binding ConnectionTestResult, Converter={StaticResource StringToBoolConverter}}"
                 x:Name="ConnectionTestOverlay">
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="8" />

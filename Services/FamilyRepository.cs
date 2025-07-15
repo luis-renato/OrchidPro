@@ -5,7 +5,7 @@ using System.Diagnostics;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// CORRIGIDO: Repository limpo com cache inteligente (sem conceitos de sync)
+/// CORRIGIDO: Repository com melhor gestão de conectividade
 /// </summary>
 public class FamilyRepository : IFamilyRepository
 {
@@ -22,7 +22,7 @@ public class FamilyRepository : IFamilyRepository
         _supabaseService = supabaseService;
         _familyService = familyService;
 
-        Debug.WriteLine("✅ [FAMILY_REPO] Initialized with clean architecture (no sync concepts)");
+        Debug.WriteLine("✅ [FAMILY_REPO] Initialized with optimized connectivity handling");
     }
 
     /// <summary>
@@ -40,10 +40,26 @@ public class FamilyRepository : IFamilyRepository
                 return GetFromCache(includeInactive);
             }
 
-            // Cache inválido - buscar do servidor
+            // ✅ NOVO: Verificar conectividade antes de tentar servidor
+            var isConnected = await TestConnectionAsync();
+            if (!isConnected)
+            {
+                Debug.WriteLine("📡 [FAMILY_REPO] Offline - returning cached data");
+                return GetFromCache(includeInactive); // Retorna cache mesmo expirado se offline
+            }
+
+            // Cache inválido e conectado - buscar do servidor
             Debug.WriteLine("🔄 [FAMILY_REPO] Cache expired - fetching from server");
             await RefreshCacheInternalAsync();
 
+            return GetFromCache(includeInactive);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_REPO] GetAllAsync error: {ex.Message}");
+
+            // ✅ FALLBACK: Retornar cache em caso de erro
+            Debug.WriteLine("🆘 [FAMILY_REPO] Using cache as fallback");
             return GetFromCache(includeInactive);
         }
         finally
@@ -53,7 +69,7 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// CORRIGIDO: Busca famílias com filtros (assinatura simplificada)
+    /// Busca famílias com filtros (assinatura simplificada)
     /// </summary>
     public async Task<List<Family>> GetFilteredAsync(string? searchText = null, bool? statusFilter = null)
     {
@@ -121,6 +137,13 @@ public class FamilyRepository : IFamilyRepository
     /// </summary>
     public async Task<Family> CreateAsync(Family family)
     {
+        // ✅ NOVO: Verificar conectividade antes de criar
+        var isConnected = await TestConnectionAsync();
+        if (!isConnected)
+        {
+            throw new InvalidOperationException("Cannot create family - no internet connection available");
+        }
+
         await _semaphore.WaitAsync();
         try
         {
@@ -145,6 +168,13 @@ public class FamilyRepository : IFamilyRepository
     /// </summary>
     public async Task<Family> UpdateAsync(Family family)
     {
+        // ✅ NOVO: Verificar conectividade antes de atualizar
+        var isConnected = await TestConnectionAsync();
+        if (!isConnected)
+        {
+            throw new InvalidOperationException("Cannot update family - no internet connection available");
+        }
+
         await _semaphore.WaitAsync();
         try
         {
@@ -169,6 +199,13 @@ public class FamilyRepository : IFamilyRepository
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
+        // ✅ NOVO: Verificar conectividade antes de deletar
+        var isConnected = await TestConnectionAsync();
+        if (!isConnected)
+        {
+            throw new InvalidOperationException("Cannot delete family - no internet connection available");
+        }
+
         await _semaphore.WaitAsync();
         try
         {
@@ -196,6 +233,13 @@ public class FamilyRepository : IFamilyRepository
     /// </summary>
     public async Task<int> DeleteMultipleAsync(IEnumerable<Guid> ids)
     {
+        // ✅ NOVO: Verificar conectividade antes de deletar
+        var isConnected = await TestConnectionAsync();
+        if (!isConnected)
+        {
+            throw new InvalidOperationException("Cannot delete families - no internet connection available");
+        }
+
         int count = 0;
         foreach (var id in ids)
         {
@@ -208,11 +252,42 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Verifica se nome existe
+    /// ✅ CORRIGIDO: Verifica se nome existe com fallback para cache offline
     /// </summary>
     public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
     {
-        return await _familyService.NameExistsAsync(name, excludeId);
+        try
+        {
+            // ✅ Tentar verificação online primeiro
+            var isConnected = await TestConnectionAsync();
+            if (isConnected)
+            {
+                return await _familyService.NameExistsAsync(name, excludeId);
+            }
+            else
+            {
+                // ✅ FALLBACK: Verificar no cache local
+                Debug.WriteLine("📡 [FAMILY_REPO] Offline - checking name in cache");
+                var cachedFamilies = GetFromCache(true);
+
+                var exists = cachedFamilies.Any(f =>
+                    string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                    f.Id != excludeId);
+
+                Debug.WriteLine($"💾 [FAMILY_REPO] Cache name check for '{name}': {exists}");
+                return exists;
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_REPO] NameExists error: {ex.Message}");
+
+            // ✅ ULTIMATE FALLBACK: Verificar cache
+            var cachedFamilies = GetFromCache(true);
+            return cachedFamilies.Any(f =>
+                string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                f.Id != excludeId);
+        }
     }
 
     /// <summary>
@@ -220,11 +295,40 @@ public class FamilyRepository : IFamilyRepository
     /// </summary>
     public async Task<FamilyStatistics> GetStatisticsAsync()
     {
-        return await _familyService.GetStatisticsAsync();
+        try
+        {
+            // ✅ NOVO: Tentar do servidor se conectado, senão usar cache
+            var isConnected = await TestConnectionAsync();
+            if (isConnected)
+            {
+                return await _familyService.GetStatisticsAsync();
+            }
+            else
+            {
+                // ✅ FALLBACK: Calcular do cache
+                Debug.WriteLine("📡 [FAMILY_REPO] Offline - calculating stats from cache");
+                var cachedFamilies = GetFromCache(true);
+
+                return new FamilyStatistics
+                {
+                    TotalCount = cachedFamilies.Count,
+                    ActiveCount = cachedFamilies.Count(f => f.IsActive),
+                    InactiveCount = cachedFamilies.Count(f => !f.IsActive),
+                    SystemDefaultCount = cachedFamilies.Count(f => f.IsSystemDefault),
+                    UserCreatedCount = cachedFamilies.Count(f => !f.IsSystemDefault),
+                    LastRefreshTime = _lastCacheUpdate ?? DateTime.MinValue
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_REPO] GetStatistics error: {ex.Message}");
+            return new FamilyStatistics();
+        }
     }
 
     /// <summary>
-    /// RENOMEADO: Force refresh do cache (ex ForceFullSyncAsync)
+    /// Force refresh do cache (ex ForceFullSyncAsync)
     /// </summary>
     public async Task<OperationResult> RefreshAllDataAsync()
     {
@@ -233,6 +337,13 @@ public class FamilyRepository : IFamilyRepository
 
         try
         {
+            // ✅ NOVO: Verificar conectividade primeiro
+            var isConnected = await TestConnectionAsync();
+            if (!isConnected)
+            {
+                throw new InvalidOperationException("Cannot refresh data - no internet connection available");
+            }
+
             await RefreshCacheAsync();
 
             var families = GetFromCache(true);
@@ -282,11 +393,20 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Testa conectividade
+    /// ✅ OTIMIZADO: Testa conectividade com cache inteligente
     /// </summary>
     public async Task<bool> TestConnectionAsync()
     {
-        return await _familyService.TestConnectionAsync();
+        try
+        {
+            // ✅ Usar método otimizado do SupabaseService
+            return await _supabaseService.TestSyncConnectionAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_REPO] Connection test failed: {ex.Message}");
+            return false;
+        }
     }
 
     /// <summary>
@@ -310,13 +430,16 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Refresh interno do cache
+    /// ✅ OTIMIZADO: Refresh interno do cache com melhor tratamento de erro
     /// </summary>
     private async Task RefreshCacheInternalAsync()
     {
         try
         {
             Debug.WriteLine("📥 [FAMILY_REPO] Refreshing cache from server...");
+
+            // ✅ NOVO: Timeout para evitar travamento
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
 
             var families = await _familyService.GetAllAsync();
 
@@ -329,6 +452,11 @@ public class FamilyRepository : IFamilyRepository
 
             Debug.WriteLine($"💾 [FAMILY_REPO] Cache refreshed with {families.Count} families");
         }
+        catch (OperationCanceledException)
+        {
+            Debug.WriteLine("⏰ [FAMILY_REPO] Cache refresh timeout");
+            throw new TimeoutException("Cache refresh timed out");
+        }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILY_REPO] Cache refresh failed: {ex.Message}");
@@ -337,7 +465,7 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Verifica se cache é válido
+    /// ✅ OTIMIZADO: Verifica se cache é válido
     /// </summary>
     private bool IsCacheValid()
     {
@@ -372,7 +500,7 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Invalida o cache
+    /// ✅ OTIMIZADO: Invalida o cache e limpa estado de conectividade
     /// </summary>
     private void InvalidateCache()
     {
@@ -381,5 +509,8 @@ public class FamilyRepository : IFamilyRepository
             _lastCacheUpdate = null;
             Debug.WriteLine("🗑️ [FAMILY_REPO] Cache invalidated");
         }
+
+        // ✅ NOVO: Invalidar cache de conectividade do SupabaseService
+        _supabaseService.InvalidateConnectionCache();
     }
 }

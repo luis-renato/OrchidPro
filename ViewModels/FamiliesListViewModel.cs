@@ -9,7 +9,7 @@ using System.Diagnostics;
 namespace OrchidPro.ViewModels;
 
 /// <summary>
-/// COMPLETO: ViewModel para lista de famílias SEM propriedades de sync (arquitetura limpa)
+/// CORRIGIDO: ViewModel para lista de famílias com conectividade otimizada
 /// </summary>
 public partial class FamiliesListViewModel : BaseViewModel
 {
@@ -58,7 +58,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     [ObservableProperty]
     private string fabText = "Add Family";
 
-    // Indicadores de conectividade
+    // ✅ CORRIGIDO: Conectividade inicializada otimisticamente
     [ObservableProperty]
     private string connectionStatus = "🌐 Connected";
 
@@ -66,7 +66,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     private Color connectionStatusColor = Colors.Green;
 
     [ObservableProperty]
-    private bool isConnected = true;
+    private bool isConnected = true; // ✅ Inicia como true
 
     [ObservableProperty]
     private string cacheInfo = "Cache: Ready";
@@ -81,11 +81,16 @@ public partial class FamiliesListViewModel : BaseViewModel
 
         Title = "Families";
 
-        Debug.WriteLine("✅ [FAMILIES_LIST_VM] Initialized with clean architecture (no sync)");
+        // ✅ CORRIGIDO: Conectividade otimista
+        IsConnected = true;
+        ConnectionStatus = "🌐 Connected";
+        ConnectionStatusColor = Colors.Green;
+
+        Debug.WriteLine("✅ [FAMILIES_LIST_VM] Initialized with optimistic connectivity");
     }
 
     /// <summary>
-    /// Carrega famílias com teste de conectividade
+    /// ✅ OTIMIZADO: Carrega famílias otimisticamente
     /// </summary>
     [RelayCommand]
     private async Task LoadFamiliesAsync()
@@ -96,17 +101,39 @@ public partial class FamiliesListViewModel : BaseViewModel
         {
             IsLoading = true;
 
-            // Testar conectividade primeiro
-            await TestConnectionAsync();
-
-            if (!IsConnected)
-            {
-                UpdateEmptyStateForOffline();
-                return;
-            }
-
             Debug.WriteLine($"📥 [FAMILIES_LIST_VM] Loading families with filter: {StatusFilter}");
 
+            // ✅ OTIMIZADO: Carregar dados primeiro, testar conectividade em background
+            var loadTask = LoadFamiliesDataAsync();
+            var connectivityTask = TestConnectionInBackgroundAsync();
+
+            // Aguardar carregamento de dados
+            await loadTask;
+
+            // Conectividade roda em background
+            _ = connectivityTask;
+
+            Debug.WriteLine($"✅ [FAMILIES_LIST_VM] Loaded {Families.Count} families");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Load error: {ex.Message}");
+            await ShowErrorAsync("Failed to load families", "Check your connection and try again.");
+            UpdateConnectionStatus(false);
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Carregamento otimizado de dados
+    /// </summary>
+    private async Task LoadFamiliesDataAsync()
+    {
+        try
+        {
             // Parse filters
             bool? statusFilter = StatusFilter switch
             {
@@ -115,7 +142,7 @@ public partial class FamiliesListViewModel : BaseViewModel
                 _ => null
             };
 
-            // Get filtered data (sem syncFilter)
+            // Get filtered data (usa cache se servidor indisponível)
             var familyList = await _familyRepository.GetFilteredAsync(SearchText, statusFilter);
 
             // Convert to ViewModels
@@ -141,18 +168,51 @@ public partial class FamiliesListViewModel : BaseViewModel
             {
                 EmptyStateMessage = GetEmptyStateMessage();
             }
-
-            Debug.WriteLine($"✅ [FAMILIES_LIST_VM] Loaded {Families.Count} families");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Load error: {ex.Message}");
-            await ShowErrorAsync("Failed to load families", "Check your connection and try again.");
+            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Load data error: {ex.Message}");
+
+            // Se falhar, marca como desconectado
             UpdateConnectionStatus(false);
+
+            throw; // Re-throw para ser capturado pelo método pai
         }
-        finally
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Teste de conectividade em background
+    /// </summary>
+    private async Task TestConnectionInBackgroundAsync()
+    {
+        try
         {
-            IsLoading = false;
+            await Task.Delay(100); // Deixa UI renderizar primeiro
+
+            Debug.WriteLine("🔍 [FAMILIES_LIST_VM] Testing connection in background...");
+
+            var connected = await _familyRepository.TestConnectionAsync();
+
+            // Update cache info
+            CacheInfo = _familyRepository.GetCacheInfo();
+
+            // ✅ Só atualiza se realmente mudou
+            if (IsConnected != connected)
+            {
+                UpdateConnectionStatus(connected);
+
+                if (!connected)
+                {
+                    EmptyStateMessage = GetEmptyStateMessage();
+                }
+            }
+
+            Debug.WriteLine($"🔍 [FAMILIES_LIST_VM] Background test result: {connected}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Background connectivity test failed: {ex.Message}");
+            UpdateConnectionStatus(false);
         }
     }
 
@@ -170,6 +230,15 @@ public partial class FamiliesListViewModel : BaseViewModel
 
             Debug.WriteLine("🔄 [FAMILIES_LIST_VM] Force refreshing cache from server...");
 
+            // ✅ NOVO: Verificar conectividade antes de tentar refresh
+            var isConnected = await _familyRepository.TestConnectionAsync();
+            if (!isConnected)
+            {
+                UpdateConnectionStatus(false);
+                await ShowErrorAsync("No Connection", "Cannot refresh data without internet connection.");
+                return;
+            }
+
             // Force refresh do cache
             await _familyRepository.RefreshCacheAsync();
 
@@ -181,8 +250,16 @@ public partial class FamiliesListViewModel : BaseViewModel
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Refresh error: {ex.Message}");
-            await ShowErrorAsync("Refresh Failed", "Failed to refresh data from server.");
-            UpdateConnectionStatus(false);
+
+            if (ex.Message.Contains("connection") || ex.Message.Contains("internet"))
+            {
+                UpdateConnectionStatus(false);
+                await ShowErrorAsync("Connection Error", "Failed to refresh data. Check your internet connection.");
+            }
+            else
+            {
+                await ShowErrorAsync("Refresh Failed", "Failed to refresh data from server.");
+            }
         }
         finally
         {
@@ -191,14 +268,14 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Testa conectividade com servidor
+    /// ✅ CORRIGIDO: Testa conectividade manual
     /// </summary>
     [RelayCommand]
     private async Task TestConnectionAsync()
     {
         try
         {
-            Debug.WriteLine("🔍 [FAMILIES_LIST_VM] Testing connection...");
+            Debug.WriteLine("🔍 [FAMILIES_LIST_VM] Manual connection test...");
 
             var connected = await _familyRepository.TestConnectionAsync();
             UpdateConnectionStatus(connected);
@@ -206,12 +283,16 @@ public partial class FamiliesListViewModel : BaseViewModel
             // Update cache info
             CacheInfo = _familyRepository.GetCacheInfo();
 
-            Debug.WriteLine($"🔍 [FAMILIES_LIST_VM] Connection test result: {connected}");
+            Debug.WriteLine($"🔍 [FAMILIES_LIST_VM] Manual test result: {connected}");
+
+            var message = connected ? "✅ Connected to server" : "❌ Connection failed";
+            await ShowSuccessAsync(message);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Connection test failed: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Manual connection test failed: {ex.Message}");
             UpdateConnectionStatus(false);
+            await ShowErrorAsync("Connection Test", "Connection test failed");
         }
     }
 
@@ -236,15 +317,19 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Navigates to add new family page
+    /// ✅ CORRIGIDO: Navigates to add new family page
     /// </summary>
     [RelayCommand]
     private async Task AddFamilyAsync()
     {
+        // ✅ NOVO: Verificar conectividade antes de navegar
         if (!IsConnected)
         {
-            await ShowErrorAsync("No Connection", "Cannot add family without internet connection.");
-            return;
+            var canProceed = await ShowConfirmAsync(
+                "Offline Mode",
+                "You're currently offline. Some features may not work properly. Continue anyway?");
+
+            if (!canProceed) return;
         }
 
         try
@@ -260,17 +345,21 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Navigates to edit family page
+    /// ✅ CORRIGIDO: Navigates to edit family page
     /// </summary>
     [RelayCommand]
     private async Task EditFamilyAsync(FamilyItemViewModel? family)
     {
         if (family == null) return;
 
+        // ✅ NOVO: Verificar conectividade antes de editar
         if (!IsConnected)
         {
-            await ShowErrorAsync("No Connection", "Cannot edit family without internet connection.");
-            return;
+            var canProceed = await ShowConfirmAsync(
+                "Offline Mode",
+                "You're currently offline. Editing may not work properly. Continue anyway?");
+
+            if (!canProceed) return;
         }
 
         try
@@ -292,13 +381,14 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Deletes selected families
+    /// ✅ CORRIGIDO: Deletes selected families
     /// </summary>
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
         if (!SelectedFamilies.Any()) return;
 
+        // ✅ NOVO: Verificar conectividade antes de deletar
         if (!IsConnected)
         {
             await ShowErrorAsync("No Connection", "Cannot delete families without internet connection.");
@@ -338,8 +428,16 @@ public partial class FamiliesListViewModel : BaseViewModel
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_LIST_VM] Delete error: {ex.Message}");
-            await ShowErrorAsync("Delete Error", "Failed to delete families. Check your connection.");
-            UpdateConnectionStatus(false);
+
+            if (ex.Message.Contains("connection") || ex.Message.Contains("internet"))
+            {
+                UpdateConnectionStatus(false);
+                await ShowErrorAsync("Connection Error", "Failed to delete families. Check your internet connection.");
+            }
+            else
+            {
+                await ShowErrorAsync("Delete Error", "Failed to delete families. Please try again.");
+            }
         }
         finally
         {
@@ -450,7 +548,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Updates FAB based on selection
+    /// ✅ CORRIGIDO: Updates FAB based on selection and connectivity
     /// </summary>
     private void UpdateFabForSelection()
     {
@@ -458,16 +556,20 @@ public partial class FamiliesListViewModel : BaseViewModel
         {
             FabIcon = "delete";
             FabText = $"Delete ({SelectedFamilies.Count})";
+            // ✅ Disable delete if offline
+            FabIsVisible = IsConnected;
         }
         else if (IsMultiSelectMode)
         {
             FabIcon = "close";
             FabText = "Cancel";
+            FabIsVisible = true;
         }
         else
         {
             FabIcon = "plus";
-            FabText = "Add Family";
+            FabText = IsConnected ? "Add Family" : "Offline";
+            FabIsVisible = true;
         }
     }
 
@@ -491,7 +593,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Atualiza status de conectividade
+    /// ✅ CORRIGIDO: Atualiza status de conectividade
     /// </summary>
     private void UpdateConnectionStatus(bool connected)
     {
@@ -507,20 +609,13 @@ public partial class FamiliesListViewModel : BaseViewModel
             ConnectionStatus = "📡 Disconnected";
             ConnectionStatusColor = Colors.Red;
         }
+
+        // ✅ NOVO: Atualizar FAB baseado em conectividade
+        UpdateFabForSelection();
     }
 
     /// <summary>
-    /// Atualiza empty state para offline
-    /// </summary>
-    private void UpdateEmptyStateForOffline()
-    {
-        HasData = false;
-        EmptyStateMessage = "No internet connection\nConnect to view your families";
-        Families.Clear();
-    }
-
-    /// <summary>
-    /// Gets appropriate empty state message
+    /// ✅ CORRIGIDO: Gets appropriate empty state message
     /// </summary>
     private string GetEmptyStateMessage()
     {
@@ -543,13 +638,13 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// Handles page appearing
+    /// ✅ CORRIGIDO: Handles page appearing
     /// </summary>
     public override async Task OnAppearingAsync()
     {
         await base.OnAppearingAsync();
 
-        Debug.WriteLine("👁️ [FAMILIES_LIST_VM] Page appearing - loading data");
+        Debug.WriteLine("👁️ [FAMILIES_LIST_VM] Page appearing - loading data optimistically");
         await LoadFamiliesAsync();
     }
 

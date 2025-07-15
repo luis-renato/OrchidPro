@@ -3,7 +3,7 @@
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// CORRIGIDO: Families list page sem referências a sync (arquitetura simplificada)
+/// CORRIGIDO: Families list page com conectividade otimizada
 /// </summary>
 public partial class FamiliesListPage : ContentPage
 {
@@ -20,11 +20,12 @@ public partial class FamiliesListPage : ContentPage
     {
         base.OnAppearing();
 
-        // Perform entrance animation
-        await PerformEntranceAnimation();
+        // ✅ OTIMIZADO: Animação + inicialização em paralelo
+        var animationTask = PerformEntranceAnimation();
+        var initTask = _viewModel.OnAppearingAsync();
 
-        // Initialize ViewModel
-        await _viewModel.OnAppearingAsync();
+        // Aguarda ambos completarem
+        await Task.WhenAll(animationTask, initTask);
     }
 
     protected override async void OnDisappearing()
@@ -39,7 +40,7 @@ public partial class FamiliesListPage : ContentPage
     }
 
     /// <summary>
-    /// Performs dramatic entrance animation
+    /// ✅ OTIMIZADO: Performs dramatic entrance animation
     /// </summary>
     private async Task PerformEntranceAnimation()
     {
@@ -49,18 +50,18 @@ public partial class FamiliesListPage : ContentPage
         FabButton.Scale = 0;
         FabButton.Rotation = -90;
 
-        // Animate main content with fade + scale
+        // Animate main content with fade + scale mais suave
         var contentTask = Task.WhenAll(
-            RootGrid.FadeTo(1, 600, Easing.CubicOut),
-            RootGrid.ScaleTo(1, 600, Easing.SpringOut)
+            RootGrid.FadeTo(1, 500, Easing.CubicOut),
+            RootGrid.ScaleTo(1, 500, Easing.SpringOut)
         );
 
         // Wait for content, then animate FAB
         await contentTask;
 
         await Task.WhenAll(
-            FabButton.ScaleTo(0.9, 400, Easing.SpringOut),
-            FabButton.RotateTo(0, 400, Easing.CubicOut)
+            FabButton.ScaleTo(0.9, 300, Easing.SpringOut),
+            FabButton.RotateTo(0, 300, Easing.CubicOut)
         );
     }
 
@@ -71,14 +72,14 @@ public partial class FamiliesListPage : ContentPage
     {
         // Animate FAB out first
         var fabTask = Task.WhenAll(
-            FabButton.ScaleTo(0, 300, Easing.CubicIn),
-            FabButton.RotateTo(90, 300, Easing.CubicIn)
+            FabButton.ScaleTo(0, 200, Easing.CubicIn),
+            FabButton.RotateTo(90, 200, Easing.CubicIn)
         );
 
         // Then animate main content
         var contentTask = Task.WhenAll(
-            RootGrid.FadeTo(0, 400, Easing.CubicIn),
-            RootGrid.ScaleTo(0.95, 400, Easing.CubicIn)
+            RootGrid.FadeTo(0, 300, Easing.CubicIn),
+            RootGrid.ScaleTo(0.95, 300, Easing.CubicIn)
         );
 
         await Task.WhenAll(fabTask, contentTask);
@@ -97,7 +98,7 @@ public partial class FamiliesListPage : ContentPage
     }
 
     /// <summary>
-    /// CORRIGIDO: Handles filter selection com apenas Status (sem Sync)
+    /// ✅ SIMPLIFICADO: Handles filter selection apenas Status (sem Sync)
     /// </summary>
     private async void OnFilterTapped(object sender, EventArgs e)
     {
@@ -118,7 +119,50 @@ public partial class FamiliesListPage : ContentPage
                     _viewModel.StatusFilter = action;
                 }
             }
-            // REMOVIDO: Sync filter (não existe mais na arquitetura simplificada)
+            // ✅ REMOVIDO: Sync filter (não existe mais na arquitetura simplificada)
+        }
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Handles connectivity status tap (test connection)
+    /// </summary>
+    private async void OnConnectivityStatusTapped(object sender, EventArgs e)
+    {
+        try
+        {
+            // Mostrar overlay temporário
+            if (CacheInfoOverlay != null)
+            {
+                CacheInfoOverlay.IsVisible = true;
+                await CacheInfoOverlay.ScaleTo(1.1, 150, Easing.CubicOut);
+                await CacheInfoOverlay.ScaleTo(1, 150, Easing.CubicOut);
+
+                // Executar teste
+                await _viewModel.TestConnectionCommand.ExecuteAsync(null);
+
+                // Esconder após 3 segundos
+                await Task.Delay(3000);
+                await CacheInfoOverlay.FadeTo(0, 200);
+                CacheInfoOverlay.IsVisible = false;
+                CacheInfoOverlay.Opacity = 1; // Reset para próxima vez
+            }
+        }
+        catch (Exception ex)
+        {
+            await DisplayAlert("Connection Test", $"Test failed: {ex.Message}", "OK");
+        }
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Handle FAB button with special effects
+    /// </summary>
+    private async void OnFabPressed(object sender, EventArgs e)
+    {
+        if (sender is Button fab)
+        {
+            // Special animation for FAB
+            await fab.ScaleTo(0.9, 100, Easing.CubicOut);
+            await fab.ScaleTo(1, 100, Easing.SpringOut);
         }
     }
 }

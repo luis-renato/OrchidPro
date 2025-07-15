@@ -5,27 +5,48 @@ using System.Diagnostics;
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// Login page with enhanced animations and professional UI
-/// CORRIGIDO: Agora salva sessão após login bem-sucedido
+/// CORRIGIDO: Login page que salva sessão nos singleton services
 /// </summary>
 public partial class LoginPage : ContentPage
 {
     private readonly SupabaseService _supabaseService;
     private readonly INavigationService _navigationService;
 
-    public LoginPage(SupabaseService supabaseService)
+    /// <summary>
+    /// ✅ CORRIGIDO: Usar DI para obter singleton services
+    /// </summary>
+    public LoginPage(SupabaseService supabaseService, INavigationService navigationService)
     {
         InitializeComponent();
         _supabaseService = supabaseService;
+        _navigationService = navigationService;
 
-        // Get navigation service
-        var services = MauiProgram.CreateMauiApp().Services;
-        _navigationService = services.GetRequiredService<INavigationService>();
+        Debug.WriteLine("📱 LoginPage created with singleton services");
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
+
+        // ✅ VERIFICAR estado dos singletons
+        Debug.WriteLine("👁️ === LOGIN PAGE APPEARING ===");
+        Debug.WriteLine($"🔧 SupabaseService.IsInitialized: {_supabaseService.IsInitialized}");
+        Debug.WriteLine($"🔐 SupabaseService.IsAuthenticated: {_supabaseService.IsAuthenticated}");
+
+        // ✅ GARANTIR que SupabaseService está inicializado
+        if (!_supabaseService.IsInitialized)
+        {
+            Debug.WriteLine("🔄 SupabaseService not initialized - initializing...");
+            try
+            {
+                await _supabaseService.InitializeAsync();
+                Debug.WriteLine("✅ SupabaseService initialized in LoginPage");
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ Failed to initialize SupabaseService: {ex.Message}");
+            }
+        }
 
         // Perform entrance animation
         await PerformEntranceAnimation();
@@ -52,7 +73,7 @@ public partial class LoginPage : ContentPage
     }
 
     /// <summary>
-    /// Handles login button click with CORREÇÃO para salvar sessão
+    /// ✅ CORRIGIDO: Handles login com salvamento correto na sessão singleton
     /// </summary>
     private async void OnLoginClicked(object sender, EventArgs e)
     {
@@ -70,11 +91,16 @@ public partial class LoginPage : ContentPage
             LoadingIndicator.IsRunning = true;
             ErrorLabel.IsVisible = false;
 
-            Debug.WriteLine("🔐 Attempting login...");
+            Debug.WriteLine("🔐 Attempting login with singleton service...");
 
-            // Ensure Supabase is initialized
-            await _supabaseService.InitializeAsync();
-            Debug.WriteLine("✅ Supabase initialized for login");
+            // ✅ GARANTIR que SupabaseService está inicializado
+            if (!_supabaseService.IsInitialized)
+            {
+                Debug.WriteLine("🔄 Initializing SupabaseService during login...");
+                await _supabaseService.InitializeAsync();
+            }
+
+            Debug.WriteLine("✅ SupabaseService ready for login");
 
             // Attempt login
             var session = await _supabaseService.Client!.Auth.SignIn(EmailEntry.Text, PasswordEntry.Text);
@@ -85,18 +111,25 @@ public partial class LoginPage : ContentPage
                 Debug.WriteLine($"✅ User ID: {session.User.Id}");
                 Debug.WriteLine($"✅ Access Token: {session.AccessToken?[..20]}...");
 
-                // 🔥 CORREÇÃO CRÍTICA: Salvar sessão IMEDIATAMENTE após login
+                // ✅ CRÍTICO: Salvar sessão no singleton
                 _supabaseService.SaveSession();
-                Debug.WriteLine("💾 Session saved to preferences");
+                Debug.WriteLine("💾 Session saved to singleton service");
 
-                // Verify session was saved
+                // ✅ VERIFICAÇÃO: Confirmar que sessão foi salva
                 var savedSession = Preferences.Get("supabase_session", null);
                 Debug.WriteLine($"✅ Session verification: {(string.IsNullOrEmpty(savedSession) ? "FAILED" : "SUCCESS")}");
 
-                // Verify authentication state
+                // ✅ VERIFICAÇÃO: Estado do singleton após login
                 var isAuth = _supabaseService.IsAuthenticated;
                 var userId = _supabaseService.GetCurrentUserId();
-                Debug.WriteLine($"✅ Auth state - Authenticated: {isAuth}, UserID: {userId}");
+                Debug.WriteLine($"✅ Singleton state - Authenticated: {isAuth}, UserID: {userId}");
+
+                if (!isAuth)
+                {
+                    Debug.WriteLine("❌ CRITICAL: Singleton not reflecting authenticated state!");
+                    ShowError("Login succeeded but singleton state invalid");
+                    return;
+                }
 
                 // Add delay for better UX
                 await Task.Delay(500);

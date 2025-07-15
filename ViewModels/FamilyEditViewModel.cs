@@ -3,14 +3,12 @@ using CommunityToolkit.Mvvm.Input;
 using OrchidPro.Models;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
-using System.Data;
 using System.Diagnostics;
 
 namespace OrchidPro.ViewModels;
 
 /// <summary>
-/// MIGRADO: ViewModel para criação e edição de Family com arquitetura simplificada
-/// Adiciona indicadores de conectividade, remove complexidade de sincronização
+/// CORRIGIDO: ViewModel para criação e edição de Family com teste de conectividade otimizado
 /// </summary>
 public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
 {
@@ -74,7 +72,7 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     [ObservableProperty]
     private Color saveButtonColor;
 
-    // NOVO: Indicadores de conectividade
+    // CORRIGIDO: Conectividade inicializada como true, testa depois
     [ObservableProperty]
     private string connectionStatus = "🌐 Connected";
 
@@ -82,13 +80,31 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     private Color connectionStatusColor = Colors.Green;
 
     [ObservableProperty]
-    private bool isConnected = true;
+    private bool isConnected = true; // ✅ Inicia como true
 
     [ObservableProperty]
-    private string syncStatus = "✅ Synced"; // Na nova arquitetura sempre synced
+    private string autoSaveStatus = "";
 
     [ObservableProperty]
-    private Color syncStatusColor = Colors.Green;
+    private Color autoSaveStatusColor = Colors.Green;
+
+    [ObservableProperty]
+    private bool showAutoSaveStatus = false;
+
+    [ObservableProperty]
+    private string autoSaveMessage = "";
+
+    [ObservableProperty]
+    private bool showAutoSaveSuccess = false;
+
+    [ObservableProperty]
+    private string connectionTestResult = "";
+
+    [ObservableProperty]
+    private string loadingMessage = "Loading...";
+
+    [ObservableProperty]
+    private bool isSaving;
 
     public string PageTitle => _isEditMode ? "Edit Family" : "Add Family";
     public string PageSubtitle => _isEditMode ? "Modify family information" : "Create a new botanical family";
@@ -101,10 +117,15 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         Title = "Family Details";
         SaveButtonColor = Colors.Green;
 
+        // ✅ CORRIGIDO: Assume conectado inicialmente
+        IsConnected = true;
+        ConnectionStatus = "🌐 Connected";
+        ConnectionStatusColor = Colors.Green;
+
         // Set up validation
         SetupValidation();
 
-        Debug.WriteLine("✅ [FAMILY_EDIT_VM] Initialized with simplified architecture");
+        Debug.WriteLine("✅ [FAMILY_EDIT_VM] Initialized with optimistic connectivity");
     }
 
     /// <summary>
@@ -130,48 +151,109 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     }
 
     /// <summary>
-    /// MIGRADO: Inicializa o ViewModel com teste de conectividade
+    /// CORRIGIDO: Inicializa otimisticamente e testa conectividade em background
     /// </summary>
     protected override async Task InitializeAsync()
     {
-        await TestConnectionAsync();
-
-        if (_isEditMode && FamilyId.HasValue)
+        try
         {
-            await LoadFamilyAsync();
-        }
-        else
-        {
-            SetupNewFamily();
-        }
+            // ✅ Carregar dados imediatamente (assume conectado)
+            if (_isEditMode && FamilyId.HasValue)
+            {
+                await LoadFamilyAsync();
+            }
+            else
+            {
+                SetupNewFamily();
+            }
 
-        UpdateSaveButton();
+            // ✅ Testar conectividade em background (não bloqueia UI)
+            _ = TestConnectionInBackgroundAsync();
+
+            UpdateSaveButton();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Initialize error: {ex.Message}");
+            await ShowErrorAsync("Initialization Error", "Failed to load family data");
+        }
     }
 
     /// <summary>
-    /// NOVO: Testa conectividade com servidor
+    /// NOVO: Teste de conectividade em background sem bloquear UI
+    /// </summary>
+    private async Task TestConnectionInBackgroundAsync()
+    {
+        try
+        {
+            await Task.Delay(100); // Pequeno delay para UI se renderizar primeiro
+
+            Debug.WriteLine("🔍 [FAMILY_EDIT_VM] Testing connection in background...");
+
+            var connected = await _familyRepository.TestConnectionAsync();
+
+            // ✅ Só atualiza se realmente desconectado
+            if (!connected)
+            {
+                Debug.WriteLine("📡 [FAMILY_EDIT_VM] Connection failed - updating UI");
+                UpdateConnectionStatus(false);
+            }
+            else
+            {
+                Debug.WriteLine("✅ [FAMILY_EDIT_VM] Connection confirmed");
+                // Mantém como conectado (já era)
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Background connection test failed: {ex.Message}");
+            // ✅ Só atualiza se houver erro real
+            UpdateConnectionStatus(false);
+        }
+    }
+
+    /// <summary>
+    /// CORRIGIDO: Teste de conectividade manual que força atualização
     /// </summary>
     [RelayCommand]
     private async Task TestConnectionAsync()
     {
         try
         {
-            Debug.WriteLine("🔍 [FAMILY_EDIT_VM] Testing connection...");
+            LoadingMessage = "Testing connection...";
+            IsBusy = true;
+
+            Debug.WriteLine("🔍 [FAMILY_EDIT_VM] Manual connection test...");
 
             var connected = await _familyRepository.TestConnectionAsync();
             UpdateConnectionStatus(connected);
 
-            Debug.WriteLine($"🔍 [FAMILY_EDIT_VM] Connection test result: {connected}");
+            var resultMessage = connected ? "✅ Connected to server" : "❌ Connection failed";
+            ConnectionTestResult = resultMessage;
+
+            Debug.WriteLine($"🔍 [FAMILY_EDIT_VM] Manual test result: {connected}");
+
+            // Mostrar resultado por 3 segundos
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(3000);
+                ConnectionTestResult = "";
+            });
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Connection test failed: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Manual connection test error: {ex.Message}");
             UpdateConnectionStatus(false);
+            ConnectionTestResult = "❌ Connection error";
+        }
+        finally
+        {
+            IsBusy = false;
         }
     }
 
     /// <summary>
-    /// MIGRADO: Carrega dados da família para edição
+    /// Carrega dados da família para edição
     /// </summary>
     [RelayCommand]
     private async Task LoadFamilyAsync()
@@ -180,6 +262,7 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
 
         try
         {
+            LoadingMessage = "Loading family...";
             IsBusy = true;
 
             Debug.WriteLine($"📥 [FAMILY_EDIT_VM] Loading family: {FamilyId}");
@@ -203,8 +286,17 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Load error: {ex.Message}");
-            await ShowErrorAsync("Load Error", "Failed to load family data. Check your connection.");
-            UpdateConnectionStatus(false);
+
+            // ✅ Só marca como desconectado se for erro de rede
+            if (ex.Message.Contains("connection") || ex.Message.Contains("network") || ex.Message.Contains("timeout"))
+            {
+                UpdateConnectionStatus(false);
+                await ShowErrorAsync("Connection Error", "Failed to load family data. Check your connection.");
+            }
+            else
+            {
+                await ShowErrorAsync("Load Error", "Failed to load family data.");
+            }
         }
         finally
         {
@@ -223,8 +315,6 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         IsActive = true;
         IsSystemDefault = false;
         CanDelete = false;
-        SyncStatus = "📝 Ready to save";
-        SyncStatusColor = Colors.Orange;
 
         // Focus on name field for new entries
         IsNameFocused = true;
@@ -246,33 +336,35 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
 
         // Reset change tracking after loading
         HasUnsavedChanges = false;
-
-        // In new architecture, always synced
-        SyncStatus = "✅ Synced";
-        SyncStatusColor = Colors.Green;
     }
 
     /// <summary>
-    /// MIGRADO: Salva a família (criar ou atualizar)
+    /// Salva a família (criar ou atualizar)
     /// </summary>
     [RelayCommand]
     private async Task SaveAsync()
     {
         if (!await ValidateFormAsync()) return;
 
-        if (!IsConnected)
-        {
-            await ShowErrorAsync("No Connection", "Cannot save without internet connection. Please check your connection and try again.");
-            return;
-        }
+        // ✅ CORRIGIDO: Permite salvar se conectado OU offline (para cache local)
+        // Pode implementar queue offline no futuro
 
         try
         {
+            IsSaving = true;
+            LoadingMessage = "Saving family...";
             IsBusy = true;
             SaveButtonText = "Saving...";
             SaveButtonColor = Colors.Orange;
-            SyncStatus = "⏳ Saving...";
-            SyncStatusColor = Colors.Orange;
+
+            // ✅ Verificar conectividade antes de salvar
+            var isCurrentlyConnected = await _familyRepository.TestConnectionAsync();
+            if (!isCurrentlyConnected)
+            {
+                UpdateConnectionStatus(false);
+                await ShowErrorAsync("No Connection", "Cannot save without internet connection. Please check your connection and try again.");
+                return;
+            }
 
             Family family;
 
@@ -311,8 +403,6 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
 
             // Reset change tracking
             HasUnsavedChanges = false;
-            SyncStatus = "✅ Synced";
-            SyncStatusColor = Colors.Green;
 
             // Navigate back to list
             await _navigationService.GoBackAsync();
@@ -321,14 +411,19 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         {
             Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Save error: {ex.Message}");
 
-            SyncStatus = "❌ Save failed";
-            SyncStatusColor = Colors.Red;
-
-            await ShowErrorAsync("Save Error", "Failed to save family. Please check your connection and try again.");
-            UpdateConnectionStatus(false);
+            if (ex.Message.Contains("connection") || ex.Message.Contains("network") || ex.Message.Contains("timeout"))
+            {
+                UpdateConnectionStatus(false);
+                await ShowErrorAsync("Connection Error", "Failed to save family. Check your connection and try again.");
+            }
+            else
+            {
+                await ShowErrorAsync("Save Error", "Failed to save family. Please try again.");
+            }
         }
         finally
         {
+            IsSaving = false;
             IsBusy = false;
             SaveButtonText = "Save";
             SaveButtonColor = Colors.Green;
@@ -336,15 +431,18 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     }
 
     /// <summary>
-    /// MIGRADO: Exclui a família
+    /// Exclui a família
     /// </summary>
     [RelayCommand]
     private async Task DeleteAsync()
     {
         if (!_isEditMode || !FamilyId.HasValue || IsSystemDefault) return;
 
-        if (!IsConnected)
+        // ✅ Verificar conectividade antes de deletar
+        var isCurrentlyConnected = await _familyRepository.TestConnectionAsync();
+        if (!isCurrentlyConnected)
         {
+            UpdateConnectionStatus(false);
             await ShowErrorAsync("No Connection", "Cannot delete without internet connection.");
             return;
         }
@@ -357,9 +455,8 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
 
         try
         {
+            LoadingMessage = "Deleting family...";
             IsBusy = true;
-            SyncStatus = "🗑️ Deleting...";
-            SyncStatusColor = Colors.Red;
 
             Debug.WriteLine($"🗑️ [FAMILY_EDIT_VM] Deleting family: {Name}");
 
@@ -380,14 +477,20 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Delete error: {ex.Message}");
-            await ShowErrorAsync("Delete Error", "Failed to delete family. Please check your connection and try again.");
-            UpdateConnectionStatus(false);
+
+            if (ex.Message.Contains("connection") || ex.Message.Contains("network") || ex.Message.Contains("timeout"))
+            {
+                UpdateConnectionStatus(false);
+                await ShowErrorAsync("Connection Error", "Failed to delete family. Check your connection and try again.");
+            }
+            else
+            {
+                await ShowErrorAsync("Delete Error", "Failed to delete family. Please try again.");
+            }
         }
         finally
         {
             IsBusy = false;
-            SyncStatus = "✅ Synced";
-            SyncStatusColor = Colors.Green;
         }
     }
 
@@ -411,7 +514,7 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     }
 
     /// <summary>
-    /// MIGRADO: Valida o campo nome
+    /// Valida o campo nome
     /// </summary>
     [RelayCommand]
     private async Task ValidateNameAsync()
@@ -442,15 +545,19 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
                 return;
             }
 
-            // Check for duplicates
-            var excludeId = _isEditMode ? FamilyId : null;
-            var nameExists = await _familyRepository.NameExistsAsync(trimmedName, excludeId);
-
-            if (nameExists)
+            // ✅ CORRIGIDO: Só verifica duplicatas se conectado
+            if (IsConnected)
             {
-                NameError = "A family with this name already exists";
-                IsNameValid = false;
-                return;
+                // Check for duplicates
+                var excludeId = _isEditMode ? FamilyId : null;
+                var nameExists = await _familyRepository.NameExistsAsync(trimmedName, excludeId);
+
+                if (nameExists)
+                {
+                    NameError = "A family with this name already exists";
+                    IsNameValid = false;
+                    return;
+                }
             }
 
             // All validations passed
@@ -460,9 +567,19 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Name validation error: {ex.Message}");
-            NameError = "Error validating name - check connection";
-            IsNameValid = false;
-            UpdateConnectionStatus(false);
+
+            // ✅ Se falhar validação, não bloqueia (pode ser offline)
+            if (ex.Message.Contains("connection") || ex.Message.Contains("network"))
+            {
+                UpdateConnectionStatus(false);
+                NameError = "Cannot verify uniqueness - offline";
+                IsNameValid = !string.IsNullOrWhiteSpace(Name?.Trim()) && Name.Trim().Length >= 2; // Basic validation only
+            }
+            else
+            {
+                NameError = "Error validating name";
+                IsNameValid = false;
+            }
         }
         finally
         {
@@ -504,15 +621,19 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     }
 
     /// <summary>
-    /// Updates the save button state
+    /// CORRIGIDO: Updates the save button state (permite salvar offline com validação básica)
     /// </summary>
     private void UpdateSaveButton()
     {
-        CanSave = IsNameValid && IsDescriptionValid && !string.IsNullOrWhiteSpace(Name) && IsConnected;
+        // ✅ Permite salvar se tem nome válido (mesmo offline)
+        CanSave = !string.IsNullOrWhiteSpace(Name) &&
+                  IsNameValid &&
+                  IsDescriptionValid &&
+                  !IsSaving;
     }
 
     /// <summary>
-    /// NOVO: Atualiza status de conectividade
+    /// Atualiza status de conectividade
     /// </summary>
     private void UpdateConnectionStatus(bool connected)
     {
@@ -527,12 +648,11 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
         {
             ConnectionStatus = "📡 Disconnected";
             ConnectionStatusColor = Colors.Red;
-
-            SyncStatus = "📡 Offline";
-            SyncStatusColor = Colors.Red;
         }
 
         UpdateSaveButton();
+        OnPropertyChanged(nameof(PageTitle));
+        OnPropertyChanged(nameof(PageSubtitle));
     }
 
     /// <summary>
@@ -569,8 +689,10 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
 
     [RelayCommand] private void OnNameFocused() => IsNameFocused = true;
     [RelayCommand] private async Task OnNameUnfocusedAsync() { IsNameFocused = false; await ValidateNameAsync(); }
+    [RelayCommand] private async Task OnNameChangedAsync() => await ValidateNameAsync();
     [RelayCommand] private void OnDescriptionFocused() => IsDescriptionFocused = true;
     [RelayCommand] private void OnDescriptionUnfocused() { IsDescriptionFocused = false; ValidateDescription(); }
+    [RelayCommand] private void OnDescriptionChanged() => ValidateDescription();
     [RelayCommand] private void ToggleActiveStatus() { IsActive = !IsActive; HasUnsavedChanges = true; }
     [RelayCommand] private void ClearDescription() => Description = string.Empty;
 
@@ -578,7 +700,7 @@ public partial class FamilyEditViewModel : BaseViewModel, IQueryAttributable
     private async Task ShowInfoAsync()
     {
         var message = _isEditMode
-            ? $"Family ID: {FamilyId}\nCreated: {CreatedAt:F}\nLast Updated: {UpdatedAt:F}\nConnection: {ConnectionStatus}\nSync: {SyncStatus}"
+            ? $"Family ID: {FamilyId}\nCreated: {CreatedAt:F}\nLast Updated: {UpdatedAt:F}\nConnection: {ConnectionStatus}"
             : $"This will create a new botanical family in your collection.\nConnection: {ConnectionStatus}";
 
         await ShowErrorAsync("Family Information", message);

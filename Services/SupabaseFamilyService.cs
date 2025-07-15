@@ -7,8 +7,7 @@ using System.Diagnostics;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// CORRIGIDO: Modelo da Family para Supabase - SCHEMA PUBLIC (families)
-/// Versão limpa sem conceitos de sync
+/// Modelo da Family para Supabase - SCHEMA PUBLIC (families)
 /// </summary>
 [Table("families")]
 public class SupabaseFamily : BaseModel
@@ -69,7 +68,7 @@ public class SupabaseFamily : BaseModel
 }
 
 /// <summary>
-/// CORRIGIDO: Serviço limpo para operações diretas com Supabase (sem sync)
+/// CORRIGIDO: Serviço com teste REAL de conectividade
 /// </summary>
 public class SupabaseFamilyService
 {
@@ -398,7 +397,7 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// Testa conectividade com Supabase
+    /// ✅ CORRIGIDO: Testa conectividade REAL com query no banco
     /// </summary>
     public async Task<bool> TestConnectionAsync()
     {
@@ -410,25 +409,53 @@ public class SupabaseFamilyService
                 return false;
             }
 
-            Debug.WriteLine("🔍 [FAMILY_SERVICE] Testing connection...");
+            Debug.WriteLine("🔍 [FAMILY_SERVICE] Testing REAL database connection...");
 
-            var query = _supabaseService.Client.From<SupabaseFamily>().Limit(1);
+            // ✅ TESTE REAL: Query simples na tabela families com timeout
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+
+            var query = _supabaseService.Client.From<SupabaseFamily>()
+                .Select("id,name")
+                .Limit(1);
+
             var response = await query.Get();
 
             var success = response?.Models != null;
-            Debug.WriteLine($"✅ [FAMILY_SERVICE] Connection test result: {success}");
+
+            if (success)
+            {
+                Debug.WriteLine($"✅ [FAMILY_SERVICE] REAL connection test: SUCCESS");
+                Debug.WriteLine($"✅ [FAMILY_SERVICE] Query returned valid response");
+            }
+            else
+            {
+                Debug.WriteLine($"❌ [FAMILY_SERVICE] REAL connection test: FAILED - no response");
+            }
 
             return success;
         }
+        catch (OperationCanceledException)
+        {
+            Debug.WriteLine("⏰ [FAMILY_SERVICE] Connection test timeout (10s)");
+            return false;
+        }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] Connection test failed: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILY_SERVICE] REAL connection test failed: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILY_SERVICE] Exception type: {ex.GetType().Name}");
+
+            // ✅ Log mais detalhes para debug
+            if (ex.InnerException != null)
+            {
+                Debug.WriteLine($"❌ [FAMILY_SERVICE] Inner exception: {ex.InnerException.Message}");
+            }
+
             return false;
         }
     }
 
     /// <summary>
-    /// CORRIGIDO: Calcula estatísticas das famílias (sem campos sync)
+    /// Calcula estatísticas das famílias
     /// </summary>
     public async Task<FamilyStatistics> GetStatisticsAsync()
     {

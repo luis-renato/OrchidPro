@@ -1,25 +1,19 @@
-﻿using OrchidPro.Services.Data;
+﻿using OrchidPro.Services;
+using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
 using System.Diagnostics;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// CORRIGIDO: SplashPage que inicializa Supabase adequadamente e verifica sessão
+/// CORRIGIDO: SplashPage que GARANTE inicialização dos singleton services
 /// </summary>
 public partial class SplashPage : ContentPage
 {
-    private readonly SupabaseService _supabaseService;
-    private readonly INavigationService _navigationService;
-
     public SplashPage()
     {
         InitializeComponent();
-
-        // Get services from DI container
-        var services = MauiProgram.CreateMauiApp().Services;
-        _supabaseService = services.GetRequiredService<SupabaseService>();
-        _navigationService = services.GetRequiredService<INavigationService>();
+        Debug.WriteLine("📱 SplashPage created");
     }
 
     protected override async void OnAppearing()
@@ -29,8 +23,8 @@ public partial class SplashPage : ContentPage
         // Start entrance animation
         await PerformEntranceAnimation();
 
-        // Initialize app with proper error handling
-        await InitializeAppAsync();
+        // ✅ CRÍTICO: Garantir inicialização ANTES de navegar
+        await InitializeAppWithSingletonsAsync();
     }
 
     /// <summary>
@@ -74,36 +68,75 @@ public partial class SplashPage : ContentPage
     }
 
     /// <summary>
-    /// CORRIGIDO: Initializes the app services and determines navigation destination
+    /// ✅ CORRIGIDO: Inicializa app GARANTINDO que singletons sejam criados e inicializados
     /// </summary>
-    private async Task InitializeAppAsync()
+    private async Task InitializeAppWithSingletonsAsync()
     {
         try
         {
-            Debug.WriteLine("🚀 === APP INITIALIZATION START ===");
+            Debug.WriteLine("🚀 === APP INITIALIZATION WITH SINGLETONS ===");
 
-            // Step 1: Initialize Supabase
-            UpdateStatus("Initializing services...");
-            Debug.WriteLine("🔄 Initializing Supabase...");
+            // Step 1: Get services from DI
+            UpdateStatus("Getting services...");
+            Debug.WriteLine("🔄 Getting services from DI container...");
 
-            await _supabaseService.InitializeAsync();
-            Debug.WriteLine("✅ Supabase initialized successfully");
+            var services = IPlatformApplication.Current?.Services;
+            if (services == null)
+            {
+                throw new InvalidOperationException("Service provider not available");
+            }
 
-            // Add delay for better UX
-            await Task.Delay(500);
+            Debug.WriteLine("✅ Service provider obtained");
 
-            // Step 2: Check for existing session
+            // Step 2: ✅ CRÍTICO - Forçar criação e inicialização dos singletons
+            UpdateStatus("Initializing core services...");
+            Debug.WriteLine("🔧 Creating and initializing singleton services...");
+
+            // ✅ FORÇAR criação do SupabaseService singleton e inicializar
+            var supabaseService = services.GetRequiredService<SupabaseService>();
+            Debug.WriteLine("✅ SupabaseService singleton obtained");
+
+            // ✅ GARANTIR que está inicializado
+            if (!supabaseService.IsInitialized)
+            {
+                Debug.WriteLine("🔄 SupabaseService not initialized - initializing now...");
+                await supabaseService.InitializeAsync();
+                Debug.WriteLine("✅ SupabaseService initialized successfully");
+            }
+            else
+            {
+                Debug.WriteLine("✅ SupabaseService already initialized");
+            }
+
+            // ✅ FORÇAR criação dos outros singletons
+            var familyService = services.GetRequiredService<SupabaseFamilyService>();
+            var familyRepo = services.GetRequiredService<IFamilyRepository>();
+            var navigationService = services.GetRequiredService<INavigationService>();
+
+            Debug.WriteLine("✅ All singleton services created and available");
+
+            // Step 3: ✅ VERIFICAR estado após inicialização
+            UpdateStatus("Verifying initialization...");
+            Debug.WriteLine("🔍 Verifying singleton initialization...");
+
+            Debug.WriteLine($"🔧 SupabaseService.IsInitialized: {supabaseService.IsInitialized}");
+            Debug.WriteLine($"🔐 SupabaseService.IsAuthenticated: {supabaseService.IsAuthenticated}");
+
+            if (!supabaseService.IsInitialized)
+            {
+                throw new InvalidOperationException("SupabaseService failed to initialize");
+            }
+
+            // Step 4: Check for existing session
             UpdateStatus("Checking authentication...");
             Debug.WriteLine("🔐 Checking for existing session...");
 
-            // CORRIGIDO: Use the corrected RestoreSessionAsync method
-            bool hasValidSession = await _supabaseService.RestoreSessionAsync();
-
+            bool hasValidSession = await supabaseService.RestoreSessionAsync();
             Debug.WriteLine($"🔐 Session restore result: {hasValidSession}");
 
             if (hasValidSession)
             {
-                var user = _supabaseService.GetCurrentUser();
+                var user = supabaseService.GetCurrentUser();
                 Debug.WriteLine($"✅ Valid session found for user: {user?.Email}");
                 Debug.WriteLine($"✅ User ID: {user?.Id}");
             }
@@ -112,27 +145,33 @@ public partial class SplashPage : ContentPage
                 Debug.WriteLine("❌ No valid session found - user needs to login");
             }
 
+            // Step 5: ✅ VERIFICAÇÃO FINAL antes de navegar
+            Debug.WriteLine("🧪 === FINAL VERIFICATION BEFORE NAVIGATION ===");
+            Debug.WriteLine($"✅ SupabaseService initialized: {supabaseService.IsInitialized}");
+            Debug.WriteLine($"✅ SupabaseService authenticated: {supabaseService.IsAuthenticated}");
+            Debug.WriteLine($"✅ Services available for dependency injection");
+
             // Add delay to ensure smooth transition
             await Task.Delay(700);
 
-            // Step 3: Perform enhanced exit animation
+            // Step 6: Perform enhanced exit animation
             await PerformExitAnimation();
 
-            // Step 4: Navigate based on session status
+            // Step 7: Navigate based on session status
             Debug.WriteLine("🧭 Navigating based on session status...");
 
             if (hasValidSession)
             {
                 Debug.WriteLine("🧭 Navigating to main app...");
-                await _navigationService.NavigateToMainAsync();
+                await navigationService.NavigateToMainAsync();
             }
             else
             {
                 Debug.WriteLine("🧭 Navigating to login...");
-                await _navigationService.NavigateToLoginAsync();
+                await navigationService.NavigateToLoginAsync();
             }
 
-            Debug.WriteLine("🚀 === APP INITIALIZATION COMPLETED ===");
+            Debug.WriteLine("🚀 === APP INITIALIZATION WITH SINGLETONS COMPLETED ===");
         }
         catch (Exception ex)
         {
@@ -148,7 +187,12 @@ public partial class SplashPage : ContentPage
                     $"Failed to initialize the app: {ex.Message}", "OK");
 
                 // Try to navigate to login as fallback
-                await _navigationService.NavigateToLoginAsync();
+                var services = IPlatformApplication.Current?.Services;
+                if (services != null)
+                {
+                    var navigationService = services.GetRequiredService<INavigationService>();
+                    await navigationService.NavigateToLoginAsync();
+                }
             }
             catch (Exception navEx)
             {

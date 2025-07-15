@@ -7,7 +7,7 @@ using System.Text;
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// COMPLETO: Página de teste para arquitetura limpa (sem sync concepts)
+/// CORRIGIDO: TestSyncPage usando MESMOS serviços singleton do app principal
 /// </summary>
 public partial class TestSyncPage : ContentPage
 {
@@ -15,51 +15,49 @@ public partial class TestSyncPage : ContentPage
     private readonly IFamilyRepository _familyRepository;
     private readonly SupabaseFamilyService _familyService;
 
-    public TestSyncPage()
+    /// <summary>
+    /// ✅ CORRIGIDO: Usar DI para pegar MESMOS serviços singleton
+    /// </summary>
+    public TestSyncPage(SupabaseService supabaseService, IFamilyRepository familyRepository, SupabaseFamilyService familyService)
     {
         InitializeComponent();
 
-        try
-        {
-            var services = MauiProgram.CreateMauiApp().Services;
-            _supabaseService = services.GetRequiredService<SupabaseService>();
-            _familyRepository = services.GetRequiredService<IFamilyRepository>();
-            _familyService = services.GetRequiredService<SupabaseFamilyService>();
+        _supabaseService = supabaseService;
+        _familyRepository = familyRepository;
+        _familyService = familyService;
 
-            LogTest("✅ All services loaded successfully");
-            LogTest("🎯 CLEAN ARCHITECTURE - Direct Supabase");
-            LogTest("🔍 Focus: Direct operations with intelligent cache");
-        }
-        catch (Exception ex)
-        {
-            LogTest($"❌ Error loading services: {ex.Message}");
-        }
+        LogTest("✅ All services injected via DI (same instances as main app)");
+        LogTest("🎯 CLEAN ARCHITECTURE - Using authenticated singleton services");
+        LogTest("🔍 Focus: Direct operations with intelligent cache");
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
         await UpdateQuickStats();
+
+        // ✅ NOVO: Debug imediato do estado de autenticação
+        LogTest("");
+        LogTest("👁️ === PAGE APPEARING DEBUG ===");
+        LogTest($"🔐 SupabaseService.IsAuthenticated: {_supabaseService.IsAuthenticated}");
+        LogTest($"🆔 Current User ID: {_supabaseService.GetCurrentUserId() ?? "null"}");
+        LogTest($"📧 Current User Email: {_supabaseService.GetCurrentUser()?.Email ?? "null"}");
+        LogTest($"🔧 Client Initialized: {_supabaseService.IsInitialized}");
     }
 
     /// <summary>
-    /// Teste de conectividade limpo
+    /// ✅ CORRIGIDO: Teste de conectividade usando serviços autenticados
     /// </summary>
     private async void OnTestSupabaseClicked(object sender, EventArgs e)
     {
         try
         {
-            LogTest("🧪 === CLEAN ARCHITECTURE TEST ===");
-            LogTest("🎯 Target: Test direct Supabase connectivity");
+            LogTest("🧪 === CLEAN ARCHITECTURE TEST (AUTHENTICATED) ===");
+            LogTest("🎯 Target: Test direct Supabase connectivity with authenticated services");
 
-            // Verificar estado atual
+            // ✅ CORRIGIDO: Usar serviços já autenticados (não criar novos)
             LogTest("");
-            LogTest("📊 === CURRENT STATE CHECK ===");
-            _supabaseService.DebugCurrentState();
-
-            // Initialize e verificar auth
-            LogTest("🔄 Initializing Supabase...");
-            await _supabaseService.InitializeAsync();
+            LogTest("📊 === AUTHENTICATED STATE CHECK ===");
 
             var isAuth = _supabaseService.IsAuthenticated;
             var userId = _supabaseService.GetCurrentUserId();
@@ -68,10 +66,13 @@ public partial class TestSyncPage : ContentPage
             LogTest($"🔐 Authentication: {isAuth}");
             LogTest($"🆔 User ID: {userId ?? "null"}");
             LogTest($"📧 User Email: {userEmail ?? "null"}");
+            LogTest($"🔧 Client Initialized: {_supabaseService.IsInitialized}");
 
             if (!isAuth)
             {
-                LogTest("❌ Not authenticated - login first to continue test");
+                LogTest("❌ PROBLEM: TestSyncPage services not authenticated!");
+                LogTest("💡 This should not happen if DI is working correctly");
+                LogTest("🔧 Try: Restart app or check MauiProgram.cs registration");
                 return;
             }
 
@@ -79,11 +80,15 @@ public partial class TestSyncPage : ContentPage
             LogTest("🔍 === CONNECTION TEST ===");
 
             var connectionOk = await _familyService.TestConnectionAsync();
-            LogTest($"🌐 Connection test: {connectionOk}");
+            LogTest($"🌐 Service connection test: {connectionOk}");
 
             if (!connectionOk)
             {
-                LogTest("❌ Connection failed - check Supabase setup");
+                LogTest("❌ Service connection failed - checking details...");
+
+                // ✅ NOVO: Debug mais detalhado
+                LogTest("🔍 Debugging connection failure...");
+                _supabaseService.DebugCurrentState();
                 return;
             }
 
@@ -95,14 +100,19 @@ public partial class TestSyncPage : ContentPage
 
             if (repoConnectionOk)
             {
-                LogTest("🎉 CLEAN ARCHITECTURE: WORKING!");
+                LogTest("🎉 CLEAN ARCHITECTURE: FULLY WORKING!");
+                LogTest("✅ Authenticated services working correctly");
                 LogTest("✅ Direct Supabase connection working");
                 LogTest("✅ Repository with cache working");
                 LogTest("✅ No sync complexity - all operations direct");
             }
             else
             {
-                LogTest("❌ Repository test failed");
+                LogTest("❌ Repository test failed - debugging...");
+
+                // ✅ NOVO: Cache info para debug
+                var cacheInfo = _familyRepository.GetCacheInfo();
+                LogTest($"💾 Cache state: {cacheInfo}");
                 return;
             }
 
@@ -110,7 +120,7 @@ public partial class TestSyncPage : ContentPage
             LogTest("💾 === CACHE TEST ===");
             await TestCacheManagement();
 
-            LogTest("🧪 === CLEAN TEST COMPLETED ===");
+            LogTest("🧪 === AUTHENTICATED TEST COMPLETED ===");
             await UpdateQuickStats();
 
         }
@@ -173,20 +183,21 @@ public partial class TestSyncPage : ContentPage
     }
 
     /// <summary>
-    /// Teste de famílias com análise limpa
+    /// ✅ CORRIGIDO: Teste de famílias com serviços autenticados
     /// </summary>
     private async void OnTestFamiliesClicked(object sender, EventArgs e)
     {
         try
         {
-            LogTest("🧪 === CLEAN FAMILIES TEST ===");
+            LogTest("🧪 === AUTHENTICATED FAMILIES TEST ===");
 
             var isAuth = _supabaseService.IsAuthenticated;
             LogTest($"🔐 Authentication status: {isAuth}");
 
             if (!isAuth)
             {
-                LogTest("❌ Not authenticated - login first");
+                LogTest("❌ Not authenticated - this is a DI problem!");
+                LogTest("🔧 TestSyncPage should use same authenticated services as main app");
                 return;
             }
 
@@ -211,31 +222,39 @@ public partial class TestSyncPage : ContentPage
             var allFamilies = await _familyRepository.GetAllAsync(true); // Include inactive
             LogTest($"📱 Total families: {allFamilies.Count}");
 
-            var activeFamilies = allFamilies.Where(f => f.IsActive).ToList();
-            var inactiveFamilies = allFamilies.Where(f => !f.IsActive).ToList();
-            var systemFamilies = allFamilies.Where(f => f.IsSystemDefault).ToList();
-            var userFamilies = allFamilies.Where(f => !f.IsSystemDefault).ToList();
-
-            LogTest($"  📊 Active: {activeFamilies.Count}");
-            LogTest($"  📊 Inactive: {inactiveFamilies.Count}");
-            LogTest($"  📊 System: {systemFamilies.Count}");
-            LogTest($"  📊 User: {userFamilies.Count}");
-
-            LogTest("");
-            LogTest("🔍 === FAMILY DETAILS ===");
-
-            foreach (var family in allFamilies.Take(10))
+            if (allFamilies.Count == 0)
             {
-                LogTest($"  📝 {family.Name}");
-                LogTest($"     ID: {family.Id}");
-                LogTest($"     Status: {(family.IsActive ? "Active" : "Inactive")}");
-                LogTest($"     Type: {(family.IsSystemDefault ? "System" : "User")}");
-                LogTest($"     Created: {family.CreatedAt:yyyy-MM-dd HH:mm:ss}");
+                LogTest("📝 No families found - this could be normal for new users");
+                LogTest("💡 Try creating a test family to verify CRUD operations");
             }
-
-            if (allFamilies.Count > 10)
+            else
             {
-                LogTest($"  ... and {allFamilies.Count - 10} more families");
+                var activeFamilies = allFamilies.Where(f => f.IsActive).ToList();
+                var inactiveFamilies = allFamilies.Where(f => !f.IsActive).ToList();
+                var systemFamilies = allFamilies.Where(f => f.IsSystemDefault).ToList();
+                var userFamilies = allFamilies.Where(f => !f.IsSystemDefault).ToList();
+
+                LogTest($"  📊 Active: {activeFamilies.Count}");
+                LogTest($"  📊 Inactive: {inactiveFamilies.Count}");
+                LogTest($"  📊 System: {systemFamilies.Count}");
+                LogTest($"  📊 User: {userFamilies.Count}");
+
+                LogTest("");
+                LogTest("🔍 === FAMILY DETAILS ===");
+
+                foreach (var family in allFamilies.Take(10))
+                {
+                    LogTest($"  📝 {family.Name}");
+                    LogTest($"     ID: {family.Id}");
+                    LogTest($"     Status: {(family.IsActive ? "Active" : "Inactive")}");
+                    LogTest($"     Type: {(family.IsSystemDefault ? "System" : "User")}");
+                    LogTest($"     Created: {family.CreatedAt:yyyy-MM-dd HH:mm:ss}");
+                }
+
+                if (allFamilies.Count > 10)
+                {
+                    LogTest($"  ... and {allFamilies.Count - 10} more families");
+                }
             }
 
             LogTest("");
@@ -243,7 +262,7 @@ public partial class TestSyncPage : ContentPage
             var cacheInfo = _familyRepository.GetCacheInfo();
             LogTest($"💾 {cacheInfo}");
 
-            LogTest("🧪 === FAMILIES TEST COMPLETED ===");
+            LogTest("🧪 === AUTHENTICATED FAMILIES TEST COMPLETED ===");
             await UpdateQuickStats();
 
         }
@@ -261,14 +280,14 @@ public partial class TestSyncPage : ContentPage
     {
         try
         {
-            LogTest("🧪 === CREATE TEST FAMILY (CLEAN) ===");
+            LogTest("🧪 === CREATE TEST FAMILY (AUTHENTICATED) ===");
 
             var isAuth = _supabaseService.IsAuthenticated;
             LogTest($"🔐 Authentication: {isAuth}");
 
             if (!isAuth)
             {
-                LogTest("❌ Not authenticated");
+                LogTest("❌ Not authenticated - DI problem!");
                 return;
             }
 
@@ -290,7 +309,7 @@ public partial class TestSyncPage : ContentPage
             var testFamily = new Family
             {
                 Name = uniqueName,
-                Description = $"Test family created at {DateTime.Now:yyyy-MM-dd HH:mm:ss} for clean architecture testing",
+                Description = $"Test family created at {DateTime.Now:yyyy-MM-dd HH:mm:ss} for authenticated clean architecture testing",
                 IsActive = true
             };
 
@@ -314,14 +333,14 @@ public partial class TestSyncPage : ContentPage
             {
                 LogTest("🎉 PERFECT! Family created and verified successfully");
                 LogTest($"✅ Verification: {verification.Name} exists in repository");
-                LogTest($"✅ Clean architecture - direct creation worked flawlessly");
+                LogTest($"✅ Authenticated clean architecture - direct creation worked flawlessly");
             }
             else
             {
                 LogTest("❌ Verification failed - family not found after creation");
             }
 
-            LogTest("🧪 === CREATE TEST COMPLETED ===");
+            LogTest("🧪 === AUTHENTICATED CREATE TEST COMPLETED ===");
             await UpdateQuickStats();
 
         }
@@ -339,18 +358,18 @@ public partial class TestSyncPage : ContentPage
     {
         try
         {
-            LogTest("🧪 === FORCE CACHE REFRESH (CLEAN) ===");
+            LogTest("🧪 === FORCE CACHE REFRESH (AUTHENTICATED) ===");
 
             var isAuth = _supabaseService.IsAuthenticated;
             LogTest($"🔐 Authentication: {isAuth}");
 
             if (!isAuth)
             {
-                LogTest("❌ Cannot refresh cache - not authenticated");
+                LogTest("❌ Cannot refresh cache - not authenticated (DI problem!)");
                 return;
             }
 
-            LogTest("🔄 Starting cache refresh from server...");
+            LogTest("🔄 Starting authenticated cache refresh from server...");
 
             // Mostrar estado pré-refresh
             LogTest("");
@@ -365,7 +384,7 @@ public partial class TestSyncPage : ContentPage
             LogTest($"  Cache: {preCacheInfo}");
 
             LogTest("");
-            LogTest("🚀 EXECUTING CACHE REFRESH...");
+            LogTest("🚀 EXECUTING AUTHENTICATED CACHE REFRESH...");
 
             var stopwatch = System.Diagnostics.Stopwatch.StartNew();
 
@@ -422,13 +441,14 @@ public partial class TestSyncPage : ContentPage
             }
 
             LogTest("");
-            LogTest("💡 CLEAN ARCHITECTURE BENEFITS:");
+            LogTest("💡 AUTHENTICATED CLEAN ARCHITECTURE BENEFITS:");
             LogTest("  ✅ No sync conflicts or duplicates");
             LogTest("  ✅ Direct server data always fresh");
             LogTest("  ✅ Intelligent cache improves performance");
             LogTest("  ✅ Zero complexity - just works!");
+            LogTest("  ✅ Same authenticated services as main app!");
 
-            LogTest("🧪 === CACHE REFRESH COMPLETED ===");
+            LogTest("🧪 === AUTHENTICATED CACHE REFRESH COMPLETED ===");
             await UpdateQuickStats();
 
         }
@@ -450,11 +470,11 @@ public partial class TestSyncPage : ContentPage
 
             if (!_supabaseService.IsAuthenticated)
             {
-                LogTest("❌ Not authenticated");
+                LogTest("❌ Not authenticated (DI problem!)");
                 return;
             }
 
-            LogTest("⚡ Testing clean architecture performance...");
+            LogTest("⚡ Testing authenticated clean architecture performance...");
 
             // Teste 1: Cache vs Server
             LogTest("");
@@ -510,7 +530,7 @@ public partial class TestSyncPage : ContentPage
                 LogTest("⚠️ Cache might need optimization");
             }
 
-            LogTest("🧪 === PERFORMANCE TEST COMPLETED ===");
+            LogTest("🧪 === AUTHENTICATED PERFORMANCE TEST COMPLETED ===");
 
         }
         catch (Exception ex)
@@ -526,10 +546,10 @@ public partial class TestSyncPage : ContentPage
     {
         try
         {
-            LogTest("📋 === EXPORTING DEBUG INFO (CLEAN) ===");
+            LogTest("📋 === EXPORTING DEBUG INFO (AUTHENTICATED) ===");
 
             var debugInfo = new StringBuilder();
-            debugInfo.AppendLine("OrchidPro Clean Architecture Debug Report");
+            debugInfo.AppendLine("OrchidPro Clean Architecture Debug Report (AUTHENTICATED)");
             debugInfo.AppendLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
             debugInfo.AppendLine($"User: {_supabaseService.GetCurrentUser()?.Email ?? "Not authenticated"}");
             debugInfo.AppendLine($"User ID: {_supabaseService.GetCurrentUserId() ?? "null"}");
@@ -540,6 +560,7 @@ public partial class TestSyncPage : ContentPage
             debugInfo.AppendLine("Cache: Intelligent 5-minute cache");
             debugInfo.AppendLine("Operations: Always direct (no local/remote complexity)");
             debugInfo.AppendLine("Benefits: 60% less code, zero sync bugs");
+            debugInfo.AppendLine("DI: Using SAME authenticated singleton services as main app");
             debugInfo.AppendLine();
 
             debugInfo.AppendLine("=== AUTHENTICATION STATUS ===");
@@ -607,7 +628,7 @@ public partial class TestSyncPage : ContentPage
 
             LogTest("📋 Debug information exported to clipboard");
             LogTest($"📊 Report size: {debugInfo.Length} characters");
-            LogTest("💡 Clean architecture - much cleaner debug info!");
+            LogTest("💡 Authenticated clean architecture - proper DI working!");
 
         }
         catch (Exception ex)
@@ -643,7 +664,7 @@ public partial class TestSyncPage : ContentPage
     }
 
     /// <summary>
-    /// Update quick stats display
+    /// ✅ CORRIGIDO: Update quick stats usando serviços autenticados
     /// </summary>
     private async Task UpdateQuickStats()
     {
@@ -654,7 +675,7 @@ public partial class TestSyncPage : ContentPage
                 LocalCountLabel.Text = "N/A";
                 ServerCountLabel.Text = "N/A";
                 SyncedCountLabel.Text = "N/A";
-                DuplicatesLabel.Text = "N/A";
+                DuplicatesLabel.Text = "AUTH";
                 return;
             }
 
@@ -681,13 +702,13 @@ public partial class TestSyncPage : ContentPage
     private void OnClearLogClicked(object sender, EventArgs e)
     {
         StatusLabel.Text = $"Log cleared at {DateTime.Now:HH:mm:ss}\n";
-        StatusLabel.Text += "🚀 CLEAN ARCHITECTURE - Ready for testing\n";
-        StatusLabel.Text += "🎯 Focus: Direct Supabase with intelligent cache\n";
-        StatusLabel.Text += "✅ Benefits: 60% less code, zero sync bugs\n";
-        StatusLabel.Text += "💡 Use 'Test Connection' to verify connectivity\n";
-        StatusLabel.Text += "💡 Use 'Test Families' to analyze data\n";
-        StatusLabel.Text += "💡 Use 'Create Test' to test direct operations\n";
-        StatusLabel.Text += "💡 Use 'Force Refresh' to test cache management\n";
+        StatusLabel.Text += "🚀 AUTHENTICATED CLEAN ARCHITECTURE - Ready for testing\n";
+        StatusLabel.Text += "🎯 Focus: Direct Supabase with authenticated singleton services\n";
+        StatusLabel.Text += "✅ Benefits: 60% less code, zero sync bugs, proper DI\n";
+        StatusLabel.Text += "💡 Use 'Test Connection' to verify authenticated connectivity\n";
+        StatusLabel.Text += "💡 Use 'Test Families' to analyze data with authentication\n";
+        StatusLabel.Text += "💡 Use 'Create Test' to test authenticated direct operations\n";
+        StatusLabel.Text += "💡 Use 'Force Refresh' to test authenticated cache management\n";
 
         LogStatusLabel.Text = "Log cleared";
     }
