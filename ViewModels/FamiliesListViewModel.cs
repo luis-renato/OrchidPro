@@ -374,7 +374,7 @@ public partial class FamiliesListViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Deletes selected families
+    /// ✅ CORRIGIDO: Deletes selected families COM REFRESH FORÇADO DO SERVIDOR
     /// </summary>
     [RelayCommand]
     private async Task DeleteSelectedAsync()
@@ -409,15 +409,28 @@ public partial class FamiliesListViewModel : BaseViewModel
 
             Debug.WriteLine($"🗑️ [FAMILIES_LIST_VM] Deleting {count} families");
 
+            // ✅ CRÍTICO: Exit multi-select mode ANTES de deletar
+            ExitMultiSelectMode();
+
             var deletedCount = await _familyRepository.DeleteMultipleAsync(selectedIds);
 
             if (deletedCount > 0)
             {
                 await ShowSuccessAsync($"Successfully deleted {deletedCount} {(deletedCount == 1 ? "family" : "families")}");
-                ExitMultiSelectMode();
-                await LoadFamiliesAsync();
 
-                Debug.WriteLine($"✅ [FAMILIES_LIST_VM] Deleted {deletedCount} families");
+                // ✅ FORÇA TOTAL: Invalidar cache + Refresh + Reload
+                Debug.WriteLine("🔄 [FAMILIES_LIST_VM] === FORCING COMPLETE REFRESH ===");
+
+                // 1. Invalidar cache manualmente
+                _familyRepository.InvalidateCacheExternal();
+
+                // 2. Force refresh do cache do servidor
+                await _familyRepository.RefreshCacheAsync();
+
+                // 3. Recarregar dados
+                await LoadFamiliesDataAsync();
+
+                Debug.WriteLine($"✅ [FAMILIES_LIST_VM] === COMPLETE REFRESH DONE ===");
             }
             else
             {

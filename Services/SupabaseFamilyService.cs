@@ -68,7 +68,7 @@ public class SupabaseFamily : BaseModel
 }
 
 /// <summary>
-/// CORRIGIDO: Serviço com teste REAL de conectividade
+/// CORRIGIDO: Serviço com queries otimizadas e logs detalhados
 /// </summary>
 public class SupabaseFamilyService
 {
@@ -104,7 +104,7 @@ public class SupabaseFamilyService
             {
                 Debug.WriteLine("📥 [FAMILY_SERVICE] Authenticated - fetching user + system families...");
 
-                // Buscar families do usuário
+                // Buscar families do usuário (SEM FILTRO DE is_active)
                 var userQuery = _supabaseService.Client
                     .From<SupabaseFamily>()
                     .Where(f => f.UserId == userGuid);
@@ -117,7 +117,7 @@ public class SupabaseFamilyService
                     Debug.WriteLine($"📥 [FAMILY_SERVICE] User families: {userResponse.Models.Count}");
                 }
 
-                // Buscar families do sistema (user_id = null)
+                // Buscar families do sistema (user_id = null) (SEM FILTRO DE is_active)
                 var systemQuery = _supabaseService.Client
                     .From<SupabaseFamily>()
                     .Where(f => f.UserId == null);
@@ -134,7 +134,7 @@ public class SupabaseFamilyService
             {
                 Debug.WriteLine("📥 [FAMILY_SERVICE] Not authenticated - fetching system families only...");
 
-                // Apenas families do sistema
+                // Apenas families do sistema (SEM FILTRO DE is_active)
                 var systemQuery = _supabaseService.Client
                     .From<SupabaseFamily>()
                     .Where(f => f.UserId == null);
@@ -158,6 +158,8 @@ public class SupabaseFamilyService
         }
     }
 
+
+
     /// <summary>
     /// Busca uma família por ID
     /// </summary>
@@ -175,6 +177,7 @@ public class SupabaseFamilyService
 
             var query = _supabaseService.Client
                 .From<SupabaseFamily>()
+                .Select("*")
                 .Where(f => f.Id == id)
                 .Limit(1);
 
@@ -220,6 +223,7 @@ public class SupabaseFamilyService
 
             var query = _supabaseService.Client
                 .From<SupabaseFamily>()
+                .Select("id,name")
                 .Where(f => f.Name == name && f.UserId == userGuid);
 
             if (excludeId.HasValue)
@@ -276,6 +280,8 @@ public class SupabaseFamilyService
             supabaseFamily.CreatedAt = now;
             supabaseFamily.UpdatedAt = now;
 
+            Debug.WriteLine($"➕ [FAMILY_SERVICE] Inserting with UserID: {supabaseFamily.UserId?.ToString() ?? "NULL"}");
+
             var response = await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Insert(supabaseFamily);
@@ -284,6 +290,7 @@ public class SupabaseFamilyService
             {
                 var created = response.Models.First().ToFamily();
                 Debug.WriteLine($"✅ [FAMILY_SERVICE] Created family: {created.Name} (ID: {created.Id})");
+                Debug.WriteLine($"✅ [FAMILY_SERVICE] Created with UserID: {created.UserId?.ToString() ?? "NULL"}");
                 return created;
             }
 
@@ -335,7 +342,7 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// Soft delete de uma família
+    /// ✅ CORRIGIDO: Hard delete (remove o registro completamente da tabela)
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
@@ -347,7 +354,7 @@ public class SupabaseFamilyService
                 return false;
             }
 
-            Debug.WriteLine($"🗑️ [FAMILY_SERVICE] Soft deleting family: {id}");
+            Debug.WriteLine($"🗑️ [FAMILY_SERVICE] Hard deleting family: {id}");
 
             // Buscar família primeiro para verificar se pode deletar
             var existing = await GetByIdAsync(id);
@@ -363,28 +370,23 @@ public class SupabaseFamilyService
                 return false;
             }
 
-            // Fazer soft delete (isActive = false)
-            var updateData = new SupabaseFamily
-            {
-                Id = id,
-                IsActive = false,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            var response = await _supabaseService.Client
+            // ✅ HARD DELETE: Remove o registro da tabela
+            await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Where(f => f.Id == id)
-                .Update(updateData);
+                .Delete();
 
-            var success = response?.Models?.Any() == true;
+            // Verificar se foi deletado tentando buscar o registro
+            var verification = await GetByIdAsync(id);
+            var success = verification == null;
 
             if (success)
             {
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Soft deleted family: {existing.Name}");
+                Debug.WriteLine($"✅ [FAMILY_SERVICE] Hard deleted family: {existing.Name}");
             }
             else
             {
-                Debug.WriteLine($"❌ [FAMILY_SERVICE] Soft delete failed for: {existing.Name}");
+                Debug.WriteLine($"❌ [FAMILY_SERVICE] Hard delete failed for: {existing.Name}");
             }
 
             return success;

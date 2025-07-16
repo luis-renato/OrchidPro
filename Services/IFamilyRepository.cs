@@ -100,6 +100,11 @@ public interface IFamilyRepository
     /// Get cache information for debugging
     /// </summary>
     string GetCacheInfo();
+
+    /// <summary>
+    /// ✅ NOVO: Invalida o cache externamente
+    /// </summary>
+    void InvalidateCacheExternal();
 }
 
 /// <summary>

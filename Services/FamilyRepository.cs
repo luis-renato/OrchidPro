@@ -195,7 +195,52 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Soft delete de família
+    /// ✅ PÚBLICO: Invalida o cache externamente
+    /// </summary>
+    public void InvalidateCacheExternal()
+    {
+        lock (_cacheLock)
+        {
+            _lastCacheUpdate = null;
+            _cache.Clear();
+            Debug.WriteLine("🗑️ [FAMILY_REPO] Cache invalidated externally");
+        }
+
+        // ✅ NOVO: Invalidar cache de conectividade do SupabaseService
+        _supabaseService.InvalidateConnectionCache();
+    }/// <summary>
+     /// Delete múltiplo COM INVALIDAÇÃO DE CACHE
+     /// </summary>
+    public async Task<int> DeleteMultipleAsync(IEnumerable<Guid> ids)
+    {
+        // ✅ NOVO: Verificar conectividade antes de deletar
+        var isConnected = await TestConnectionAsync();
+        if (!isConnected)
+        {
+            throw new InvalidOperationException("Cannot delete families - no internet connection available");
+        }
+
+        int count = 0;
+        foreach (var id in ids)
+        {
+            if (await DeleteAsync(id))
+            {
+                count++;
+            }
+        }
+
+        // ✅ CRÍTICO: Invalidar cache após múltiplas deleções
+        if (count > 0)
+        {
+            Debug.WriteLine($"🗑️ [FAMILY_REPO] Invalidating cache after deleting {count} families");
+            InvalidateCache();
+        }
+
+        return count;
+    }
+
+    /// <summary>
+    /// Soft delete de família COM INVALIDAÇÃO DE CACHE
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
@@ -215,7 +260,8 @@ public class FamilyRepository : IFamilyRepository
 
             if (success)
             {
-                // Invalidar cache
+                // ✅ CRÍTICO: Invalidar cache imediatamente após delete bem-sucedido
+                Debug.WriteLine("🗑️ [FAMILY_REPO] Delete successful - invalidating cache");
                 InvalidateCache();
                 Debug.WriteLine($"✅ [FAMILY_REPO] Deleted and cache invalidated");
             }
@@ -226,29 +272,6 @@ public class FamilyRepository : IFamilyRepository
         {
             _semaphore.Release();
         }
-    }
-
-    /// <summary>
-    /// Delete múltiplo
-    /// </summary>
-    public async Task<int> DeleteMultipleAsync(IEnumerable<Guid> ids)
-    {
-        // ✅ NOVO: Verificar conectividade antes de deletar
-        var isConnected = await TestConnectionAsync();
-        if (!isConnected)
-        {
-            throw new InvalidOperationException("Cannot delete families - no internet connection available");
-        }
-
-        int count = 0;
-        foreach (var id in ids)
-        {
-            if (await DeleteAsync(id))
-            {
-                count++;
-            }
-        }
-        return count;
     }
 
     /// <summary>
