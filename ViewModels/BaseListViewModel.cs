@@ -130,7 +130,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     /// Carrega dados
     /// </summary>
     [RelayCommand]
-    private async Task LoadItemsAsync()
+    protected async Task LoadItemsAsync()
     {
         if (IsLoading) return;
 
@@ -166,7 +166,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     /// <summary>
     /// ✅ CORRIGIDO: Carrega dados internamente usando Action simples
     /// </summary>
-    private async Task LoadItemsDataAsync()
+    protected async Task LoadItemsDataAsync()
     {
         try
         {
@@ -360,7 +360,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     /// Busca
     /// </summary>
     [RelayCommand]
-    private async Task SearchAsync()
+    protected async Task SearchAsync()
     {
         Debug.WriteLine($"🔍 [BASE_LIST_VM] Searching {EntityNamePlural} for: '{SearchText}'");
         await LoadItemsAsync();

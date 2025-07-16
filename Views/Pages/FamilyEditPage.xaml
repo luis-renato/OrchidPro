@@ -362,9 +362,9 @@
                             </Button.Triggers>
                         </Button>
 
-                        <!-- Secondary Actions -->
+                        <!-- ✅ CORREÇÃO 1: Secondary Actions - EntityId em vez de FamilyId -->
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="15"
-                              IsVisible="{Binding FamilyId, Converter={StaticResource NullToBoolConverter}}">
+                              IsVisible="{Binding EntityId, Converter={StaticResource NullToBoolConverter}}">
 
                             <!-- Delete Button -->
                             <Button Grid.Column="0"
@@ -404,7 +404,7 @@
                                     Clicked="OnButtonPressed" />
                         </Grid>
 
-                        <!-- Cancel Button for New Items -->
+                        <!-- ✅ CORREÇÃO 2: Cancel Button for New Items - EntityId em vez de FamilyId -->
                         <Button Text="Cancel"
                                 Command="{Binding CancelCommand}"
                                 BackgroundColor="Transparent"
@@ -414,7 +414,7 @@
                                 FontSize="14"
                                 HeightRequest="48"
                                 CornerRadius="24"
-                                IsVisible="{Binding FamilyId, Converter={StaticResource InvertedNullToBoolConverter}}"
+                                IsVisible="{Binding EntityId, Converter={StaticResource InvertedNullToBoolConverter}}"
                                 Clicked="OnButtonPressed" />
                     </VerticalStackLayout>
 

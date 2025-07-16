@@ -226,8 +226,8 @@
                                        HorizontalOptions="Center"
                                        HorizontalTextAlignment="Center" />
 
-                                <!-- Show different actions based on connection -->
-                                <Button Command="{Binding AddFamilyCommand}"
+                                <!-- ✅ CORREÇÃO 1: Show different actions based on connection -->
+                                <Button Command="{Binding AddItemCommand}"
                                         BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                         TextColor="{StaticResource OnPrimary}"
                                         CornerRadius="25"
@@ -258,7 +258,7 @@
                             </VerticalStackLayout>
 
                             <!-- ✅ CORRIGIDO: Families list com seleção funcionando -->
-                            <CollectionView ItemsSource="{Binding Families}"
+                            <CollectionView ItemsSource="{Binding Items}"
                                             IsVisible="{Binding HasData}"
                                             SelectionMode="None"
                                             BackgroundColor="Transparent">
@@ -298,8 +298,13 @@
                                                     </CheckBox.Behaviors>
                                                 </CheckBox>
 
-                                                <!-- ✅ FIX: Family info with overlaid button for tap -->
+                                                <!-- ✅ CORREÇÃO 2: Family info with TapGestureRecognizer -->
                                                 <Grid Grid.Row="0" Grid.Column="1">
+                                                    <Grid.GestureRecognizers>
+                                                        <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FamiliesListViewModel}}, Path=EditItemCommand}"
+                                                                              CommandParameter="{Binding .}" />
+                                                    </Grid.GestureRecognizers>
+
                                                     <!-- Content -->
                                                     <VerticalStackLayout Spacing="4">
                                                         <Grid ColumnDefinitions="*,Auto">
@@ -323,24 +328,6 @@
                                                                LineBreakMode="TailTruncation"
                                                                MaxLines="2" />
                                                     </VerticalStackLayout>
-
-                                                    <!-- ✅ FIX: Button invisível para tap - só ativo quando não em modo seleção -->
-                                                    <Button BackgroundColor="Transparent"
-                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FamiliesListViewModel}}, Path=EditFamilyCommand}"
-                                                            CommandParameter="{Binding .}">
-                                                        <Button.Style>
-                                                            <Style TargetType="Button">
-                                                                <Setter Property="IsVisible" Value="True" />
-                                                                <Style.Triggers>
-                                                                    <DataTrigger TargetType="Button"
-                                                                                 Binding="{Binding Source={RelativeSource AncestorType={x:Type vm:FamiliesListViewModel}}, Path=IsMultiSelectMode}"
-                                                                                 Value="True">
-                                                                        <Setter Property="IsVisible" Value="False" />
-                                                                    </DataTrigger>
-                                                                </Style.Triggers>
-                                                            </Style>
-                                                        </Button.Style>
-                                                    </Button>
                                                 </Grid>
 
                                                 <!-- Status indicators -->
@@ -429,12 +416,12 @@
                     <!-- Default style -->
                     <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                     <Setter Property="TextColor" Value="{StaticResource OnPrimary}" />
-                    <Setter Property="Command" Value="{Binding AddFamilyCommand}" />
+                    <Setter Property="Command" Value="{Binding AddItemCommand}" />
 
                     <Style.Triggers>
                         <!-- Delete mode when items selected -->
                         <DataTrigger TargetType="Button"
-                                     Binding="{Binding SelectedFamilies.Count, Converter={StaticResource IntToBoolConverter}}"
+                                     Binding="{Binding SelectedItems.Count, Converter={StaticResource IntToBoolConverter}}"
                                      Value="True">
                             <Setter Property="Command" Value="{Binding DeleteSelectedCommand}" />
                             <Setter Property="BackgroundColor" Value="#D32F2F" />
@@ -445,7 +432,7 @@
                         <MultiTrigger TargetType="Button">
                             <MultiTrigger.Conditions>
                                 <BindingCondition Binding="{Binding IsMultiSelectMode}" Value="True" />
-                                <BindingCondition Binding="{Binding SelectedFamilies.Count}" Value="0" />
+                                <BindingCondition Binding="{Binding SelectedItems.Count}" Value="0" />
                             </MultiTrigger.Conditions>
                             <Setter Property="Command" Value="{Binding ToggleMultiSelectCommand}" />
                             <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray600}}" />

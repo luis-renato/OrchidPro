@@ -3,7 +3,8 @@
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// CORRIGIDO: Families list page com UX otimizada
+/// PASSO 12.2: CORRIGIDO - Families list page com FAB funcionando
+/// ✅ PROBLEMA RESOLVIDO: OnFabPressed agora chama os commands corretos do ViewModel
 /// </summary>
 public partial class FamiliesListPage : ContentPage
 {
@@ -123,15 +124,51 @@ public partial class FamiliesListPage : ContentPage
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Handle FAB button com animação especial
+    /// ✅ CORRIGIDO: Handle FAB button - AGORA CHAMA OS COMMANDS DO VIEWMODEL!
     /// </summary>
     private async void OnFabPressed(object sender, EventArgs e)
     {
         if (sender is Button fab)
         {
-            // Special animation for FAB
+            // ✅ ANIMAÇÃO: Special animation for FAB
             await fab.ScaleTo(0.9, 100, Easing.CubicOut);
             await fab.ScaleTo(1, 100, Easing.SpringOut);
+
+            // ✅ CORRIGIDO: Agora chama o command apropriado do ViewModel
+            try
+            {
+                var selectedCount = _viewModel.SelectedItems.Count;
+
+                if (selectedCount > 0)
+                {
+                    // Modo DELETE: Executa delete dos selecionados
+                    if (_viewModel.DeleteSelectedCommand.CanExecute(null))
+                    {
+                        await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
+                    }
+                }
+                else if (_viewModel.IsMultiSelectMode)
+                {
+                    // Modo CANCEL: Sai do modo de multisseleção
+                    if (_viewModel.ToggleMultiSelectCommand.CanExecute(null))
+                    {
+                        _viewModel.ToggleMultiSelectCommand.Execute(null);
+                    }
+                }
+                else
+                {
+                    // Modo ADD: Navega para adicionar família
+                    if (_viewModel.AddItemCommand.CanExecute(null))
+                    {
+                        await _viewModel.AddItemCommand.ExecuteAsync(null);
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                // Log error but don't crash
+                System.Diagnostics.Debug.WriteLine($"❌ [FAB_PRESSED] Error: {ex.Message}");
+            }
         }
     }
 }
