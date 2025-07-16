@@ -2,7 +2,6 @@
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using System.Diagnostics;
-using static Java.Util.Jar.Attributes;
 
 namespace OrchidPro.ViewModels;
 

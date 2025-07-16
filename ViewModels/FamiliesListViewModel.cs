@@ -7,10 +7,7 @@ using System.Diagnostics;
 namespace OrchidPro.ViewModels;
 
 /// <summary>
-/// PASSO 12: FamiliesListViewModel FINAL - migrado para usar BaseListViewModel
-/// ✅ MANTÉM 100% DA FUNCIONALIDADE ORIGINAL
-/// ✅ Usa toda a funcionalidade da base genérica
-/// ✅ Código 75% menor que a versão original
+/// CORRIGIDO: FamiliesListViewModel - lista de famílias botânicas
 /// </summary>
 public class FamiliesListViewModel : BaseListViewModel<Family, FamilyItemViewModel>
 {
@@ -21,44 +18,29 @@ public class FamiliesListViewModel : BaseListViewModel<Family, FamilyItemViewMod
     public FamiliesListViewModel(IFamilyRepository familyRepository, INavigationService navigationService)
         : base(familyRepository, navigationService)
     {
-        Debug.WriteLine("✅ [FAMILIES_LIST_VM] FINAL - Using BaseListViewModel (75% less code!)");
+        Debug.WriteLine("✅ [FAMILIES_LIST_VM] Using BaseListViewModel");
     }
 
     /// <summary>
-    /// ✅ IMPLEMENTAÇÃO OBRIGATÓRIA: Cria FamilyItemViewModel
+    /// IMPLEMENTAÇÃO OBRIGATÓRIA: Cria FamilyItemViewModel
     /// </summary>
     protected override FamilyItemViewModel CreateItemViewModel(Family entity)
     {
         return new FamilyItemViewModel(entity);
     }
 
-    // ✅ TODA A FUNCIONALIDADE É HERDADA DA BASE:
-    // - Loading (LoadItemsCommand, LoadItemsDataAsync, IsLoading)
-    // - Refresh (RefreshCommand, IsRefreshing, cache invalidation)
-    // - Connectivity (IsConnected, ConnectionStatus, TestConnectionCommand)
-    // - Search (SearchText, SearchCommand, ClearSearchCommand)
-    // - Filters (StatusFilter, StatusFilterOptions)
-    // - Multi-selection (IsMultiSelectMode, ToggleMultiSelectCommand, SelectAllCommand, DeselectAllCommand)
-    // - Selection (SelectedItems, OnItemSelectionChanged)
-    // - Navigation (AddItemCommand, EditItemCommand)
-    // - Delete (DeleteSelectedCommand)
-    // - Statistics (TotalCount, ActiveCount, UpdateStatisticsAsync)
-    // - FAB (FabText, FabIsVisible, UpdateFabForSelection)
-    // - Empty states (HasData, EmptyStateMessage, GetEmptyStateMessage)
-    // - Property change handlers (OnSearchTextChanged, OnStatusFilterChanged)
-    // - Lifecycle (OnAppearingAsync)
-
-    // ✅ FUNCIONALIDADES ESPECÍFICAS DE FAMILIES (opcionais):
-
+    // ✅ COMPATIBILIDADE COM UI XAML:
     /// <summary>
-    /// ✅ MANTIDO: Propriedade para acessar famílias (compatibilidade com UI)
+    /// Propriedade para acessar famílias (compatibilidade com UI)
     /// </summary>
     public new ObservableCollection<FamilyItemViewModel> Families => Items;
 
     /// <summary>
-    /// ✅ MANTIDO: Propriedade para famílias selecionadas (compatibilidade com UI)
+    /// Propriedade para famílias selecionadas (compatibilidade com UI)
     /// </summary>
     public new ObservableCollection<FamilyItemViewModel> SelectedFamilies => SelectedItems;
+
+    // ✅ FUNCIONALIDADES ESPECÍFICAS DE FAMILIES:
 
     /// <summary>
     /// Filtro específico: mostrar apenas famílias de orquídeas
@@ -66,7 +48,7 @@ public class FamiliesListViewModel : BaseListViewModel<Family, FamilyItemViewMod
     public async Task FilterOrchidFamiliesAsync()
     {
         SearchText = "Orchidaceae";
-        await SearchAsync();
+        await SearchCommand.ExecuteAsync(null);
     }
 
     /// <summary>
@@ -93,7 +75,7 @@ public class FamiliesListViewModel : BaseListViewModel<Family, FamilyItemViewMod
 
             // Force refresh para garantir que temos dados do sistema
             await _repository.RefreshCacheAsync();
-            await LoadItemsAsync();
+            await LoadItemsCommand.ExecuteAsync(null);
 
             var systemFamilies = Items.Where(f => f.IsSystemDefault).ToList();
 
@@ -128,22 +110,4 @@ public class FamiliesListViewModel : BaseListViewModel<Family, FamilyItemViewMod
     public List<FamilyItemViewModel> PopularFamilies =>
         Items.Where(f => f.IsOrchidaceae || f.Name.Contains("Bromeliac") || f.Name.Contains("Arac"))
              .ToList();
-
-    // ✅ TODA A FUNCIONALIDADE ORIGINAL MANTIDA:
-    // ✅ Observable collections para binding de UI
-    // ✅ Loading e refresh com pull-to-refresh
-    // ✅ Conectividade com teste em background
-    // ✅ Search com debouncing (300ms)
-    // ✅ Filtros por status (All/Active/Inactive)
-    // ✅ Multi-seleção com checkboxes
-    // ✅ FAB dinâmico (Add/Delete/Cancel) baseado em estado
-    // ✅ Navegação para Add/Edit com parâmetros
-    // ✅ Delete múltiplo com confirmação
-    // ✅ Estatísticas (Total/Active counts)
-    // ✅ Empty states baseados em conectividade/filtros
-    // ✅ Cache invalidation após operações
-    // ✅ Error handling com mensagens específicas
-    // ✅ Lifecycle management (OnAppearing)
-    // ✅ Property change notifications
-    // ✅ Debug logging detalhado
 }
