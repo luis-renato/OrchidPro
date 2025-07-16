@@ -3,9 +3,10 @@
 namespace OrchidPro.Models;
 
 /// <summary>
-/// LIMPO: Modelo Family sem conceitos de sync (arquitetura Supabase direta)
+/// PASSO 2: Family implementando IBaseEntity (SEM QUEBRAR FUNCIONALIDADE)
+/// Mantém TODA a funcionalidade existente + implementa interface base
 /// </summary>
-public class Family
+public class Family : IBaseEntity
 {
     /// <summary>
     /// Unique identifier for the family
@@ -95,5 +96,13 @@ public class Family
             CreatedAt = this.CreatedAt,
             UpdatedAt = this.UpdatedAt
         };
+    }
+
+    /// <summary>
+    /// ✅ IMPLEMENTAÇÃO DA INTERFACE: Clone genérico
+    /// </summary>
+    IBaseEntity IBaseEntity.Clone()
+    {
+        return Clone();
     }
 }

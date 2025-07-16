@@ -53,6 +53,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <None Remove="ViewModels\FamiliesListViewModel.cs.backup" />
+	  <None Remove="ViewModels\FamilyEditViewModel.cs.backup" />
+	  <None Remove="ViewModels\FamilyItemViewModel.cs.backup" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<!-- ✅ CORE MAUI PACKAGES (mantidos) -->
 		<PackageReference Include="Microsoft.Maui.Controls" Version="9.0.81" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.6" />
@@ -73,7 +79,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Folder Include="ViewModels\" />
 		<Folder Include="Converters\" />
 	</ItemGroup>
 
