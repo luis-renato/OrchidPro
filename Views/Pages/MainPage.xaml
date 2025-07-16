@@ -100,14 +100,14 @@
                             Clicked="OnCalendarClicked"
                             SemanticProperties.Hint="View care schedule and reminders" />
 
-                        <!-- Reports button - Analytics action -->
+                        <!-- Families button - Navigate to families -->
                         <Button Grid.Row="1" 
                             Grid.Column="1"
-                            Text="Reports"
+                            Text="Families"
                             BackgroundColor="{AppThemeBinding Light={StaticResource InfoColor}, Dark={StaticResource Gray500}}"
                             TextColor="{StaticResource OnPrimary}"
-                            Clicked="OnReportsClicked"
-                            SemanticProperties.Hint="View orchid health and care reports" />
+                            Clicked="OnFamiliesClicked"
+                            SemanticProperties.Hint="Manage botanical families" />
                     </Grid>
                 </VerticalStackLayout>
 

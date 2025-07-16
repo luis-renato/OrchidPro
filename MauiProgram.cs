@@ -2,12 +2,14 @@
 using Microsoft.Extensions.Logging;
 using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
+using OrchidPro.Services;
+using OrchidPro.ViewModels;
 using OrchidPro.Views.Pages;
 
 namespace OrchidPro;
 
 /// <summary>
-/// Configures the MAUI application with services and dependencies
+/// CORRIGIDO: Configures the MAUI application with proper DI for TestSyncPage
 /// </summary>
 public static class MauiProgram
 {
@@ -46,24 +48,62 @@ public static class MauiProgram
     }
 
     /// <summary>
-    /// Configures dependency injection services
+    /// CORRIGIDO: Configures dependency injection services with proper TestSyncPage registration
     /// </summary>
     private static void ConfigureServices(IServiceCollection services)
     {
-        // Core services
+        // ✅ CORE SERVICES - SINGLETON (shared state across app)
+        // These need to maintain state and be shared across the entire application
         services.AddSingleton<SupabaseService>();
         services.AddSingleton<INavigationService, NavigationService>();
 
-        // ViewModels
-        // services.AddTransient<LoginViewModel>();
-        // services.AddTransient<MainViewModel>();
+        // ✅ SIMPLIFIED DATA SERVICES - SINGLETON (direct Supabase + cache)
+        services.AddSingleton<SupabaseFamilyService>();
+        services.AddSingleton<IFamilyRepository, FamilyRepository>();
 
-        // Pages
+        // ✅ VIEWMODELS - TRANSIENT (new instance per page navigation)
+        // ViewModels should be transient to get fresh state per navigation
+        services.AddTransient<FamiliesListViewModel>();
+        services.AddTransient<FamilyEditViewModel>();
+
+        // ✅ PAGES - TRANSIENT (new instance per navigation)
+        // ✅ CORRIGIDO: Todas as páginas registradas com DI
         services.AddTransient<SplashPage>();
         services.AddTransient<LoginPage>();
         services.AddTransient<MainPage>();
+        services.AddTransient<FamiliesListPage>();
+        services.AddTransient<FamilyEditPage>();
+        services.AddTransient<TestSyncPage>();
 
-        // Shell
+        // ✅ SHELL - SINGLETON (app navigation structure)
         services.AddSingleton<AppShell>();
+
+        // Register routes for navigation
+        RegisterRoutes();
+    }
+
+    /// <summary>
+    /// Registers navigation routes
+    /// </summary>
+    private static void RegisterRoutes()
+    {
+        // Family management routes
+        Routing.RegisterRoute("families", typeof(FamiliesListPage));
+        Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
+        Routing.RegisterRoute("familydetails", typeof(FamilyEditPage));
+
+        // ✅ CORRIGIDO: Testing and debug routes with proper DI
+        Routing.RegisterRoute("testsync", typeof(TestSyncPage));
+
+        // Future routes for other modules
+        Routing.RegisterRoute("genera", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("species", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("orchids", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("schedule", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("health", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("reports", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("statistics", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("settings", typeof(MainPage)); // Placeholder
+        Routing.RegisterRoute("sync", typeof(MainPage)); // Placeholder
     }
 }

@@ -2,6 +2,7 @@
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:OrchidPro"
+             xmlns:converters="clr-namespace:OrchidPro.Converters"
              x:Class="OrchidPro.App">
     <Application.Resources>
         <ResourceDictionary>
@@ -9,6 +10,18 @@
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <!-- Value Converters -->
+            <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
+            <converters:InvertedStringToBoolConverter x:Key="InvertedStringToBoolConverter" />
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:BoolToIntConverter x:Key="BoolToIntConverter" />
+            <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
+            <converters:NullToBoolConverter x:Key="NullToBoolConverter" />
+            <converters:InvertedNullToBoolConverter x:Key="InvertedNullToBoolConverter" />
+            <converters:CollectionToBoolConverter x:Key="CollectionToBoolConverter" />
 
             <!-- CONFIGURAÇÃO ANTI-BRANCO DEFINITIVA -->
 
@@ -33,6 +46,43 @@
                 <Setter Property="Shell.TabBarBackgroundColor" Value="{StaticResource Primary}" />
                 <Setter Property="Shell.TabBarForegroundColor" Value="{StaticResource OnPrimary}" />
                 <Setter Property="Shell.TabBarTitleColor" Value="{StaticResource OnPrimary}" />
+            </Style>
+
+            <!-- Professional button styles -->
+            <Style x:Key="PrimaryButtonStyle" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+                <Setter Property="TextColor" Value="{StaticResource OnPrimary}" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="CornerRadius" Value="25" />
+                <Setter Property="HeightRequest" Value="50" />
+            </Style>
+
+            <Style x:Key="SecondaryButtonStyle" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="{StaticResource Secondary}" />
+                <Setter Property="TextColor" Value="{StaticResource OnSecondary}" />
+                <Setter Property="BorderColor" Value="{StaticResource BorderColor}" />
+                <Setter Property="BorderWidth" Value="1" />
+                <Setter Property="CornerRadius" Value="25" />
+                <Setter Property="HeightRequest" Value="50" />
+            </Style>
+
+            <!-- Professional card style -->
+            <Style x:Key="CardStyle" TargetType="Border">
+                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}" />
+                <Setter Property="Stroke" Value="{StaticResource BorderColor}" />
+                <Setter Property="StrokeThickness" Value="1" />
+                <Setter Property="Padding" Value="20" />
+                <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+            </Style>
+
+            <!-- FAB (Floating Action Button) style -->
+            <Style x:Key="FabStyle" TargetType="Button">
+                <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+                <Setter Property="TextColor" Value="{StaticResource OnPrimary}" />
+                <Setter Property="FontAttributes" Value="Bold" />
+                <Setter Property="CornerRadius" Value="28" />
+                <Setter Property="WidthRequest" Value="160" />
+                <Setter Property="HeightRequest" Value="56" />
             </Style>
 
         </ResourceDictionary>

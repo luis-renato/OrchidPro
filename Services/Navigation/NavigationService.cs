@@ -52,15 +52,27 @@ public class NavigationService(SupabaseService supabaseService) : INavigationSer
     }
 
     /// <summary>
-    /// Navigates to login page with ZERO DELAY transition
+    /// ✅ CORRIGIDO: Navigates to login page with ZERO DELAY transition
     /// </summary>
     public async Task NavigateToLoginAsync()
     {
         var app = Application.Current;
         if (app?.Windows.Count > 0)
         {
-            var loginPage = new LoginPage(_supabaseService);
-            await InstantTransition(new NavigationPage(loginPage));
+            // ✅ FIX: Get services from DI to inject into LoginPage
+            var services = IPlatformApplication.Current?.Services;
+            if (services != null)
+            {
+                var navigationService = services.GetRequiredService<INavigationService>();
+                var loginPage = new LoginPage(_supabaseService, navigationService);
+                await InstantTransition(new NavigationPage(loginPage));
+            }
+            else
+            {
+                // Fallback: Create LoginPage using this instance as navigation service
+                var loginPage = new LoginPage(_supabaseService, this);
+                await InstantTransition(new NavigationPage(loginPage));
+            }
         }
     }
 
