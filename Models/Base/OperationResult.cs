@@ -1,4 +1,4 @@
-﻿namespace OrchidPro.Models;
+﻿namespace OrchidPro.Models.Base;
 
 /// <summary>
 /// LIMPO: Resultado de operações (substitui SyncResult)

@@ -1,6 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
-using OrchidPro.Models;
+using OrchidPro.Models.Base;
 using OrchidPro.Services.Navigation;
 using System.Collections.ObjectModel;
 using System.Diagnostics;

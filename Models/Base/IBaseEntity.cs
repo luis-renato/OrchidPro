@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace OrchidPro.Models;
+namespace OrchidPro.Models.Base;
 
 /// <summary>
 /// PASSO 1: Interface base para todas as entidades do sistema

@@ -4,7 +4,7 @@ using OrchidPro.Services.Navigation;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 
-namespace OrchidPro.ViewModels;
+namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
 /// PASSO 12: FamiliesListViewModel FINAL - migrado para usar BaseListViewModel

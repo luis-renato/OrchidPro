@@ -3,7 +3,7 @@ using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using System.Diagnostics;
 
-namespace OrchidPro.ViewModels;
+namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
 /// PASSO 10: FamilyEditViewModel FINAL - migrado para usar BaseEditViewModel

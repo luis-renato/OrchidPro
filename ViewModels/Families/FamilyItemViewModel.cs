@@ -1,7 +1,7 @@
 ﻿using OrchidPro.Models;
 using System.Diagnostics;
 
-namespace OrchidPro.ViewModels;
+namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
 /// PASSO 11: FamilyItemViewModel FINAL - migrado para usar BaseItemViewModel

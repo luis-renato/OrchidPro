@@ -1,4 +1,5 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using OrchidPro.Models.Base;
+using System.ComponentModel.DataAnnotations;
 
 namespace OrchidPro.Models;
 
