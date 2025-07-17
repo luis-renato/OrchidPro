@@ -5,11 +5,11 @@ using OrchidPro.Services.Navigation;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 
-namespace OrchidPro.ViewModels;
+namespace OrchidPro.ViewModels.Base;
 
 /// <summary>
-/// PASSO 5.1: BaseListViewModel corrigido - sem problemas de tipos genéricos
-/// Extrai toda funcionalidade comum: listagem, filtros, multisseleção, etc.
+/// BaseListViewModel genérico - Extrai toda funcionalidade comum de listas
+/// ✅ NOVO: Suporte completo para SwipeView com ações Edit e Delete
 /// </summary>
 public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewModel
     where T : class, IBaseEntity, new()
@@ -70,21 +70,10 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region Abstract Properties - Deve ser implementado pela classe filha
+    #region Abstract Properties
 
-    /// <summary>
-    /// Nome da entidade (ex: "Family", "Species")
-    /// </summary>
     public abstract string EntityName { get; }
-
-    /// <summary>
-    /// Nome da entidade no plural (ex: "Families", "Species")
-    /// </summary>
     public abstract string EntityNamePlural { get; }
-
-    /// <summary>
-    /// Rota para navegação de edição (ex: "familyedit")
-    /// </summary>
     public abstract string EditRoute { get; }
 
     #endregion
@@ -101,43 +90,32 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     {
         _repository = repository;
         _navigationService = navigationService;
-
         Title = EntityNamePlural;
-
         IsConnected = true;
         ConnectionStatus = "Connected";
         ConnectionStatusColor = Colors.Green;
-
         FabText = $"Add {EntityName}";
-
         Debug.WriteLine($"✅ [BASE_LIST_VM] Initialized for {EntityNamePlural}");
     }
 
     #endregion
 
-    #region Abstract Methods - Deve ser implementado pela classe filha
+    #region Abstract Methods
 
-    /// <summary>
-    /// Cria ItemViewModel a partir da entidade
-    /// </summary>
     protected abstract TItemViewModel CreateItemViewModel(T entity);
 
     #endregion
 
     #region Data Loading
 
-    /// <summary>
-    /// Carrega dados
-    /// </summary>
     [RelayCommand]
-    protected async Task LoadItemsAsync()
+    private async Task LoadItemsAsync()
     {
         if (IsLoading) return;
 
         try
         {
             IsLoading = true;
-
             Debug.WriteLine($"📥 [BASE_LIST_VM] Loading {EntityNamePlural} with filter: {StatusFilter}");
 
             await LoadItemsDataAsync();
@@ -163,10 +141,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
     }
 
-    /// <summary>
-    /// ✅ CORRIGIDO: Carrega dados internamente usando Action simples
-    /// </summary>
-    protected async Task LoadItemsDataAsync()
+    private async Task LoadItemsDataAsync()
     {
         try
         {
@@ -177,17 +152,13 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 _ => null
             };
 
-            var entityList = await _repository.GetFilteredAsync(SearchText, statusFilter);
+            var entities = await _repository.GetFilteredAsync(SearchText, statusFilter);
 
-            var itemViewModels = entityList.Select(entity =>
+            var itemViewModels = entities.Select(entity =>
             {
-                var vm = CreateItemViewModel(entity);
-                vm.IsSelected = SelectedItems.Any(si => si.Id == entity.Id);
-
-                // ✅ CORRIGIDO: Usar Action simples para evitar problemas de tipos
-                vm.SelectionChangedAction = item => OnItemSelectionChanged((TItemViewModel)item);
-
-                return vm;
+                var itemVm = CreateItemViewModel(entity);
+                itemVm.SelectionChangedAction = OnItemSelectionChanged;
+                return itemVm;
             }).ToList();
 
             Items.Clear();
@@ -196,222 +167,101 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 Items.Add(item);
             }
 
-            await UpdateStatisticsAsync();
+            TotalCount = entities.Count;
+            ActiveCount = entities.Count(e => e.IsActive);
+            HasData = entities.Any();
 
-            HasData = Items.Count > 0;
-
-            if (!HasData)
-            {
-                EmptyStateMessage = GetEmptyStateMessage();
-            }
-
-            Debug.WriteLine($"📊 [BASE_LIST_VM] Data loaded: {Items.Count} {EntityNamePlural}, HasData: {HasData}");
+            Debug.WriteLine($"📊 [BASE_LIST_VM] Stats - Total: {TotalCount}, Active: {ActiveCount}, HasData: {HasData}");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [BASE_LIST_VM] Load data error: {ex.Message}");
-            UpdateConnectionStatus(false);
+            Debug.WriteLine($"❌ [BASE_LIST_VM] LoadItemsDataAsync error: {ex.Message}");
             throw;
         }
     }
 
-    #endregion
-
-    #region Refresh
-
-    /// <summary>
-    /// Refresh dos dados
-    /// </summary>
     [RelayCommand]
     private async Task RefreshAsync()
     {
+        IsRefreshing = true;
         try
         {
-            Debug.WriteLine($"🔄 [BASE_LIST_VM] === STARTING REFRESH {EntityNamePlural} ===");
-            IsRefreshing = true;
-
-            var isConnectedNow = await _repository.TestConnectionAsync();
-            Debug.WriteLine($"🔍 [BASE_LIST_VM] Connection test result: {isConnectedNow}");
-
-            if (!isConnectedNow)
-            {
-                UpdateConnectionStatus(false);
-                await ShowErrorAsync("No Connection", "Cannot refresh data without internet connection.");
-                return;
-            }
-
-            UpdateConnectionStatus(true);
-
-            Debug.WriteLine($"🔄 [BASE_LIST_VM] Forcing cache refresh for {EntityNamePlural}...");
             await _repository.RefreshCacheAsync();
-
-            Debug.WriteLine($"🔄 [BASE_LIST_VM] Reloading data after cache refresh for {EntityNamePlural}...");
             await LoadItemsDataAsync();
-
-            Debug.WriteLine($"✅ [BASE_LIST_VM] Refresh completed successfully for {EntityNamePlural}");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [BASE_LIST_VM] Refresh error: {ex.Message}");
-
-            if (ex.Message.Contains("connection") || ex.Message.Contains("internet"))
-            {
-                UpdateConnectionStatus(false);
-                await ShowErrorAsync("Connection Error", "Failed to refresh data. Check your internet connection.");
-            }
-            else
-            {
-                await ShowErrorAsync("Refresh Failed", "Failed to refresh data from server.");
-            }
+            await ShowErrorAsync("Refresh Failed", "Failed to refresh data. Please try again.");
         }
         finally
         {
-            Debug.WriteLine($"🔄 [BASE_LIST_VM] === REFRESH COMPLETED FOR {EntityNamePlural} - RESETTING STATE ===");
             IsRefreshing = false;
         }
     }
 
     #endregion
 
-    #region Connectivity
+    #region Search and Filter
 
-    /// <summary>
-    /// Teste de conectividade em background
-    /// </summary>
-    private async Task TestConnectionInBackgroundAsync()
-    {
-        try
-        {
-            Debug.WriteLine($"🔍 [BASE_LIST_VM] Testing connection in background for {EntityNamePlural}...");
-
-            var connected = await _repository.TestConnectionAsync();
-
-            if (IsConnected != connected)
-            {
-                UpdateConnectionStatus(connected);
-
-                if (!connected)
-                {
-                    EmptyStateMessage = GetEmptyStateMessage();
-                }
-            }
-
-            Debug.WriteLine($"🔍 [BASE_LIST_VM] Background test result for {EntityNamePlural}: {connected}");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_LIST_VM] Background connectivity test failed for {EntityNamePlural}: {ex.Message}");
-            UpdateConnectionStatus(false);
-        }
-    }
-
-    /// <summary>
-    /// Teste manual de conectividade
-    /// </summary>
     [RelayCommand]
-    private async Task TestConnectionAsync()
+    private async Task SearchAsync()
     {
-        try
-        {
-            Debug.WriteLine($"🔍 [BASE_LIST_VM] Manual connection test for {EntityNamePlural}...");
-
-            var connected = await _repository.TestConnectionAsync();
-            UpdateConnectionStatus(connected);
-
-            Debug.WriteLine($"🔍 [BASE_LIST_VM] Manual test result for {EntityNamePlural}: {connected}");
-
-            var message = connected ? "Connected to server" : "Connection failed";
-            await ShowSuccessAsync(message);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_LIST_VM] Manual connection test failed for {EntityNamePlural}: {ex.Message}");
-            UpdateConnectionStatus(false);
-            await ShowErrorAsync("Connection Test", "Connection test failed");
-        }
+        await LoadItemsDataAsync();
     }
 
-    /// <summary>
-    /// Atualiza status de conectividade
-    /// </summary>
-    private void UpdateConnectionStatus(bool connected)
-    {
-        IsConnected = connected;
-
-        if (connected)
-        {
-            ConnectionStatus = "Connected";
-            ConnectionStatusColor = Colors.Green;
-        }
-        else
-        {
-            ConnectionStatus = "Disconnected";
-            ConnectionStatusColor = Colors.Red;
-        }
-
-        UpdateFabForSelection();
-    }
-
-    #endregion
-
-    #region Search and Filters
-
-    /// <summary>
-    /// Busca
-    /// </summary>
-    [RelayCommand]
-    protected async Task SearchAsync()
-    {
-        Debug.WriteLine($"🔍 [BASE_LIST_VM] Searching {EntityNamePlural} for: '{SearchText}'");
-        await LoadItemsAsync();
-    }
-
-    /// <summary>
-    /// Limpa busca
-    /// </summary>
     [RelayCommand]
     private async Task ClearSearchAsync()
     {
         SearchText = string.Empty;
-        await LoadItemsAsync();
+        await LoadItemsDataAsync();
+    }
+
+    [RelayCommand]
+    private async Task FilterByStatusAsync()
+    {
+        await LoadItemsDataAsync();
     }
 
     #endregion
 
-    #region Navigation
+    #region Navigation Commands
 
-    /// <summary>
-    /// Navega para adicionar
-    /// </summary>
     [RelayCommand]
-    private async Task AddItemAsync()
+    private async Task AddNewAsync()
     {
         if (!IsConnected)
         {
             var canProceed = await ShowConfirmAsync(
                 "Offline Mode",
-                "You're currently offline. Some features may not work properly. Continue anyway?");
+                "You're currently offline. Creating new items may not work properly. Continue anyway?");
 
             if (!canProceed) return;
         }
 
         try
         {
-            Debug.WriteLine($"➕ [BASE_LIST_VM] Navigating to add {EntityName}");
+            Debug.WriteLine($"➕ [BASE_LIST_VM] Navigating to add new {EntityName}");
             await _navigationService.NavigateToAsync(EditRoute);
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [BASE_LIST_VM] Navigation error: {ex.Message}");
+            Debug.WriteLine($"❌ [BASE_LIST_VM] Add new navigation error: {ex.Message}");
             await ShowErrorAsync("Navigation Error", $"Failed to open add {EntityName.ToLower()} page");
         }
     }
 
     /// <summary>
-    /// Navega para editar
+    /// Alias para AddNewAsync para compatibilidade
     /// </summary>
     [RelayCommand]
-    private async Task EditItemAsync(TItemViewModel? item)
+    private async Task AddItemAsync()
+    {
+        await AddNewAsync();
+    }
+
+    [RelayCommand]
+    private async Task NavigateToEditAsync(TItemViewModel item)
     {
         if (item == null) return;
 
@@ -442,13 +292,127 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
     }
 
+    [RelayCommand]
+    private async Task DeleteSingleItemAsync(TItemViewModel item)
+    {
+        if (item == null) return;
+
+        if (!IsConnected)
+        {
+            await ShowErrorAsync("No Connection", $"Cannot delete {EntityName.ToLower()} without internet connection.");
+            return;
+        }
+
+        if (item.IsSystemDefault)
+        {
+            await ShowErrorAsync("Cannot Delete", $"This is a system default {EntityName.ToLower()} and cannot be deleted.");
+            return;
+        }
+
+        try
+        {
+            Debug.WriteLine($"🗑️ [BASE_LIST_VM] Attempting to delete single {EntityName}: {item.Name}");
+
+            var confirmed = await ShowConfirmAsync(
+                $"Delete {EntityName}",
+                $"Are you sure you want to delete '{item.Name}'?");
+
+            if (!confirmed) return;
+
+            IsLoading = true;
+
+            var success = await _repository.DeleteAsync(item.Id);
+
+            if (success)
+            {
+                await ShowSuccessAsync($"Successfully deleted {EntityName.ToLower()} '{item.Name}'");
+
+                Debug.WriteLine($"🔄 [BASE_LIST_VM] === REFRESHING AFTER SINGLE DELETE ===");
+
+                _repository.InvalidateCacheExternal();
+                await _repository.RefreshCacheAsync();
+                await LoadItemsDataAsync();
+
+                Debug.WriteLine($"✅ [BASE_LIST_VM] === REFRESH COMPLETE ===");
+            }
+            else
+            {
+                await ShowErrorAsync("Delete Failed", $"Failed to delete {EntityName.ToLower()} '{item.Name}'");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [BASE_LIST_VM] Single delete error: {ex.Message}");
+
+            if (ex.Message.Contains("connection") || ex.Message.Contains("internet"))
+            {
+                UpdateConnectionStatus(false);
+                await ShowErrorAsync("Connection Error", $"Failed to delete {EntityName.ToLower()}. Check your internet connection.");
+            }
+            else
+            {
+                await ShowErrorAsync("Delete Error", $"Failed to delete {EntityName.ToLower()}. Please try again.");
+            }
+        }
+        finally
+        {
+            IsLoading = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ItemTappedAsync(TItemViewModel item)
+    {
+        if (item == null) return;
+
+        Debug.WriteLine($"👆 [BASE_LIST_VM] Item tapped: {item.Name}, MultiSelect: {IsMultiSelectMode}");
+
+        if (IsMultiSelectMode)
+        {
+            item.IsSelected = !item.IsSelected;
+            Debug.WriteLine($"🔘 [BASE_LIST_VM] Toggled selection for {item.Name}: {item.IsSelected}");
+        }
+        else
+        {
+            await NavigateToEditAsync(item);
+        }
+    }
+
+    /// <summary>
+    /// 🎯 NOVO: Command para LongPress - Ativa modo seleção
+    /// </summary>
+    [RelayCommand]
+    private void ItemLongPress(TItemViewModel item)
+    {
+        if (item == null) return;
+
+        Debug.WriteLine($"🔘 [BASE_LIST_VM] LongPress on: {item.Name}");
+
+        // Entrar em modo multi-seleção se não estiver
+        if (!IsMultiSelectMode)
+        {
+            IsMultiSelectMode = true;
+            UpdateFabForSelection();
+            Debug.WriteLine($"✅ [BASE_LIST_VM] Entered multi-select mode for {EntityNamePlural}");
+        }
+
+        // Selecionar o item que foi pressionado
+        if (!item.IsSelected)
+        {
+            item.IsSelected = true;
+            if (!SelectedItems.Contains(item))
+            {
+                SelectedItems.Add(item);
+            }
+        }
+
+        Debug.WriteLine($"✅ [BASE_LIST_VM] Multi-select activated and item selected: {item.Name}. Total selected: {SelectedItems.Count}");
+    }
+
     #endregion
 
     #region Multi-Selection
 
-    /// <summary>
-    /// Alterna modo de multisseleção
-    /// </summary>
     [RelayCommand]
     private void ToggleMultiSelect()
     {
@@ -462,9 +426,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
     }
 
-    /// <summary>
-    /// Seleciona todos
-    /// </summary>
     [RelayCommand]
     private void SelectAll()
     {
@@ -479,9 +440,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         UpdateFabForSelection();
     }
 
-    /// <summary>
-    /// Deseleciona todos
-    /// </summary>
     [RelayCommand]
     private void DeselectAll()
     {
@@ -493,9 +451,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         UpdateFabForSelection();
     }
 
-    /// <summary>
-    /// Deleta selecionados
-    /// </summary>
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
@@ -525,9 +480,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             if (!confirmed) return;
 
             IsLoading = true;
-
             Debug.WriteLine($"🗑️ [BASE_LIST_VM] Deleting {count} {EntityNamePlural}");
-
             ExitMultiSelectMode();
 
             var deletedCount = await _repository.DeleteMultipleAsync(selectedIds);
@@ -569,10 +522,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
     }
 
-    /// <summary>
-    /// ✅ CORRIGIDO: Manipula mudança de seleção
-    /// </summary>
-    private void OnItemSelectionChanged(TItemViewModel? item)
+    private void OnItemSelectionChanged(BaseItemViewModel<T> item)
     {
         if (item == null)
         {
@@ -582,11 +532,14 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
         Debug.WriteLine($"🔘 [BASE_LIST_VM] OnItemSelectionChanged: {item.Name}, IsSelected: {item.IsSelected}");
 
+        var typedItem = Items.FirstOrDefault(i => i.Id == item.Id);
+        if (typedItem == null) return;
+
         if (item.IsSelected)
         {
-            if (!SelectedItems.Contains(item))
+            if (!SelectedItems.Contains(typedItem))
             {
-                SelectedItems.Add(item);
+                SelectedItems.Add(typedItem);
                 Debug.WriteLine($"➕ [BASE_LIST_VM] Added {item.Name} to selection. Total: {SelectedItems.Count}");
             }
 
@@ -597,7 +550,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
         else
         {
-            SelectedItems.Remove(item);
+            SelectedItems.Remove(typedItem);
             Debug.WriteLine($"➖ [BASE_LIST_VM] Removed {item.Name} from selection. Total: {SelectedItems.Count}");
 
             if (!SelectedItems.Any() && IsMultiSelectMode)
@@ -609,9 +562,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         UpdateFabForSelection();
     }
 
-    /// <summary>
-    /// Entra em modo de multisseleção
-    /// </summary>
     private void EnterMultiSelectMode()
     {
         IsMultiSelectMode = true;
@@ -619,9 +569,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         Debug.WriteLine($"✅ [BASE_LIST_VM] Entered multi-select mode for {EntityNamePlural}");
     }
 
-    /// <summary>
-    /// Sai do modo de multisseleção
-    /// </summary>
     private void ExitMultiSelectMode()
     {
         IsMultiSelectMode = false;
@@ -632,11 +579,69 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
+    #region Connectivity
+
+    [RelayCommand]
+    private async Task TestConnectionAsync()
+    {
+        try
+        {
+            Debug.WriteLine($"🔍 [BASE_LIST_VM] Testing connection for {EntityNamePlural}...");
+
+            var isConnected = await _repository.TestConnectionAsync();
+            UpdateConnectionStatus(isConnected);
+
+            if (isConnected)
+            {
+                await ShowSuccessAsync("Connection restored! Data is now synchronized.");
+                await RefreshAsync();
+            }
+            else
+            {
+                await ShowErrorAsync("Still offline", "Check your internet connection and try again.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [BASE_LIST_VM] Connection test error: {ex.Message}");
+            UpdateConnectionStatus(false);
+            await ShowErrorAsync("Connection test failed", ex.Message);
+        }
+    }
+
+    private async Task TestConnectionInBackgroundAsync()
+    {
+        try
+        {
+            Debug.WriteLine($"🔍 [BASE_LIST_VM] Background connection test for {EntityNamePlural}...");
+
+            var isConnected = await _repository.TestConnectionAsync();
+            UpdateConnectionStatus(isConnected);
+
+            Debug.WriteLine($"📡 [BASE_LIST_VM] Background test result: {(isConnected ? "Connected" : "Offline")}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [BASE_LIST_VM] Background connection test error: {ex.Message}");
+            UpdateConnectionStatus(false);
+        }
+    }
+
+    private void UpdateConnectionStatus(bool connected)
+    {
+        IsConnected = connected;
+        ConnectionStatus = connected ? "Connected" : "Offline";
+        ConnectionStatusColor = connected ? Colors.Green : Colors.Orange;
+
+        UpdateFabForSelection();
+
+        Debug.WriteLine($"📡 [BASE_LIST_VM] Connection status updated: {ConnectionStatus}");
+    }
+
+    #endregion
+
     #region UI State Management
 
-    /// <summary>
-    /// Atualiza FAB baseado na seleção
-    /// </summary>
     private void UpdateFabForSelection()
     {
         var selectedCount = SelectedItems.Count;
@@ -660,103 +665,24 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             FabIsVisible = true;
             Debug.WriteLine($"🎯 [BASE_LIST_VM] FAB set to ADD mode: {FabText}");
         }
-
-        OnPropertyChanged(nameof(FabText));
-        OnPropertyChanged(nameof(FabIsVisible));
-    }
-
-    /// <summary>
-    /// Atualiza estatísticas
-    /// </summary>
-    private async Task UpdateStatisticsAsync()
-    {
-        try
-        {
-            var stats = await _repository.GetStatisticsAsync();
-            TotalCount = stats.TotalCount;
-            ActiveCount = stats.ActiveCount;
-
-            Debug.WriteLine($"📊 [BASE_LIST_VM] Stats updated for {EntityNamePlural} - Total: {TotalCount}, Active: {ActiveCount}");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_LIST_VM] Stats update error for {EntityNamePlural}: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Obtém mensagem de estado vazio
-    /// </summary>
-    private string GetEmptyStateMessage()
-    {
-        if (!IsConnected)
-        {
-            return $"No internet connection\nConnect to view your {EntityNamePlural.ToLower()}";
-        }
-
-        if (!string.IsNullOrWhiteSpace(SearchText))
-        {
-            return $"No {EntityNamePlural.ToLower()} found matching '{SearchText}'";
-        }
-
-        if (StatusFilter != "All")
-        {
-            return $"No {StatusFilter.ToLower()} {EntityNamePlural.ToLower()} found";
-        }
-
-        return $"No {EntityNamePlural.ToLower()} yet. Add your first {EntityName.ToLower()} to get started!";
     }
 
     #endregion
 
-    #region Lifecycle
+    #region Initialization
 
-    /// <summary>
-    /// Página aparecendo
-    /// </summary>
-    public override async Task OnAppearingAsync()
+    public virtual async Task OnAppearingAsync()
     {
-        await base.OnAppearingAsync();
+        Debug.WriteLine($"👁️ [BASE_LIST_VM] OnAppearing for {EntityNamePlural}");
 
-        Debug.WriteLine($"👁️ [BASE_LIST_VM] Page appearing for {EntityNamePlural} - loading data optimistically");
-        await LoadItemsAsync();
-    }
-
-    #endregion
-
-    #region Property Change Handlers
-
-    /// <summary>
-    /// Handler para mudança de texto de busca
-    /// </summary>
-    partial void OnSearchTextChanged(string value)
-    {
-        _ = Task.Run(async () =>
+        if (!Items.Any())
         {
-            await Task.Delay(300);
-            if (SearchText == value)
-            {
-                await SearchAsync();
-            }
-        });
-    }
-
-    /// <summary>
-    /// Handler para mudança de filtro de status
-    /// </summary>
-    partial void OnStatusFilterChanged(string value)
-    {
-        Debug.WriteLine($"🔽 [BASE_LIST_VM] Status filter changed to: {value} for {EntityNamePlural}");
-        _ = LoadItemsAsync();
-    }
-
-    /// <summary>
-    /// Observer da propriedade SelectedItems
-    /// </summary>
-    partial void OnSelectedItemsChanged(ObservableCollection<TItemViewModel> value)
-    {
-        Debug.WriteLine($"🔘 [BASE_LIST_VM] SelectedItems changed for {EntityNamePlural} - Count: {value.Count}");
-        UpdateFabForSelection();
+            await LoadItemsAsync();
+        }
+        else
+        {
+            _ = TestConnectionInBackgroundAsync();
+        }
     }
 
     #endregion

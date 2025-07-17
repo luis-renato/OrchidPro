@@ -2,10 +2,6 @@
 
 namespace OrchidPro.Views.Pages;
 
-/// <summary>
-/// PASSO 12.2: CORRIGIDO - Families list page com FAB funcionando
-/// ✅ PROBLEMA RESOLVIDO: OnFabPressed agora chama os commands corretos do ViewModel
-/// </summary>
 public partial class FamiliesListPage : ContentPage
 {
     private readonly FamiliesListViewModel _viewModel;
@@ -20,155 +16,228 @@ public partial class FamiliesListPage : ContentPage
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-
-        // ✅ OTIMIZADO: Animação + inicialização em paralelo
-        var animationTask = PerformEntranceAnimation();
-        var initTask = _viewModel.OnAppearingAsync();
-
-        // Aguarda ambos completarem
-        await Task.WhenAll(animationTask, initTask);
+        await PerformEntranceAnimation();
+        await _viewModel.OnAppearingAsync();
     }
 
     protected override async void OnDisappearing()
     {
         base.OnDisappearing();
-
-        // Perform exit animation
         await PerformExitAnimation();
-
-        // Cleanup ViewModel
-        await _viewModel.OnDisappearingAsync();
     }
 
     /// <summary>
-    /// ✅ OTIMIZADO: Performs dramatic entrance animation
+    /// Animação de entrada da página com fade in suave
     /// </summary>
     private async Task PerformEntranceAnimation()
     {
-        // Set initial states for dramatic effect
-        RootGrid.Opacity = 0;
-        RootGrid.Scale = 0.95;
-        FabButton.Scale = 0;
-        FabButton.Rotation = -90;
+        try
+        {
+            // Estados iniciais para animação
+            RootGrid.Opacity = 0;
+            RootGrid.Scale = 0.95;
+            RootGrid.TranslationY = 30;
 
-        // Animate main content with fade + scale mais suave
-        var contentTask = Task.WhenAll(
-            RootGrid.FadeTo(1, 500, Easing.CubicOut),
-            RootGrid.ScaleTo(1, 500, Easing.SpringOut)
-        );
+            FabButton.Opacity = 0;
+            FabButton.Scale = 0.8;
+            FabButton.TranslationY = 50;
 
-        // Wait for content, then animate FAB
-        await contentTask;
+            // Animação principal do conteúdo
+            await Task.WhenAll(
+                RootGrid.FadeTo(1, 600, Easing.CubicOut),
+                RootGrid.ScaleTo(1, 600, Easing.SpringOut),
+                RootGrid.TranslateTo(0, 0, 600, Easing.CubicOut)
+            );
 
-        await Task.WhenAll(
-            FabButton.ScaleTo(0.9, 300, Easing.SpringOut),
-            FabButton.RotateTo(0, 300, Easing.CubicOut)
-        );
+            // Animação do FAB com delay
+            await Task.Delay(200);
+            await Task.WhenAll(
+                FabButton.FadeTo(1, 400, Easing.CubicOut),
+                FabButton.ScaleTo(1, 400, Easing.SpringOut),
+                FabButton.TranslateTo(0, 0, 400, Easing.CubicOut)
+            );
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Entrance animation error: {ex.Message}");
+            // Garantir que elementos ficam visíveis mesmo com erro
+            RootGrid.Opacity = 1;
+            FabButton.Opacity = 1;
+        }
     }
 
     /// <summary>
-    /// Performs smooth exit animation
+    /// Animação de saída da página
     /// </summary>
     private async Task PerformExitAnimation()
     {
-        // Animate FAB out first
-        var fabTask = Task.WhenAll(
-            FabButton.ScaleTo(0, 200, Easing.CubicIn),
-            FabButton.RotateTo(90, 200, Easing.CubicIn)
-        );
-
-        // Then animate main content
-        var contentTask = Task.WhenAll(
-            RootGrid.FadeTo(0, 300, Easing.CubicIn),
-            RootGrid.ScaleTo(0.95, 300, Easing.CubicIn)
-        );
-
-        await Task.WhenAll(fabTask, contentTask);
-    }
-
-    /// <summary>
-    /// Handles button press animations for better feedback
-    /// </summary>
-    private async void OnButtonPressed(object sender, EventArgs e)
-    {
-        if (sender is Button button)
+        try
         {
-            await button.ScaleTo(0.95, 50, Easing.CubicOut);
-            await button.ScaleTo(1, 50, Easing.CubicOut);
+            await Task.WhenAll(
+                RootGrid.FadeTo(0.8, 300, Easing.CubicIn),
+                RootGrid.ScaleTo(0.98, 300, Easing.CubicIn),
+                FabButton.FadeTo(0, 200, Easing.CubicIn),
+                FabButton.ScaleTo(0.9, 200, Easing.CubicIn)
+            );
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Exit animation error: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// ✅ LIMPO: Handles filter selection apenas Status
-    /// </summary>
-    private async void OnFilterTapped(object sender, EventArgs e)
-    {
-        if (sender is Button button)
-        {
-            string action = "";
-
-            if (button.Text?.Contains("Status") == true)
-            {
-                action = await DisplayActionSheet(
-                    "Filter by Status",
-                    "Cancel",
-                    null,
-                    _viewModel.StatusFilterOptions.ToArray());
-
-                if (!string.IsNullOrEmpty(action) && action != "Cancel")
-                {
-                    _viewModel.StatusFilter = action;
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// ✅ CORRIGIDO: Handle FAB button - AGORA CHAMA OS COMMANDS DO VIEWMODEL!
+    /// Handler do FAB - CÓDIGO ORIGINAL
     /// </summary>
     private async void OnFabPressed(object sender, EventArgs e)
     {
-        if (sender is Button fab)
+        try
         {
-            // ✅ ANIMAÇÃO: Special animation for FAB
-            await fab.ScaleTo(0.9, 100, Easing.CubicOut);
-            await fab.ScaleTo(1, 100, Easing.SpringOut);
+            // Animação de feedback do FAB
+            await FabButton.ScaleTo(0.9, 100, Easing.CubicIn);
+            await FabButton.ScaleTo(1, 100, Easing.CubicOut);
 
-            // ✅ CORRIGIDO: Agora chama o command apropriado do ViewModel
-            try
+            // O comando já está bindado via Style.Triggers no XAML
+            // Não precisa executar manualmente aqui
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] FAB animation error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Handler do filtro - CÓDIGO ORIGINAL
+    /// </summary>
+    private async void OnFilterTapped(object sender, EventArgs e)
+    {
+        try
+        {
+            string[] options = { "All", "Active", "Inactive" };
+            string result = await DisplayActionSheet("Filter by Status", "Cancel", null, options);
+
+            if (result != "Cancel" && result != null)
             {
-                var selectedCount = _viewModel.SelectedItems.Count;
+                _viewModel.StatusFilter = result;
+                await _viewModel.FilterByStatusCommand.ExecuteAsync(null);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Filter error: {ex.Message}");
+        }
+    }
 
-                if (selectedCount > 0)
+    #region LongPress Implementation
+
+    private DateTime _pressStartTime;
+    private bool _isLongPressHandled;
+    private bool _wasInMultiSelectMode; // Nova flag para lembrar o estado
+    private const int LongPressDurationMs = 800; // 800ms para LongPress
+
+    /// <summary>
+    /// 🎯 Handler do Pressed - inicia timer para LongPress
+    /// </summary>
+    private void OnItemPressed(object sender, EventArgs e)
+    {
+        _pressStartTime = DateTime.Now;
+        _isLongPressHandled = false;
+        _wasInMultiSelectMode = _viewModel.IsMultiSelectMode; // Salvar estado atual
+
+        System.Diagnostics.Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] Pressed - MultiSelect was: {_wasInMultiSelectMode}");
+
+        // Pequena animação de feedback
+        if (sender is Button button)
+        {
+            _ = button.ScaleTo(0.95, 100, Easing.CubicOut);
+        }
+
+        // Timer para detectar LongPress
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(LongPressDurationMs);
+
+            if (!_isLongPressHandled && (DateTime.Now - _pressStartTime).TotalMilliseconds >= LongPressDurationMs)
+            {
+                _isLongPressHandled = true;
+
+                // Executar LongPress no UI thread
+                MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    // Modo DELETE: Executa delete dos selecionados
-                    if (_viewModel.DeleteSelectedCommand.CanExecute(null))
+                    if (sender is Button btn && btn.BindingContext is FamilyItemViewModel item)
                     {
-                        await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
+                        System.Diagnostics.Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] LongPress detected on: {item.Name}");
+                        _viewModel.ItemLongPressCommand.Execute(item);
+                        _wasInMultiSelectMode = true; // Agora está em modo seleção
                     }
-                }
-                else if (_viewModel.IsMultiSelectMode)
+                });
+            }
+        });
+    }
+
+    /// <summary>
+    /// 🎯 Handler do Released - CORRIGIDO para não interferir com LongPress
+    /// </summary>
+    private async void OnItemReleased(object sender, EventArgs e)
+    {
+        var pressDuration = (DateTime.Now - _pressStartTime).TotalMilliseconds;
+
+        // Restaurar animação
+        if (sender is Button button)
+        {
+            await button.ScaleTo(1.0, 100, Easing.CubicOut);
+        }
+
+        System.Diagnostics.Debug.WriteLine($"📤 [FAMILIES_LIST_PAGE] Released after {pressDuration}ms, LongPress handled: {_isLongPressHandled}, Was in MultiSelect: {_wasInMultiSelectMode}");
+
+        // Se LongPress foi executado, NÃO fazer mais nada
+        if (_isLongPressHandled)
+        {
+            System.Diagnostics.Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] LongPress was handled - ignoring release");
+            return;
+        }
+
+        // Se foi um tap rápido
+        if (pressDuration < LongPressDurationMs)
+        {
+            _isLongPressHandled = true; // Prevenir LongPress tardio
+
+            if (sender is Button btn && btn.BindingContext is FamilyItemViewModel item)
+            {
+                System.Diagnostics.Debug.WriteLine($"👆 [FAMILIES_LIST_PAGE] Quick tap on: {item.Name}");
+
+                // Se estava em modo multi-seleção, apenas toggle manualmente
+                if (_wasInMultiSelectMode)
                 {
-                    // Modo CANCEL: Sai do modo de multisseleção
-                    if (_viewModel.ToggleMultiSelectCommand.CanExecute(null))
+                    System.Diagnostics.Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] Manual toggle selection for: {item.Name}");
+
+                    // Toggle manual da seleção
+                    item.IsSelected = !item.IsSelected;
+
+                    // Atualizar lista de selecionados manualmente
+                    if (item.IsSelected)
                     {
-                        _viewModel.ToggleMultiSelectCommand.Execute(null);
+                        if (!_viewModel.SelectedItems.Contains(item))
+                        {
+                            _viewModel.SelectedItems.Add(item);
+                        }
                     }
+                    else
+                    {
+                        _viewModel.SelectedItems.Remove(item);
+                    }
+
+                    System.Diagnostics.Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] Item {item.Name} now selected: {item.IsSelected}, Total selected: {_viewModel.SelectedItems.Count}");
                 }
                 else
                 {
-                    // Modo ADD: Navega para adicionar família
-                    if (_viewModel.AddItemCommand.CanExecute(null))
-                    {
-                        await _viewModel.AddItemCommand.ExecuteAsync(null);
-                    }
+                    // Não estava em modo seleção - navegar normalmente
+                    System.Diagnostics.Debug.WriteLine($"👆 [FAMILIES_LIST_PAGE] Normal navigation for: {item.Name}");
+                    _viewModel.ItemTappedCommand.Execute(item);
                 }
-            }
-            catch (Exception ex)
-            {
-                // Log error but don't crash
-                System.Diagnostics.Debug.WriteLine($"❌ [FAB_PRESSED] Error: {ex.Message}");
             }
         }
     }
+
+    #endregion
 }
