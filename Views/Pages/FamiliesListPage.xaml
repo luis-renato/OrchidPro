@@ -34,7 +34,7 @@
 
             <Grid RowDefinitions="Auto,Auto,*">
 
-                <!-- ✅ LIMPO: Header sem indicadores técnicos -->
+                <!-- Header -->
                 <Border Grid.Row="0" 
                         BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SurfaceDark}}"
                         Padding="20,15">
@@ -55,7 +55,7 @@
                                        TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
                             </VerticalStackLayout>
 
-                            <!-- ✅ LIMPO: Connectivity indicator simples -->
+                            <!-- Connectivity indicator -->
                             <Border Grid.Column="1"
                                     BackgroundColor="{Binding ConnectionStatusColor}"
                                     Padding="10,5"
@@ -141,6 +141,7 @@
                         </Border.StrokeShape>
 
                         <Grid ColumnDefinitions="*,Auto">
+                            <!-- Entry com TextChanged event conectado -->
                             <Entry Grid.Column="0"
                                    Text="{Binding SearchText}"
                                    Placeholder="Search families..."
@@ -148,6 +149,7 @@
                                    TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
                                    PlaceholderColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
                                    ReturnCommand="{Binding SearchCommand}"
+                                   TextChanged="OnSearchTextChanged"
                                    IsEnabled="{Binding IsConnected}" />
 
                             <Button Grid.Column="1"
@@ -227,7 +229,7 @@
                                        HorizontalOptions="Center"
                                        HorizontalTextAlignment="Center" />
 
-                                <!-- ✅ CORREÇÃO 1: Show different actions based on connection -->
+                                <!-- Show different actions based on connection -->
                                 <Button Command="{Binding AddItemCommand}"
                                         BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                         TextColor="{StaticResource OnPrimary}"
@@ -258,7 +260,7 @@
                                         IsVisible="{Binding IsConnected, Converter={StaticResource InvertedBoolConverter}}" />
                             </VerticalStackLayout>
 
-                            <!-- ✅ Families list COM SWIPEVIEW -->
+                            <!-- Families list COM SWIPEVIEW - SEM LONGPRESS -->
                             <CollectionView ItemsSource="{Binding Items}"
                                             IsVisible="{Binding HasData}"
                                             SelectionMode="None"
@@ -272,11 +274,11 @@
                                 <CollectionView.ItemTemplate>
                                     <DataTemplate x:DataType="vm:FamilyItemViewModel">
 
-                                        <!-- 🎯 SwipeView simplificado e profissional -->
+                                        <!-- SwipeView simplificado -->
                                         <SwipeView BackgroundColor="Transparent" 
                                                    Margin="20,5">
 
-                                            <!-- LeftItems: Edit Action com largura fixa -->
+                                            <!-- LeftItems: Edit Action -->
                                             <SwipeView.LeftItems>
                                                 <SwipeItems Mode="Reveal">
                                                     <SwipeItemView Command="{Binding Source={x:Reference Name=ParentPage}, Path=BindingContext.NavigateToEditCommand}"
@@ -306,7 +308,7 @@
                                                 </SwipeItems>
                                             </SwipeView.LeftItems>
 
-                                            <!-- RightItems: Delete Action com largura fixa -->
+                                            <!-- RightItems: Delete Action -->
                                             <SwipeView.RightItems>
                                                 <SwipeItems Mode="Reveal">
                                                     <SwipeItemView Command="{Binding Source={x:Reference Name=ParentPage}, Path=BindingContext.DeleteSingleItemCommand}"
@@ -336,21 +338,27 @@
                                                 </SwipeItems>
                                             </SwipeView.RightItems>
 
-                                            <!-- CÓDIGO ORIGINAL EXATO - BORDAS MANTIDAS (sem margin) -->
+                                            <!-- Content area - SEM LONGPRESS, APENAS TAP SIMPLES -->
                                             <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
                                                     Stroke="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#A47764|#D0B8AE'}"
-                                                    StrokeThickness="{Binding IsSelected, Converter={StaticResource BoolToIntConverter}, ConverterParameter='2|1'}"
+                                                    StrokeThickness="{Binding IsSelected, Converter={StaticResource BoolToIntConverter}, ConverterParameter='3|1'}"
                                                     Padding="20,15">
                                                 <Border.StrokeShape>
                                                     <RoundRectangle CornerRadius="12" />
                                                 </Border.StrokeShape>
+
+                                                <!-- TapGestureRecognizer simples para tap -->
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer Command="{Binding Source={x:Reference Name=ParentPage}, Path=BindingContext.ItemTappedCommand}"
+                                                                          CommandParameter="{Binding .}" />
+                                                </Border.GestureRecognizers>
 
                                                 <Grid ColumnDefinitions="Auto,*,Auto"
                                                       RowDefinitions="Auto,Auto"
                                                       ColumnSpacing="15"
                                                       RowSpacing="8">
 
-                                                    <!-- ✅ FIX: Selection checkbox -->
+                                                    <!-- Checkbox para multi-seleção -->
                                                     <CheckBox Grid.Row="0" Grid.Column="0" Grid.RowSpan="2"
                                                               IsChecked="{Binding IsSelected, Mode=TwoWay}"
                                                               Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
@@ -362,41 +370,30 @@
                                                         </CheckBox.Behaviors>
                                                     </CheckBox>
 
-                                                    <!-- ✅ CORREÇÃO 2: Family info with TapGestureRecognizer + LongPress via Button -->
-                                                    <Grid Grid.Row="0" Grid.Column="1">
-                                                        <!-- Button invisível para capturar LongPress -->
-                                                        <Button BackgroundColor="Transparent"
-                                                                BorderColor="Transparent"
-                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FamiliesListViewModel}}, Path=ItemTappedCommand}"
-                                                                CommandParameter="{Binding .}"
-                                                                Pressed="OnItemPressed"
-                                                                Released="OnItemReleased" />
+                                                    <!-- Content area -->
+                                                    <VerticalStackLayout Grid.Row="0" Grid.Column="1" 
+                                                                         Spacing="4">
+                                                        <Grid ColumnDefinitions="*,Auto">
+                                                            <Label Grid.Column="0"
+                                                                   Text="{Binding DisplayName}"
+                                                                   FontSize="16"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
+                                                                   LineBreakMode="TailTruncation" />
 
-                                                        <!-- Content sobreposto -->
-                                                        <VerticalStackLayout Spacing="4"
-                                                                             InputTransparent="True">
-                                                            <Grid ColumnDefinitions="*,Auto">
-                                                                <Label Grid.Column="0"
-                                                                       Text="{Binding DisplayName}"
-                                                                       FontSize="16"
-                                                                       FontAttributes="Bold"
-                                                                       TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
-                                                                       LineBreakMode="TailTruncation" />
-
-                                                                <!-- Recent indicator -->
-                                                                <Label Grid.Column="1"
-                                                                       Text="{Binding RecentIndicator}"
-                                                                       FontSize="12"
-                                                                       IsVisible="{Binding IsRecent}" />
-                                                            </Grid>
-
-                                                            <Label Text="{Binding DescriptionPreview}"
+                                                            <!-- Recent indicator -->
+                                                            <Label Grid.Column="1"
+                                                                   Text="{Binding RecentIndicator}"
                                                                    FontSize="12"
-                                                                   TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
-                                                                   LineBreakMode="TailTruncation"
-                                                                   MaxLines="2" />
-                                                        </VerticalStackLayout>
-                                                    </Grid>
+                                                                   IsVisible="{Binding IsRecent}" />
+                                                        </Grid>
+
+                                                        <Label Text="{Binding DescriptionPreview}"
+                                                               FontSize="12"
+                                                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                                                               LineBreakMode="TailTruncation"
+                                                               MaxLines="2" />
+                                                    </VerticalStackLayout>
 
                                                     <!-- Status indicators -->
                                                     <VerticalStackLayout Grid.Row="0" Grid.Column="2" 
@@ -463,7 +460,7 @@
             </Grid>
         </Border>
 
-        <!-- ✅ CORRIGIDO: Floating Action Button ORIGINAL -->
+        <!-- Floating Action Button -->
         <Button x:Name="FabButton"
                 Text="{Binding FabText}"
                 FontSize="14"
@@ -479,20 +476,18 @@
                 Scale="0.9"
                 Clicked="OnFabPressed">
 
-            <!-- ✅ FIX: Comando baseado no modo atual ORIGINAL -->
+            <!-- FAB com lógica controlada no code-behind -->
             <Button.Style>
                 <Style TargetType="Button">
                     <!-- Default style -->
                     <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
                     <Setter Property="TextColor" Value="{StaticResource OnPrimary}" />
-                    <Setter Property="Command" Value="{Binding AddItemCommand}" />
 
                     <Style.Triggers>
                         <!-- Delete mode when items selected -->
                         <DataTrigger TargetType="Button"
                                      Binding="{Binding SelectedItems.Count, Converter={StaticResource IntToBoolConverter}}"
                                      Value="True">
-                            <Setter Property="Command" Value="{Binding DeleteSelectedCommand}" />
                             <Setter Property="BackgroundColor" Value="#D32F2F" />
                             <Setter Property="TextColor" Value="White" />
                         </DataTrigger>
@@ -503,9 +498,9 @@
                                 <BindingCondition Binding="{Binding IsMultiSelectMode}" Value="True" />
                                 <BindingCondition Binding="{Binding SelectedItems.Count}" Value="0" />
                             </MultiTrigger.Conditions>
-                            <Setter Property="Command" Value="{Binding ToggleMultiSelectCommand}" />
                             <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray600}}" />
                             <Setter Property="TextColor" Value="White" />
+                            <Setter Property="Text" Value="Cancel" />
                         </MultiTrigger>
 
                         <!-- Offline state -->

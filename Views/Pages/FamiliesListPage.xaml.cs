@@ -5,25 +5,303 @@ namespace OrchidPro.Views.Pages;
 public partial class FamiliesListPage : ContentPage
 {
     private readonly FamiliesListViewModel _viewModel;
+    private List<FamilyItemViewModel> _itemsSnapshot;
+    private List<FamilyItemViewModel> _allItems; // Cache de todos os items para filtro local
+    private DateTime _lastDisappearTime;
 
     public FamiliesListPage(FamiliesListViewModel viewModel)
     {
         InitializeComponent();
         _viewModel = viewModel;
         BindingContext = _viewModel;
+        _allItems = new List<FamilyItemViewModel>();
+
+        // Escutar mudanças específicas nos dados
+        MessagingCenter.Subscribe<object, FamilyItemViewModel>(this, "FamilyCreated", (sender, newFamily) =>
+        {
+            System.Diagnostics.Debug.WriteLine($"➕ [FAMILIES_LIST_PAGE] Adding new family to list: {newFamily.Name}");
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                _viewModel.Items.Insert(0, newFamily);
+                _allItems.Insert(0, newFamily);
+                _viewModel.TotalCount++;
+                if (newFamily.IsActive) _viewModel.ActiveCount++;
+                _viewModel.HasData = _viewModel.Items.Any();
+                UpdateItemsSnapshot();
+            });
+        });
+
+        MessagingCenter.Subscribe<object, FamilyItemViewModel>(this, "FamilyUpdated", (sender, updatedFamily) =>
+        {
+            System.Diagnostics.Debug.WriteLine($"✏️ [FAMILIES_LIST_PAGE] Updating family in list: {updatedFamily.Name}");
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                var existingFamily = _viewModel.Items.FirstOrDefault(f => f.Id == updatedFamily.Id);
+                if (existingFamily != null)
+                {
+                    var index = _viewModel.Items.IndexOf(existingFamily);
+
+                    if (existingFamily.IsActive != updatedFamily.IsActive)
+                    {
+                        if (updatedFamily.IsActive) _viewModel.ActiveCount++;
+                        else _viewModel.ActiveCount--;
+                    }
+
+                    _viewModel.Items[index] = updatedFamily;
+
+                    // Atualizar também no cache
+                    var cacheIndex = _allItems.FindIndex(f => f.Id == updatedFamily.Id);
+                    if (cacheIndex >= 0)
+                    {
+                        _allItems[cacheIndex] = updatedFamily;
+                    }
+
+                    UpdateItemsSnapshot();
+                    System.Diagnostics.Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Family updated in-place at index {index}");
+                }
+            });
+        });
+
+        MessagingCenter.Subscribe<object, Guid>(this, "FamilyDeleted", (sender, deletedFamilyId) =>
+        {
+            System.Diagnostics.Debug.WriteLine($"🗑️ [FAMILIES_LIST_PAGE] Removing family from list: {deletedFamilyId}");
+
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                var familyToRemove = _viewModel.Items.FirstOrDefault(f => f.Id == deletedFamilyId);
+                if (familyToRemove != null)
+                {
+                    _viewModel.Items.Remove(familyToRemove);
+                    _allItems.RemoveAll(f => f.Id == deletedFamilyId);
+                    _viewModel.TotalCount--;
+                    if (familyToRemove.IsActive) _viewModel.ActiveCount--;
+                    _viewModel.HasData = _viewModel.Items.Any();
+                    UpdateItemsSnapshot();
+
+                    System.Diagnostics.Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Family removed from list");
+                }
+            });
+        });
     }
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
         await PerformEntranceAnimation();
-        await _viewModel.OnAppearingAsync();
+
+        if (!_viewModel.Items.Any())
+        {
+            // Lista vazia - carregar sempre
+            System.Diagnostics.Debug.WriteLine($"📥 [FAMILIES_LIST_PAGE] Initial load - List is empty");
+            await _viewModel.OnAppearingAsync();
+            UpdateAllItemsCache();
+            UpdateItemsSnapshot();
+        }
+        else
+        {
+            var timeSinceDisappear = DateTime.Now - _lastDisappearTime;
+
+            if (timeSinceDisappear.TotalSeconds < 60)
+            {
+                System.Diagnostics.Debug.WriteLine($"🔍 [FAMILIES_LIST_PAGE] Checking for changes since last visit ({timeSinceDisappear.TotalSeconds:F1}s ago)");
+
+                var hasChanges = await DetectChanges();
+                if (hasChanges)
+                {
+                    System.Diagnostics.Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Changes detected - List already updated");
+                    UpdateAllItemsCache();
+                    UpdateItemsSnapshot();
+                }
+                else
+                {
+                    System.Diagnostics.Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] No changes detected - Keeping current list");
+                }
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"⚡ [FAMILIES_LIST_PAGE] Old session - Keeping existing list ({_viewModel.Items.Count} items)");
+            }
+
+            await _viewModel.OnAppearingAsync();
+        }
     }
 
     protected override async void OnDisappearing()
     {
         base.OnDisappearing();
         await PerformExitAnimation();
+
+        _lastDisappearTime = DateTime.Now;
+        System.Diagnostics.Debug.WriteLine($"👋 [FAMILIES_LIST_PAGE] Disappearing at {_lastDisappearTime:HH:mm:ss}");
+
+        // Cleanup
+        MessagingCenter.Unsubscribe<object, FamilyItemViewModel>(this, "FamilyCreated");
+        MessagingCenter.Unsubscribe<object, FamilyItemViewModel>(this, "FamilyUpdated");
+        MessagingCenter.Unsubscribe<object, Guid>(this, "FamilyDeleted");
+    }
+
+    /// <summary>
+    /// Atualiza cache com todos os items (para filtro local)
+    /// </summary>
+    private void UpdateAllItemsCache()
+    {
+        try
+        {
+            _allItems = _viewModel.Items.ToList();
+            System.Diagnostics.Debug.WriteLine($"📦 [FAMILIES_LIST_PAGE] All items cache updated with {_allItems.Count} items");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Error updating all items cache: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Aplica filtros localmente (fallback se repository não funcionar)
+    /// </summary>
+    private void ApplyLocalFilters()
+    {
+        try
+        {
+            var searchText = _viewModel.SearchText?.Trim()?.ToLowerInvariant() ?? string.Empty;
+            var statusFilter = _viewModel.StatusFilter;
+
+            System.Diagnostics.Debug.WriteLine($"🏷️ [FAMILIES_LIST_PAGE] Applying local filters - Search: '{searchText}', Status: '{statusFilter}'");
+
+            var filteredItems = _allItems.AsEnumerable();
+
+            // Filtro por texto
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                filteredItems = filteredItems.Where(item =>
+                    (item.Name?.ToLowerInvariant().Contains(searchText) == true) ||
+                    (item.Description?.ToLowerInvariant().Contains(searchText) == true));
+            }
+
+            // Filtro por status
+            if (statusFilter != "All")
+            {
+                var isActiveFilter = statusFilter == "Active";
+                filteredItems = filteredItems.Where(item => item.IsActive == isActiveFilter);
+            }
+
+            var resultList = filteredItems.ToList();
+
+            // Atualizar lista exibida
+            _viewModel.Items.Clear();
+            foreach (var item in resultList)
+            {
+                _viewModel.Items.Add(item);
+            }
+
+            _viewModel.HasData = _viewModel.Items.Any();
+
+            System.Diagnostics.Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Local filter applied. Results: {_viewModel.Items.Count}/{_allItems.Count}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Error applying local filters: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// Detecta se houve mudanças comparando com snapshot anterior
+    /// </summary>
+    private async Task<bool> DetectChanges()
+    {
+        try
+        {
+            if (_itemsSnapshot == null || !_itemsSnapshot.Any())
+            {
+                System.Diagnostics.Debug.WriteLine($"📷 [FAMILIES_LIST_PAGE] No snapshot available - Will refresh");
+                return true;
+            }
+
+            var currentItems = _itemsSnapshot;
+
+            System.Diagnostics.Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Loading latest data to compare...");
+
+            await _viewModel.LoadItemsCommand.ExecuteAsync(null);
+
+            var latestItems = _viewModel.Items.ToList();
+            bool hasChanges = false;
+
+            if (currentItems.Count != latestItems.Count)
+            {
+                System.Diagnostics.Debug.WriteLine($"📊 [FAMILIES_LIST_PAGE] Count changed: {currentItems.Count} → {latestItems.Count}");
+                hasChanges = true;
+            }
+            else
+            {
+                foreach (var currentItem in currentItems)
+                {
+                    var latestItem = latestItems.FirstOrDefault(i => i.Id == currentItem.Id);
+
+                    if (latestItem == null)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"➖ [FAMILIES_LIST_PAGE] Item removed: {currentItem.Name}");
+                        hasChanges = true;
+                        break;
+                    }
+
+                    if (currentItem.Name != latestItem.Name ||
+                        currentItem.Description != latestItem.Description ||
+                        currentItem.IsActive != latestItem.IsActive)
+                    {
+                        System.Diagnostics.Debug.WriteLine($"✏️ [FAMILIES_LIST_PAGE] Item changed: {latestItem.Name}");
+                        hasChanges = true;
+                        break;
+                    }
+                }
+
+                if (!hasChanges)
+                {
+                    foreach (var latestItem in latestItems)
+                    {
+                        if (!currentItems.Any(i => i.Id == latestItem.Id))
+                        {
+                            System.Diagnostics.Debug.WriteLine($"➕ [FAMILIES_LIST_PAGE] New item found: {latestItem.Name}");
+                            hasChanges = true;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            if (hasChanges)
+            {
+                System.Diagnostics.Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Changes detected and list updated in single operation");
+                return true;
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] No changes detected - Data is current");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Error detecting changes: {ex.Message}");
+            return true;
+        }
+    }
+
+    /// <summary>
+    /// Atualiza o snapshot da lista atual
+    /// </summary>
+    private void UpdateItemsSnapshot()
+    {
+        try
+        {
+            _itemsSnapshot = _viewModel.Items.ToList();
+            System.Diagnostics.Debug.WriteLine($"📷 [FAMILIES_LIST_PAGE] Snapshot updated with {_itemsSnapshot.Count} items");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Error updating snapshot: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -87,27 +365,7 @@ public partial class FamiliesListPage : ContentPage
     }
 
     /// <summary>
-    /// Handler do FAB - CÓDIGO ORIGINAL
-    /// </summary>
-    private async void OnFabPressed(object sender, EventArgs e)
-    {
-        try
-        {
-            // Animação de feedback do FAB
-            await FabButton.ScaleTo(0.9, 100, Easing.CubicIn);
-            await FabButton.ScaleTo(1, 100, Easing.CubicOut);
-
-            // O comando já está bindado via Style.Triggers no XAML
-            // Não precisa executar manualmente aqui
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] FAB animation error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Handler do filtro - CÓDIGO ORIGINAL
+    /// Handler do filtro de status - COM FILTRO LOCAL
     /// </summary>
     private async void OnFilterTapped(object sender, EventArgs e)
     {
@@ -118,8 +376,26 @@ public partial class FamiliesListPage : ContentPage
 
             if (result != "Cancel" && result != null)
             {
+                System.Diagnostics.Debug.WriteLine($"🏷️ [FAMILIES_LIST_PAGE] Status filter changed to: {result}");
+
                 _viewModel.StatusFilter = result;
-                await _viewModel.FilterByStatusCommand.ExecuteAsync(null);
+
+                // Tentar filtro do ViewModel primeiro
+                try
+                {
+                    await _viewModel.FilterByStatusCommand.ExecuteAsync(null);
+                    UpdateItemsSnapshot();
+                    System.Diagnostics.Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] ViewModel filter applied successfully");
+                }
+                catch (Exception vmEx)
+                {
+                    System.Diagnostics.Debug.WriteLine($"⚠️ [FAMILIES_LIST_PAGE] ViewModel filter failed: {vmEx.Message}");
+                    System.Diagnostics.Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Falling back to local filter...");
+
+                    // Fallback: Aplicar filtro local
+                    ApplyLocalFilters();
+                    UpdateItemsSnapshot();
+                }
             }
         }
         catch (Exception ex)
@@ -128,116 +404,101 @@ public partial class FamiliesListPage : ContentPage
         }
     }
 
-    #region LongPress Implementation
-
-    private DateTime _pressStartTime;
-    private bool _isLongPressHandled;
-    private bool _wasInMultiSelectMode; // Nova flag para lembrar o estado
-    private const int LongPressDurationMs = 800; // 800ms para LongPress
-
     /// <summary>
-    /// 🎯 Handler do Pressed - inicia timer para LongPress
+    /// Handler para mudanças no texto de busca - COM FILTRO LOCAL
     /// </summary>
-    private void OnItemPressed(object sender, EventArgs e)
+    private async void OnSearchTextChanged(object sender, TextChangedEventArgs e)
     {
-        _pressStartTime = DateTime.Now;
-        _isLongPressHandled = false;
-        _wasInMultiSelectMode = _viewModel.IsMultiSelectMode; // Salvar estado atual
-
-        System.Diagnostics.Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] Pressed - MultiSelect was: {_wasInMultiSelectMode}");
-
-        // Pequena animação de feedback
-        if (sender is Button button)
+        try
         {
-            _ = button.ScaleTo(0.95, 100, Easing.CubicOut);
-        }
+            var searchText = e.NewTextValue ?? string.Empty;
+            System.Diagnostics.Debug.WriteLine($"🔍 [FAMILIES_LIST_PAGE] Search text changed: '{searchText}'");
+            System.Diagnostics.Debug.WriteLine($"🔍 [FAMILIES_LIST_PAGE] ViewModel SearchText before: '{_viewModel.SearchText}'");
 
-        // Timer para detectar LongPress
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(LongPressDurationMs);
+            // Garantir que o ViewModel tenha o texto atualizado
+            _viewModel.SearchText = searchText;
+            System.Diagnostics.Debug.WriteLine($"🔍 [FAMILIES_LIST_PAGE] ViewModel SearchText after: '{_viewModel.SearchText}'");
 
-            if (!_isLongPressHandled && (DateTime.Now - _pressStartTime).TotalMilliseconds >= LongPressDurationMs)
+            // Tentar comando do ViewModel primeiro
+            try
             {
-                _isLongPressHandled = true;
-
-                // Executar LongPress no UI thread
-                MainThread.BeginInvokeOnMainThread(() =>
+                if (_viewModel.SearchCommand?.CanExecute(null) == true)
                 {
-                    if (sender is Button btn && btn.BindingContext is FamilyItemViewModel item)
-                    {
-                        System.Diagnostics.Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] LongPress detected on: {item.Name}");
-                        _viewModel.ItemLongPressCommand.Execute(item);
-                        _wasInMultiSelectMode = true; // Agora está em modo seleção
-                    }
-                });
-            }
-        });
-    }
-
-    /// <summary>
-    /// 🎯 Handler do Released - CORRIGIDO para não interferir com LongPress
-    /// </summary>
-    private async void OnItemReleased(object sender, EventArgs e)
-    {
-        var pressDuration = (DateTime.Now - _pressStartTime).TotalMilliseconds;
-
-        // Restaurar animação
-        if (sender is Button button)
-        {
-            await button.ScaleTo(1.0, 100, Easing.CubicOut);
-        }
-
-        System.Diagnostics.Debug.WriteLine($"📤 [FAMILIES_LIST_PAGE] Released after {pressDuration}ms, LongPress handled: {_isLongPressHandled}, Was in MultiSelect: {_wasInMultiSelectMode}");
-
-        // Se LongPress foi executado, NÃO fazer mais nada
-        if (_isLongPressHandled)
-        {
-            System.Diagnostics.Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] LongPress was handled - ignoring release");
-            return;
-        }
-
-        // Se foi um tap rápido
-        if (pressDuration < LongPressDurationMs)
-        {
-            _isLongPressHandled = true; // Prevenir LongPress tardio
-
-            if (sender is Button btn && btn.BindingContext is FamilyItemViewModel item)
-            {
-                System.Diagnostics.Debug.WriteLine($"👆 [FAMILIES_LIST_PAGE] Quick tap on: {item.Name}");
-
-                // Se estava em modo multi-seleção, apenas toggle manualmente
-                if (_wasInMultiSelectMode)
-                {
-                    System.Diagnostics.Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] Manual toggle selection for: {item.Name}");
-
-                    // Toggle manual da seleção
-                    item.IsSelected = !item.IsSelected;
-
-                    // Atualizar lista de selecionados manualmente
-                    if (item.IsSelected)
-                    {
-                        if (!_viewModel.SelectedItems.Contains(item))
-                        {
-                            _viewModel.SelectedItems.Add(item);
-                        }
-                    }
-                    else
-                    {
-                        _viewModel.SelectedItems.Remove(item);
-                    }
-
-                    System.Diagnostics.Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] Item {item.Name} now selected: {item.IsSelected}, Total selected: {_viewModel.SelectedItems.Count}");
+                    System.Diagnostics.Debug.WriteLine($"🔍 [FAMILIES_LIST_PAGE] Executing ViewModel SearchCommand...");
+                    await _viewModel.SearchCommand.ExecuteAsync(null);
+                    UpdateItemsSnapshot();
+                    System.Diagnostics.Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] ViewModel search completed. Items count: {_viewModel.Items.Count}");
                 }
                 else
                 {
-                    // Não estava em modo seleção - navegar normalmente
-                    System.Diagnostics.Debug.WriteLine($"👆 [FAMILIES_LIST_PAGE] Normal navigation for: {item.Name}");
-                    _viewModel.ItemTappedCommand.Execute(item);
+                    throw new InvalidOperationException("SearchCommand cannot execute or is null");
                 }
             }
+            catch (Exception vmEx)
+            {
+                System.Diagnostics.Debug.WriteLine($"⚠️ [FAMILIES_LIST_PAGE] ViewModel search failed: {vmEx.Message}");
+                System.Diagnostics.Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Falling back to local search...");
+
+                // Fallback: Aplicar filtro local
+                ApplyLocalFilters();
+                UpdateItemsSnapshot();
+                System.Diagnostics.Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Local search completed. Items count: {_viewModel.Items.Count}");
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Search error: {ex.Message}");
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Stack trace: {ex.StackTrace}");
         }
     }
 
-    #endregion
+    /// <summary>
+    /// Handler do FAB - Controla todos os modos (Add/Cancel/Delete)
+    /// </summary>
+    private async void OnFabPressed(object sender, EventArgs e)
+    {
+        try
+        {
+            // Animação de feedback do FAB
+            await FabButton.ScaleTo(0.9, 100, Easing.CubicIn);
+            await FabButton.ScaleTo(1, 100, Easing.CubicOut);
+
+            // Debug para entender o estado atual
+            System.Diagnostics.Debug.WriteLine($"🎯 [FAB_PRESSED] MultiSelect: {_viewModel.IsMultiSelectMode}, Selected: {_viewModel.SelectedItems.Count}");
+
+            // Lógica de controle do FAB
+            if (_viewModel.IsMultiSelectMode)
+            {
+                if (_viewModel.SelectedItems.Count > 0)
+                {
+                    // Modo Delete - deletar selecionados
+                    System.Diagnostics.Debug.WriteLine($"🎯 [FAB_PRESSED] Executing Delete Selected ({_viewModel.SelectedItems.Count} items)");
+                    _viewModel.DeleteSelectedCommand?.Execute(null);
+                }
+                else
+                {
+                    // Modo Cancel - FORÇAR saída do modo de seleção
+                    System.Diagnostics.Debug.WriteLine($"🎯 [FAB_PRESSED] FORCING exit from multi-select mode");
+
+                    // Sair do modo seleção diretamente (não toggle)
+                    if (_viewModel.IsMultiSelectMode)
+                    {
+                        _viewModel.IsMultiSelectMode = false;
+                        _viewModel.DeselectAllCommand?.Execute(null);
+                        System.Diagnostics.Debug.WriteLine($"✅ [FAB_PRESSED] Successfully exited multi-select mode");
+                    }
+                }
+            }
+            else
+            {
+                // Modo Add - adicionar novo (estado normal)
+                System.Diagnostics.Debug.WriteLine($"🎯 [FAB_PRESSED] Executing Add New Family");
+                _viewModel.AddItemCommand?.Execute(null);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] FAB error: {ex.Message}");
+        }
+    }
 }
