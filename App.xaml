@@ -22,6 +22,8 @@
             <converters:NullToBoolConverter x:Key="NullToBoolConverter" />
             <converters:InvertedNullToBoolConverter x:Key="InvertedNullToBoolConverter" />
             <converters:CollectionToBoolConverter x:Key="CollectionToBoolConverter" />
+            <converters:SortDisplayConverter x:Key="SortDisplayConverter" />
+
 
             <!-- CONFIGURAÇÃO ANTI-BRANCO DEFINITIVA -->
 

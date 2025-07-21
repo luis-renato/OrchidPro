@@ -8,6 +8,7 @@ namespace OrchidPro.Services;
 
 /// <summary>
 /// Modelo da Family para Supabase - SCHEMA PUBLIC (families)
+/// ✅ ATUALIZADO: Adicionado campo IsFavorite
 /// </summary>
 [Table("families")]
 public class SupabaseFamily : BaseModel
@@ -30,6 +31,12 @@ public class SupabaseFamily : BaseModel
     [Column("is_active")]
     public bool? IsActive { get; set; } = true;
 
+    /// <summary>
+    /// ✅ NOVO: Campo favorito
+    /// </summary>
+    [Column("is_favorite")]
+    public bool? IsFavorite { get; set; } = false;
+
     [Column("created_at")]
     public DateTime? CreatedAt { get; set; }
 
@@ -46,6 +53,7 @@ public class SupabaseFamily : BaseModel
             Description = family.Description,
             IsSystemDefault = family.IsSystemDefault,
             IsActive = family.IsActive,
+            IsFavorite = family.IsFavorite, // ✅ NOVO: Incluir favorito
             CreatedAt = family.CreatedAt,
             UpdatedAt = family.UpdatedAt
         };
@@ -61,6 +69,7 @@ public class SupabaseFamily : BaseModel
             Description = this.Description,
             IsSystemDefault = this.IsSystemDefault ?? false,
             IsActive = this.IsActive ?? true,
+            IsFavorite = this.IsFavorite ?? false, // ✅ NOVO: Incluir favorito
             CreatedAt = this.CreatedAt ?? DateTime.UtcNow,
             UpdatedAt = this.UpdatedAt ?? DateTime.UtcNow
         };
@@ -68,7 +77,7 @@ public class SupabaseFamily : BaseModel
 }
 
 /// <summary>
-/// CORRIGIDO: Serviço com queries otimizadas e logs detalhados
+/// ✅ CORRIGIDO: Serviço Supabase com APIs corretas
 /// </summary>
 public class SupabaseFamilyService
 {
@@ -94,148 +103,136 @@ public class SupabaseFamilyService
 
             Debug.WriteLine("📥 [FAMILY_SERVICE] Fetching families from Supabase...");
 
-            var currentUserId = _supabaseService.GetCurrentUserId();
-            Debug.WriteLine($"📥 [FAMILY_SERVICE] Current user ID: {currentUserId ?? "null"}");
+            var currentUserIdString = _supabaseService.GetCurrentUserId();
+            Debug.WriteLine($"📥 [FAMILY_SERVICE] Current user ID: {currentUserIdString}");
 
-            var allFamilies = new List<SupabaseFamily>();
-
-            // Se autenticado, buscar minhas + system
-            if (!string.IsNullOrEmpty(currentUserId) && Guid.TryParse(currentUserId, out var userGuid))
+            // ✅ CORRIGIDO: Converter string para Guid? se necessário
+            Guid? currentUserId = null;
+            if (!string.IsNullOrEmpty(currentUserIdString) && Guid.TryParse(currentUserIdString, out var parsedGuid))
             {
-                Debug.WriteLine("📥 [FAMILY_SERVICE] Authenticated - fetching user + system families...");
-
-                // Buscar families do usuário (SEM FILTRO DE is_active)
-                var userQuery = _supabaseService.Client
-                    .From<SupabaseFamily>()
-                    .Where(f => f.UserId == userGuid);
-
-                var userResponse = await userQuery.Get();
-
-                if (userResponse?.Models != null)
-                {
-                    allFamilies.AddRange(userResponse.Models);
-                    Debug.WriteLine($"📥 [FAMILY_SERVICE] User families: {userResponse.Models.Count}");
-                }
-
-                // Buscar families do sistema (user_id = null) (SEM FILTRO DE is_active)
-                var systemQuery = _supabaseService.Client
-                    .From<SupabaseFamily>()
-                    .Where(f => f.UserId == null);
-
-                var systemResponse = await systemQuery.Get();
-
-                if (systemResponse?.Models != null)
-                {
-                    allFamilies.AddRange(systemResponse.Models);
-                    Debug.WriteLine($"📥 [FAMILY_SERVICE] System families: {systemResponse.Models.Count}");
-                }
-            }
-            else
-            {
-                Debug.WriteLine("📥 [FAMILY_SERVICE] Not authenticated - fetching system families only...");
-
-                // Apenas families do sistema (SEM FILTRO DE is_active)
-                var systemQuery = _supabaseService.Client
-                    .From<SupabaseFamily>()
-                    .Where(f => f.UserId == null);
-
-                var response = await systemQuery.Get();
-
-                if (response?.Models != null)
-                {
-                    allFamilies.AddRange(response.Models);
-                }
+                currentUserId = parsedGuid;
             }
 
-            var families = allFamilies.Select(sf => sf.ToFamily()).ToList();
-            Debug.WriteLine($"📥 [FAMILY_SERVICE] Retrieved {families.Count} families successfully");
+            // Query todas as famílias do usuário + system defaults
+            var response = await _supabaseService.Client
+                .From<SupabaseFamily>()
+                .Select("*")
+                .Where(f => f.UserId == currentUserId || f.UserId == null)
+                .Order("is_favorite", Supabase.Postgrest.Constants.Ordering.Descending) // ✅ Favoritos primeiro
+                .Order("name", Supabase.Postgrest.Constants.Ordering.Ascending)
+                .Get();
+
+            var families = response.Models.Select(f => f.ToFamily()).ToList();
+
+            Debug.WriteLine($"✅ [FAMILY_SERVICE] Retrieved {families.Count} families from database");
+            Debug.WriteLine($"✅ [FAMILY_SERVICE] Favorites: {families.Count(f => f.IsFavorite)}");
+
             return families;
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILY_SERVICE] GetAllAsync failed: {ex.Message}");
-            return new List<Family>();
+            throw;
         }
     }
 
-
-
     /// <summary>
-    /// Busca uma família por ID
+    /// ✅ NOVO: Toggle favorite status of a family
     /// </summary>
-    public async Task<Family?> GetByIdAsync(Guid id)
+    public async Task<Family> ToggleFavoriteAsync(Guid familyId)
     {
         try
         {
-            if (_supabaseService.Client == null)
+            Debug.WriteLine($"⭐ [FAMILY_SERVICE] Toggling favorite for family: {familyId}");
+
+            var currentUserIdString = _supabaseService.GetCurrentUserId();
+            if (string.IsNullOrEmpty(currentUserIdString))
             {
-                Debug.WriteLine("❌ [FAMILY_SERVICE] Client not available");
-                return null;
+                throw new InvalidOperationException("User not authenticated");
             }
 
-            Debug.WriteLine($"🔍 [FAMILY_SERVICE] Fetching family by ID: {id}");
+            // ✅ CORRIGIDO: Converter para Guid se necessário
+            if (!Guid.TryParse(currentUserIdString, out var currentUserId))
+            {
+                throw new InvalidOperationException("Invalid user ID format");
+            }
 
-            var query = _supabaseService.Client
+            // Buscar família atual
+            var response = await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Select("*")
-                .Where(f => f.Id == id)
-                .Limit(1);
+                .Where(f => f.Id == familyId)
+                .Single();
 
-            var response = await query.Get();
-            var supabaseFamily = response?.Models?.FirstOrDefault();
-
-            if (supabaseFamily != null)
+            if (response == null)
             {
-                var family = supabaseFamily.ToFamily();
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Found family: {family.Name}");
-                return family;
+                throw new InvalidOperationException($"Family with ID {familyId} not found");
             }
 
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] Family not found: {id}");
-            return null;
+            // Toggle favorite
+            var updatedFamily = new SupabaseFamily
+            {
+                Id = response.Id,
+                IsFavorite = !(response.IsFavorite ?? false),
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            // Update no banco
+            await _supabaseService.Client
+                .From<SupabaseFamily>()
+                .Where(f => f.Id == familyId)
+                .Update(updatedFamily);
+
+            Debug.WriteLine($"✅ [FAMILY_SERVICE] Family {familyId} favorite status: {updatedFamily.IsFavorite}");
+
+            // Buscar dados atualizados
+            var updatedResponse = await _supabaseService.Client
+                .From<SupabaseFamily>()
+                .Select("*")
+                .Where(f => f.Id == familyId)
+                .Single();
+
+            return updatedResponse.ToFamily();
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] GetByIdAsync failed: {ex.Message}");
-            return null;
+            Debug.WriteLine($"❌ [FAMILY_SERVICE] ToggleFavoriteAsync failed: {ex.Message}");
+            throw;
         }
     }
 
     /// <summary>
-    /// Verifica se nome já existe
+    /// ✅ NOVO: Verifica se nome já existe (para FamilyRepository)
     /// </summary>
     public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
     {
         try
         {
-            if (_supabaseService.Client == null) return false;
+            var currentUserIdString = _supabaseService.GetCurrentUserId();
 
-            var currentUserId = _supabaseService.GetCurrentUserId();
-            Guid? userGuid = null;
-
-            if (!string.IsNullOrEmpty(currentUserId))
+            // ✅ CORRIGIDO: Converter string para Guid? 
+            Guid? currentUserId = null;
+            if (!string.IsNullOrEmpty(currentUserIdString) && Guid.TryParse(currentUserIdString, out var parsedGuid))
             {
-                Guid.TryParse(currentUserId, out var parsed);
-                userGuid = parsed;
+                currentUserId = parsedGuid;
             }
 
-            Debug.WriteLine($"🔍 [FAMILY_SERVICE] Checking name existence: {name}");
-
-            var query = _supabaseService.Client
+            // Query sem comparação incorreta de tipos
+            var response = await _supabaseService.Client
                 .From<SupabaseFamily>()
-                .Select("id,name")
-                .Where(f => f.Name == name && f.UserId == userGuid);
+                .Select("id")
+                .Where(f => f.Name.ToLower() == name.ToLower())
+                .Where(f => f.UserId == currentUserId || f.UserId == null)
+                .Get();
 
+            // Se tem excludeId, filtrar localmente
+            var results = response.Models.AsEnumerable();
             if (excludeId.HasValue)
             {
-                query = query.Where(f => f.Id != excludeId.Value);
+                results = results.Where(f => f.Id != excludeId.Value);
             }
 
-            var response = await query.Get();
-            var exists = response?.Models?.Any() == true;
-
-            Debug.WriteLine($"🔍 [FAMILY_SERVICE] Name '{name}' exists: {exists}");
-            return exists;
+            return results.Any();
         }
         catch (Exception ex)
         {
@@ -245,56 +242,40 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// Cria uma nova família
+    /// Cria nova família
     /// </summary>
     public async Task<Family> CreateAsync(Family family)
     {
         try
         {
-            if (_supabaseService.Client == null)
-            {
-                throw new InvalidOperationException("Supabase client not available");
-            }
-
             Debug.WriteLine($"➕ [FAMILY_SERVICE] Creating family: {family.Name}");
 
-            var supabaseFamily = SupabaseFamily.FromFamily(family);
+            var currentUserIdString = _supabaseService.GetCurrentUserId();
 
-            // Garantir user_id para famílias não-system
-            if (supabaseFamily.UserId == null && !(supabaseFamily.IsSystemDefault ?? false))
+            // ✅ CORRIGIDO: Converter string para Guid?
+            if (!string.IsNullOrEmpty(currentUserIdString) && Guid.TryParse(currentUserIdString, out var parsedGuid))
             {
-                var currentUserId = _supabaseService.GetCurrentUserId();
-                if (Guid.TryParse(currentUserId, out var userId))
-                {
-                    supabaseFamily.UserId = userId;
-                    Debug.WriteLine($"➕ [FAMILY_SERVICE] Set user_id to: {userId}");
-                }
-                else
-                {
-                    throw new InvalidOperationException("Could not determine current user ID");
-                }
+                family.UserId = parsedGuid;
+            }
+            else
+            {
+                family.UserId = null; // Para system defaults
             }
 
-            // Garantir timestamps
-            var now = DateTime.UtcNow;
-            supabaseFamily.CreatedAt = now;
-            supabaseFamily.UpdatedAt = now;
+            family.CreatedAt = DateTime.UtcNow;
+            family.UpdatedAt = DateTime.UtcNow;
 
-            Debug.WriteLine($"➕ [FAMILY_SERVICE] Inserting with UserID: {supabaseFamily.UserId?.ToString() ?? "NULL"}");
+            var supabaseFamily = SupabaseFamily.FromFamily(family);
 
             var response = await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Insert(supabaseFamily);
 
-            if (response?.Models?.Any() == true)
-            {
-                var created = response.Models.First().ToFamily();
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Created family: {created.Name} (ID: {created.Id})");
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Created with UserID: {created.UserId?.ToString() ?? "NULL"}");
-                return created;
-            }
+            var createdFamily = response.Models.First().ToFamily();
 
-            throw new InvalidOperationException("Insert returned no data");
+            Debug.WriteLine($"✅ [FAMILY_SERVICE] Created family: {createdFamily.Name} (ID: {createdFamily.Id})");
+
+            return createdFamily;
         }
         catch (Exception ex)
         {
@@ -304,35 +285,25 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// Atualiza uma família existente
+    /// Atualiza família existente
     /// </summary>
     public async Task<Family> UpdateAsync(Family family)
     {
         try
         {
-            if (_supabaseService.Client == null)
-            {
-                throw new InvalidOperationException("Supabase client not available");
-            }
-
             Debug.WriteLine($"📝 [FAMILY_SERVICE] Updating family: {family.Name} (ID: {family.Id})");
 
+            family.UpdatedAt = DateTime.UtcNow;
             var supabaseFamily = SupabaseFamily.FromFamily(family);
-            supabaseFamily.UpdatedAt = DateTime.UtcNow;
 
-            var response = await _supabaseService.Client
+            await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Where(f => f.Id == family.Id)
                 .Update(supabaseFamily);
 
-            if (response?.Models?.Any() == true)
-            {
-                var updated = response.Models.First().ToFamily();
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Updated family: {updated.Name}");
-                return updated;
-            }
+            Debug.WriteLine($"✅ [FAMILY_SERVICE] Updated family: {family.Name}");
 
-            throw new InvalidOperationException("Update returned no data");
+            return family;
         }
         catch (Exception ex)
         {
@@ -342,99 +313,122 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Hard delete (remove o registro completamente da tabela)
+    /// Deleta família
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
         try
         {
-            if (_supabaseService.Client == null)
-            {
-                Debug.WriteLine("❌ [FAMILY_SERVICE] Client not available");
-                return false;
-            }
+            Debug.WriteLine($"🗑️ [FAMILY_SERVICE] Deleting family: {id}");
 
-            Debug.WriteLine($"🗑️ [FAMILY_SERVICE] Hard deleting family: {id}");
-
-            // Buscar família primeiro para verificar se pode deletar
-            var existing = await GetByIdAsync(id);
-            if (existing == null)
-            {
-                Debug.WriteLine($"❌ [FAMILY_SERVICE] Family not found for deletion: {id}");
-                return false;
-            }
-
-            if (existing.IsSystemDefault)
-            {
-                Debug.WriteLine($"❌ [FAMILY_SERVICE] Cannot delete system default family: {existing.Name}");
-                return false;
-            }
-
-            // ✅ HARD DELETE: Remove o registro da tabela
             await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Where(f => f.Id == id)
                 .Delete();
 
-            // Verificar se foi deletado tentando buscar o registro
-            var verification = await GetByIdAsync(id);
-            var success = verification == null;
+            Debug.WriteLine($"✅ [FAMILY_SERVICE] Deleted family: {id}");
 
-            if (success)
-            {
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Hard deleted family: {existing.Name}");
-            }
-            else
-            {
-                Debug.WriteLine($"❌ [FAMILY_SERVICE] Hard delete failed for: {existing.Name}");
-            }
-
-            return success;
+            return true;
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILY_SERVICE] DeleteAsync failed: {ex.Message}");
-            return false;
+            throw;
         }
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Testa conectividade REAL com query no banco
+    /// Busca família por ID
+    /// </summary>
+    public async Task<Family?> GetByIdAsync(Guid id)
+    {
+        try
+        {
+            Debug.WriteLine($"🔍 [FAMILY_SERVICE] Getting family by ID: {id}");
+
+            var response = await _supabaseService.Client
+                .From<SupabaseFamily>()
+                .Select("*")
+                .Where(f => f.Id == id)
+                .Single();
+
+            if (response == null)
+            {
+                Debug.WriteLine($"⚠️ [FAMILY_SERVICE] Family not found: {id}");
+                return null;
+            }
+
+            var family = response.ToFamily();
+            Debug.WriteLine($"✅ [FAMILY_SERVICE] Found family: {family.Name}");
+
+            return family;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_SERVICE] GetByIdAsync failed: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Busca famílias com filtros
+    /// </summary>
+    public async Task<List<Family>> GetFilteredAsync(string? searchText = null, bool? isActive = null)
+    {
+        try
+        {
+            var allFamilies = await GetAllAsync();
+
+            if (!string.IsNullOrWhiteSpace(searchText))
+            {
+                var search = searchText.ToLowerInvariant();
+                allFamilies = allFamilies.Where(f =>
+                    f.Name.ToLowerInvariant().Contains(search) ||
+                    (f.Description?.ToLowerInvariant().Contains(search) == true)
+                ).ToList();
+            }
+
+            if (isActive.HasValue)
+            {
+                allFamilies = allFamilies.Where(f => f.IsActive == isActive.Value).ToList();
+            }
+
+            // ✅ NOVO: Ordenar favoritos primeiro
+            allFamilies = allFamilies
+                .OrderByDescending(f => f.IsFavorite)
+                .ThenBy(f => f.Name)
+                .ToList();
+
+            Debug.WriteLine($"🔍 [FAMILY_SERVICE] Filtered results: {allFamilies.Count} families");
+
+            return allFamilies;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_SERVICE] GetFilteredAsync failed: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Testa conectividade
     /// </summary>
     public async Task<bool> TestConnectionAsync()
     {
         try
         {
-            if (_supabaseService.Client == null || !_supabaseService.IsAuthenticated)
-            {
-                Debug.WriteLine("❌ [FAMILY_SERVICE] Client null or not authenticated");
-                return false;
-            }
-
-            Debug.WriteLine("🔍 [FAMILY_SERVICE] Testing REAL database connection...");
-
-            // ✅ TESTE REAL: Query simples na tabela families com timeout
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
 
-            var query = _supabaseService.Client.From<SupabaseFamily>()
-                .Select("id,name")
-                .Limit(1);
+            Debug.WriteLine("🔄 [FAMILY_SERVICE] Testing connection...");
 
-            var response = await query.Get();
+            var response = await _supabaseService.Client
+                .From<SupabaseFamily>()
+                .Select("id")
+                .Limit(1)
+                .Get(cts.Token);
 
-            var success = response?.Models != null;
-
-            if (success)
-            {
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] REAL connection test: SUCCESS");
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Query returned valid response");
-            }
-            else
-            {
-                Debug.WriteLine($"❌ [FAMILY_SERVICE] REAL connection test: FAILED - no response");
-            }
-
-            return success;
+            Debug.WriteLine("✅ [FAMILY_SERVICE] Connection test successful");
+            return true;
         }
         catch (OperationCanceledException)
         {
@@ -443,15 +437,7 @@ public class SupabaseFamilyService
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] REAL connection test failed: {ex.Message}");
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] Exception type: {ex.GetType().Name}");
-
-            // ✅ Log mais detalhes para debug
-            if (ex.InnerException != null)
-            {
-                Debug.WriteLine($"❌ [FAMILY_SERVICE] Inner exception: {ex.InnerException.Message}");
-            }
-
+            Debug.WriteLine($"❌ [FAMILY_SERVICE] Connection test failed: {ex.Message}");
             return false;
         }
     }
@@ -472,7 +458,7 @@ public class SupabaseFamilyService
                 InactiveCount = families.Count(f => !f.IsActive),
                 SystemDefaultCount = families.Count(f => f.IsSystemDefault),
                 UserCreatedCount = families.Count(f => !f.IsSystemDefault),
-                LastRefreshTime = DateTime.UtcNow // Sempre atual na arquitetura direta
+                LastRefreshTime = DateTime.UtcNow
             };
         }
         catch (Exception ex)

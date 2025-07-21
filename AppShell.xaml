@@ -37,16 +37,17 @@
     <!-- Botanical Management Section -->
     <FlyoutItem Title="Botanical Data" Icon="plant.png">
         <Tab Title="Families">
+            <!-- ✅ ATUALIZADO: Usar FamiliesListSyncfusionPage como padrão -->
             <ShellContent Title="Families" 
                           Icon="family.png" 
                           Route="families" 
-                          ContentTemplate="{DataTemplate pages:FamiliesListPage}" />
+                          ContentTemplate="{DataTemplate pages:FamiliesListSyncfusionPage}" />
         </Tab>
         <Tab Title="Genera">
             <ShellContent Title="Genera" 
                           Icon="genus.png" 
                           Route="genera" 
-                          ContentTemplate="{DataTemplate pages:FamiliesListSyncfusionPage}" />
+                          ContentTemplate="{DataTemplate local:MainPage}" />
         </Tab>
         <Tab Title="Species">
             <ShellContent Title="Species" 

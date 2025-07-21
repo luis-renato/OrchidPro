@@ -4,8 +4,8 @@ using System.ComponentModel.DataAnnotations;
 namespace OrchidPro.Models;
 
 /// <summary>
-/// PASSO 2: Family implementando IBaseEntity (SEM QUEBRAR FUNCIONALIDADE)
-/// Mantém TODA a funcionalidade existente + implementa interface base
+/// Family model with IsFavorite functionality
+/// ✅ ATUALIZADO: Adicionado campo IsFavorite
 /// </summary>
 public class Family : IBaseEntity
 {
@@ -43,6 +43,11 @@ public class Family : IBaseEntity
     public bool IsActive { get; set; } = true;
 
     /// <summary>
+    /// ✅ NOVO: Indicates if this family is marked as favorite by the user
+    /// </summary>
+    public bool IsFavorite { get; set; } = false;
+
+    /// <summary>
     /// When the family was created
     /// </summary>
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
@@ -55,12 +60,26 @@ public class Family : IBaseEntity
     /// <summary>
     /// Display name for UI purposes
     /// </summary>
-    public string DisplayName => $"{Name}{(IsSystemDefault ? " (System)" : "")}";
+    public string DisplayName => $"{Name}{(IsSystemDefault ? " (System)" : "")}{(IsFavorite ? " ⭐" : "")}";
 
     /// <summary>
     /// Status display text for UI
     /// </summary>
     public string StatusDisplay => IsActive ? "Active" : "Inactive";
+
+    /// <summary>
+    /// ✅ NOVO: Extended status display with favorite indicator
+    /// </summary>
+    public string FullStatusDisplay
+    {
+        get
+        {
+            var status = StatusDisplay;
+            if (IsSystemDefault) status += " • System";
+            if (IsFavorite) status += " • Favorite";
+            return status;
+        }
+    }
 
     /// <summary>
     /// Validates the family data
@@ -94,16 +113,26 @@ public class Family : IBaseEntity
             Description = this.Description,
             IsSystemDefault = this.IsSystemDefault,
             IsActive = this.IsActive,
+            IsFavorite = this.IsFavorite, // ✅ NOVO: Incluir favorito no clone
             CreatedAt = this.CreatedAt,
             UpdatedAt = this.UpdatedAt
         };
     }
 
     /// <summary>
-    /// ✅ IMPLEMENTAÇÃO DA INTERFACE: Clone genérico
+    /// Implementation of interface: Generic clone
     /// </summary>
     IBaseEntity IBaseEntity.Clone()
     {
         return Clone();
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Toggle favorite status
+    /// </summary>
+    public void ToggleFavorite()
+    {
+        IsFavorite = !IsFavorite;
+        UpdatedAt = DateTime.UtcNow;
     }
 }

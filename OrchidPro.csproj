@@ -81,10 +81,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<Folder Include="Converters\" />
-	</ItemGroup>
-
-	<ItemGroup>
 	  <Compile Update="Views\Pages\FamiliesListSyncfusionPage.xaml.cs">
 	    <DependentUpon>FamiliesListSyncfusionPage.xaml</DependentUpon>
 	  </Compile>

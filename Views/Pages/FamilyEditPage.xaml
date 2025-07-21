@@ -18,15 +18,15 @@
                                StatusBarStyle="LightContent" />
     </ContentPage.Behaviors>
 
-    <!-- Toolbar items -->
+    <!-- ✅ CORRIGIDO: Toolbar items com identificação correta do modo -->
     <ContentPage.ToolbarItems>
-        <ToolbarItem Text="Test"
+        <ToolbarItem Text="{Binding IsEditMode, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Edit Mode|Create Mode'}"
+                     Order="Secondary"
+                     IconImageSource="info.png" />
+        <ToolbarItem Text="Test Connection"
                      Command="{Binding TestConnectionCommand}"
                      Order="Secondary"
                      IconImageSource="wifi.png" />
-        <ToolbarItem Text="Info"
-                     Command="{Binding ShowInfoCommand}"
-                     Order="Secondary" />
         <ToolbarItem Text="Cancel"
                      Command="{Binding CancelCommand}"
                      Order="Primary" />
@@ -49,444 +49,358 @@
             <ScrollView>
                 <VerticalStackLayout Padding="30,20,30,30" Spacing="25">
 
-                    <!-- ✅ LIMPO: Header section sem indicadores técnicos -->
+                    <!-- ✅ CORRIGIDO: Header section com indicação clara do modo -->
                     <Grid RowDefinitions="Auto,Auto" RowSpacing="10">
-                        <!-- Title and connectivity indicator -->
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto">
-                            <Label Grid.Column="0"
-                                   Text="{Binding PageTitle}"
-                                   FontSize="28"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource PrimaryDarkText}, Dark={StaticResource White}}"
-                                   VerticalOptions="Center" />
+                        <!-- Title row -->
+                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="15">
+                            <VerticalStackLayout Grid.Column="0" Spacing="5">
+                                <Label Text="{Binding PageTitle}"
+                                       FontSize="24"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}" />
 
-                            <!-- ✅ LIMPO: Connectivity status simples -->
+                                <Label Text="{Binding IsEditMode, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Editing existing family|Creating new family'}"
+                                       FontSize="14"
+                                       TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                                       Opacity="0.8" />
+                            </VerticalStackLayout>
+
+                            <!-- Connection status -->
                             <Border Grid.Column="1"
                                     BackgroundColor="{Binding ConnectionStatusColor}"
-                                    Padding="8,4"
+                                    Padding="10,6"
                                     VerticalOptions="Start">
                                 <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="10" />
+                                    <RoundRectangle CornerRadius="12" />
                                 </Border.StrokeShape>
                                 <Label Text="{Binding ConnectionStatus}"
-                                       FontSize="10"
+                                       FontSize="11"
                                        FontAttributes="Bold"
-                                       TextColor="White"
-                                       HorizontalOptions="Center" />
-
-                                <!-- ✅ NOVO: Tap para testar conectividade -->
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding TestConnectionCommand}" />
-                                </Border.GestureRecognizers>
+                                       TextColor="White" />
                             </Border>
                         </Grid>
 
-                        <!-- Subtitle -->
-                        <Label Grid.Row="1"
-                               Text="{Binding PageSubtitle}"
-                               FontSize="14"
-                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
-                               HorizontalTextAlignment="Start" />
+                        <!-- Form progress indicator -->
+                        <ProgressBar Grid.Row="1"
+                                     Progress="{Binding FormCompletionProgress}"
+                                     ProgressColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                     BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray700}}"
+                                     HeightRequest="4" />
                     </Grid>
 
-                    <!-- Form fields -->
+                    <!-- ✅ CORRIGIDO: Form fields com fontes padronizadas -->
                     <VerticalStackLayout Spacing="20">
 
                         <!-- Family Name Field -->
                         <VerticalStackLayout Spacing="8">
                             <Label Text="Family Name *"
-                                   FontSize="16"
+                                   FontSize="15"
                                    FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}" />
+                                   TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}" />
 
                             <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                                    Stroke="{Binding IsNameValid, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#D0B8AE|#D32F2F'}"
-                                    StrokeThickness="{Binding IsNameFocused, Converter={StaticResource BoolToIntConverter}, ConverterParameter='2|1'}"
-                                    Padding="15,12">
+                                    Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    StrokeThickness="1"
+                                    Padding="20,0"
+                                    HeightRequest="50">
                                 <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="8" />
+                                    <RoundRectangle CornerRadius="12" />
                                 </Border.StrokeShape>
 
                                 <Entry Text="{Binding Name}"
-                                       Placeholder="Enter family name (e.g., Orchidaceae)"
+                                       Placeholder="Enter botanical family name..."
+                                       FontSize="15"
+                                       TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                                       PlaceholderColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
                                        BackgroundColor="Transparent"
-                                       TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
-                                       PlaceholderColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
-                                       FontSize="16"
-                                       ReturnType="Next"
-                                       MaxLength="255"
                                        Focused="OnEntryFocused"
-                                       Unfocused="OnEntryUnfocused">
-                                    <Entry.Behaviors>
-                                        <mct:EventToCommandBehavior EventName="Focused"
-                                                                    Command="{Binding OnNameFocusedCommand}" />
-                                        <mct:EventToCommandBehavior EventName="Unfocused"
-                                                                    Command="{Binding OnNameUnfocusedCommand}" />
-                                        <mct:EventToCommandBehavior EventName="TextChanged"
-                                                                    Command="{Binding OnNameChangedCommand}" />
-                                    </Entry.Behaviors>
-                                </Entry>
+                                       Unfocused="OnEntryUnfocused" />
                             </Border>
 
-                            <!-- ✅ LIMPO: Name validation error simples -->
-                            <StackLayout Orientation="Horizontal" 
-                                         IsVisible="{Binding NameError, Converter={StaticResource StringToBoolConverter}}"
-                                         Margin="5,0">
-                                <Label Text="{Binding NameError}"
-                                       TextColor="#D32F2F"
-                                       FontSize="12" />
-                                <Label Text="(offline mode)"
-                                       TextColor="#FF9800" 
-                                       FontSize="12"
-                                       IsVisible="{Binding IsConnected, Converter={StaticResource InvertedBoolConverter}}" />
-                            </StackLayout>
+                            <!-- Validation message -->
+                            <Label Text="{Binding NameValidationMessage}"
+                                   FontSize="12"
+                                   TextColor="{StaticResource ErrorColor}"
+                                   IsVisible="{Binding NameValidationMessage, Converter={StaticResource StringToBoolConverter}}" />
                         </VerticalStackLayout>
 
                         <!-- Description Field -->
                         <VerticalStackLayout Spacing="8">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0"
-                                       Text="Description"
-                                       FontSize="16"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}" />
-
-                                <Button Grid.Column="1"
-                                        Text="Clear"
-                                        Command="{Binding ClearDescriptionCommand}"
-                                        BackgroundColor="Transparent"
-                                        TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
-                                        FontSize="12"
-                                        Padding="10,5"
-                                        IsVisible="{Binding Description, Converter={StaticResource StringToBoolConverter}}" />
-                            </Grid>
+                            <Label Text="Description"
+                                   FontSize="15"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}" />
 
                             <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                                    Stroke="{Binding IsDescriptionValid, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#D0B8AE|#D32F2F'}"
-                                    StrokeThickness="{Binding IsDescriptionFocused, Converter={StaticResource BoolToIntConverter}, ConverterParameter='2|1'}"
-                                    Padding="15,12">
+                                    Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    StrokeThickness="1"
+                                    Padding="20,15"
+                                    MinimumHeightRequest="100">
                                 <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="8" />
+                                    <RoundRectangle CornerRadius="12" />
                                 </Border.StrokeShape>
 
                                 <Editor Text="{Binding Description}"
-                                        Placeholder="Enter detailed description of the family..."
+                                        Placeholder="Enter detailed description of the botanical family..."
+                                        FontSize="15"
+                                        TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                                        PlaceholderColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
                                         BackgroundColor="Transparent"
-                                        TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
-                                        PlaceholderColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
-                                        FontSize="14"
-                                        HeightRequest="120"
-                                        MaxLength="2000"
-                                        AutoSize="TextChanges">
-                                    <Editor.Behaviors>
-                                        <mct:EventToCommandBehavior EventName="Focused"
-                                                                    Command="{Binding OnDescriptionFocusedCommand}" />
-                                        <mct:EventToCommandBehavior EventName="Unfocused"
-                                                                    Command="{Binding OnDescriptionUnfocusedCommand}" />
-                                        <mct:EventToCommandBehavior EventName="TextChanged"
-                                                                    Command="{Binding OnDescriptionChangedCommand}" />
-                                    </Editor.Behaviors>
-                                </Editor>
+                                        AutoSize="TextChanges"
+                                        Focused="OnEntryFocused"
+                                        Unfocused="OnEntryUnfocused" />
                             </Border>
 
-                            <!-- Character count and validation -->
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0"
-                                       Text="{Binding DescriptionError}"
-                                       TextColor="#D32F2F"
-                                       FontSize="12"
-                                       IsVisible="{Binding DescriptionError, Converter={StaticResource StringToBoolConverter}}"
-                                       Margin="5,0" />
-
-                                <Label Grid.Column="1"
-                                       Text="{Binding Description.Length, StringFormat='{0}/2000'}"
-                                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
-                                       FontSize="12"
-                                       Margin="5,0" />
-                            </Grid>
+                            <!-- Character count -->
+                            <Label FontSize="11"
+                                   TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
+                                   HorizontalOptions="End">
+                                <Label.Text>
+                                    <MultiBinding StringFormat="{}{0}/2000 characters">
+                                        <Binding Path="Description.Length" />
+                                    </MultiBinding>
+                                </Label.Text>
+                            </Label>
                         </VerticalStackLayout>
 
-                        <!-- Status Toggle -->
-                        <VerticalStackLayout Spacing="8">
-                            <Label Text="Status"
-                                   FontSize="16"
+                        <!-- Settings Section -->
+                        <VerticalStackLayout Spacing="15">
+                            <Label Text="Settings"
+                                   FontSize="15"
                                    FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}" />
+                                   TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}" />
 
+                            <!-- Active Status -->
                             <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                                    Stroke="#D0B8AE"
+                                    Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
                                     StrokeThickness="1"
                                     Padding="20,15">
                                 <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="8" />
+                                    <RoundRectangle CornerRadius="12" />
                                 </Border.StrokeShape>
 
-                                <Grid ColumnDefinitions="*,Auto">
-                                    <VerticalStackLayout Grid.Column="0" Spacing="4">
-                                        <Label Text="{Binding IsActive, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Active|Inactive'}"
-                                               FontSize="16"
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="15">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="3">
+                                        <Label Text="Active Status"
+                                               FontSize="15"
                                                FontAttributes="Bold"
-                                               TextColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#388E3C|#D32F2F'}" />
-
-                                        <Label Text="{Binding IsActive, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Family is visible and available for use|Family is hidden and not available'}"
-                                               FontSize="12"
-                                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
+                                               TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}" />
+                                        <Label Text="Inactive families are hidden from selection lists"
+                                               FontSize="13"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}" />
                                     </VerticalStackLayout>
 
                                     <Switch Grid.Column="1"
                                             IsToggled="{Binding IsActive}"
-                                            OnColor="#388E3C"
+                                            OnColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                            ThumbColor="White"
                                             VerticalOptions="Center"
-                                            Toggled="OnSwitchToggled">
-                                        <Switch.Behaviors>
-                                            <mct:EventToCommandBehavior EventName="Toggled"
-                                                                        Command="{Binding ToggleActiveStatusCommand}" />
-                                        </Switch.Behaviors>
-                                    </Switch>
+                                            Toggled="OnSwitchToggled" />
+                                </Grid>
+                            </Border>
+
+                            <!-- ✅ NOVO: Favorite Status -->
+                            <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                    Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                                    StrokeThickness="1"
+                                    Padding="20,15">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="12" />
+                                </Border.StrokeShape>
+
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="15">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="3">
+                                        <Label Text="Favorite Family ⭐"
+                                               FontSize="15"
+                                               FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}" />
+                                        <Label Text="Favorite families appear first in lists"
+                                               FontSize="13"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}" />
+                                    </VerticalStackLayout>
+
+                                    <Switch Grid.Column="1"
+                                            IsToggled="{Binding IsFavorite}"
+                                            OnColor="#FF9800"
+                                            ThumbColor="White"
+                                            VerticalOptions="Center"
+                                            Toggled="OnSwitchToggled" />
+                                </Grid>
+                            </Border>
+
+                            <!-- System Default Status (read-only) -->
+                            <Border BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray800}}"
+                                    Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                                    StrokeThickness="1"
+                                    Padding="20,15"
+                                    IsVisible="{Binding IsSystemDefault}">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="12" />
+                                </Border.StrokeShape>
+
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="15">
+                                    <Label Grid.Column="0"
+                                           Text="🔒"
+                                           FontSize="20"
+                                           VerticalOptions="Center" />
+
+                                    <VerticalStackLayout Grid.Column="1" Spacing="3">
+                                        <Label Text="System Default Family"
+                                               FontSize="15"
+                                               FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}" />
+                                        <Label Text="This is a system default family that cannot be deleted"
+                                               FontSize="13"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}" />
+                                    </VerticalStackLayout>
                                 </Grid>
                             </Border>
                         </VerticalStackLayout>
 
-                        <!-- System Default Indicator (Read-only) -->
-                        <Border BackgroundColor="#1976D2"
-                                Padding="15,10"
-                                IsVisible="{Binding IsSystemDefault}">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="8" />
-                            </Border.StrokeShape>
+                        <!-- Metadata Section (Edit Mode Only) -->
+                        <VerticalStackLayout Spacing="15" IsVisible="{Binding IsEditMode}">
+                            <Label Text="Information"
+                                   FontSize="15"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}" />
 
-                            <Grid ColumnDefinitions="Auto,*">
-                                <Label Grid.Column="0"
-                                       Text="ℹ️"
-                                       FontSize="16"
-                                       VerticalOptions="Center"
-                                       Margin="0,0,10,0" />
-
-                                <VerticalStackLayout Grid.Column="1" Spacing="2">
-                                    <Label Text="System Default Family"
-                                           FontSize="14"
+                            <Grid RowDefinitions="Auto,Auto" RowSpacing="10" ColumnDefinitions="*,*" ColumnSpacing="15">
+                                <!-- Created -->
+                                <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="3">
+                                    <Label Text="Created"
+                                           FontSize="13"
                                            FontAttributes="Bold"
-                                           TextColor="White" />
-
-                                    <Label Text="This is a system default family and cannot be deleted"
-                                           FontSize="12"
-                                           TextColor="White"
-                                           Opacity="0.9" />
-                                </VerticalStackLayout>
-                            </Grid>
-                        </Border>
-
-                        <!-- ✅ LIMPO: Offline mode warning simples -->
-                        <Border BackgroundColor="#FF9800"
-                                Padding="15,10"
-                                IsVisible="{Binding IsConnected, Converter={StaticResource InvertedBoolConverter}}">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="8" />
-                            </Border.StrokeShape>
-
-                            <Grid ColumnDefinitions="Auto,*,Auto">
-                                <Label Grid.Column="0"
-                                       Text="📡"
-                                       FontSize="16"
-                                       VerticalOptions="Center"
-                                       Margin="0,0,10,0" />
-
-                                <VerticalStackLayout Grid.Column="1" Spacing="2">
-                                    <Label Text="Offline Mode"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}" />
+                                    <Label Text="{Binding CreatedAt, StringFormat='{0:dd/MM/yyyy HH:mm}'}"
                                            FontSize="14"
-                                           FontAttributes="Bold"
-                                           TextColor="White" />
-
-                                    <Label Text="Limited functionality - connect to internet for full features"
-                                           FontSize="12"
-                                           TextColor="White"
-                                           Opacity="0.9" />
+                                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}" />
                                 </VerticalStackLayout>
 
-                                <!-- ✅ NOVO: Botão para testar conectividade -->
-                                <Button Grid.Column="2"
-                                        Text="Test"
-                                        Command="{Binding TestConnectionCommand}"
-                                        BackgroundColor="Transparent"
-                                        TextColor="White"
-                                        FontSize="12"
-                                        Padding="8,4"
-                                        BorderColor="White"
-                                        BorderWidth="1"
-                                        CornerRadius="4" />
+                                <!-- Updated -->
+                                <VerticalStackLayout Grid.Row="0" Grid.Column="1" Spacing="3">
+                                    <Label Text="Last Updated"
+                                           FontSize="13"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}" />
+                                    <Label Text="{Binding UpdatedAt, StringFormat='{0:dd/MM/yyyy HH:mm}'}"
+                                           FontSize="14"
+                                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}" />
+                                </VerticalStackLayout>
+
+                                <!-- ID -->
+                                <VerticalStackLayout Grid.Row="1" Grid.ColumnSpan="2" Spacing="3">
+                                    <Label Text="Unique ID"
+                                           FontSize="13"
+                                           FontAttributes="Bold"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}" />
+                                    <Label Text="{Binding Id}"
+                                           FontSize="12"
+                                           FontFamily="Courier"
+                                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
+                                           LineBreakMode="MiddleTruncation" />
+                                </VerticalStackLayout>
                             </Grid>
-                        </Border>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
 
                     <!-- Action Buttons -->
-                    <VerticalStackLayout Spacing="15" Margin="0,20,0,0">
+                    <Grid RowDefinitions="Auto,Auto" RowSpacing="15" Margin="0,20,0,0">
 
-                        <!-- ✅ CORRIGIDO: Save Button com estados mais claros -->
-                        <Button Text="{Binding SaveButtonText}"
-                                Command="{Binding SaveCommand}"
+                        <!-- Save Button -->
+                        <Button Grid.Row="0"
+                                Text="{Binding SaveButtonText}"
                                 BackgroundColor="{Binding SaveButtonColor}"
                                 TextColor="White"
                                 FontSize="16"
                                 FontAttributes="Bold"
-                                HeightRequest="56"
-                                CornerRadius="28"
+                                HeightRequest="50"
+                                CornerRadius="25"
+                                Command="{Binding SaveCommand}"
                                 IsEnabled="{Binding CanSave}"
-                                Clicked="OnButtonPressed">
-
-                            <!-- ✅ NOVO: Estados dinâmicos baseados em conectividade -->
-                            <Button.Triggers>
-                                <!-- Offline state -->
-                                <DataTrigger TargetType="Button"
-                                             Binding="{Binding IsConnected}"
-                                             Value="False">
-                                    <Setter Property="BackgroundColor" Value="#9E9E9E" />
-                                    <Setter Property="Text" Value="Offline - Cannot Save" />
-                                    <Setter Property="IsEnabled" Value="False" />
-                                </DataTrigger>
-
-                                <!-- Saving state -->
-                                <DataTrigger TargetType="Button"
-                                             Binding="{Binding IsSaving}"
-                                             Value="True">
-                                    <Setter Property="BackgroundColor" Value="#FBC02D" />
-                                    <Setter Property="Text" Value="Saving..." />
-                                    <Setter Property="IsEnabled" Value="False" />
-                                </DataTrigger>
-
-                                <!-- Invalid state -->
-                                <DataTrigger TargetType="Button"
-                                             Binding="{Binding CanSave}"
-                                             Value="False">
-                                    <Setter Property="BackgroundColor" Value="#BDBDBD" />
-                                </DataTrigger>
-                            </Button.Triggers>
+                                Pressed="OnButtonPressed">
+                            <Button.Shadow>
+                                <Shadow Brush="Black" Opacity="0.3" Radius="10" Offset="0,4" />
+                            </Button.Shadow>
                         </Button>
 
-                        <!-- ✅ CORREÇÃO 1: Secondary Actions - EntityId em vez de FamilyId -->
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="15"
-                              IsVisible="{Binding EntityId, Converter={StaticResource NullToBoolConverter}}">
-
-                            <!-- Delete Button -->
-                            <Button Grid.Column="0"
-                                    Text="Delete"
-                                    Command="{Binding DeleteCommand}"
-                                    BackgroundColor="#D32F2F"
-                                    TextColor="White"
-                                    FontSize="14"
-                                    HeightRequest="48"
-                                    CornerRadius="24"
-                                    IsEnabled="{Binding CanDelete}"
-                                    IsVisible="{Binding CanDelete}"
-                                    Clicked="OnButtonPressed">
-
-                                <!-- Disable if offline -->
-                                <Button.Triggers>
-                                    <DataTrigger TargetType="Button"
-                                                 Binding="{Binding IsConnected}"
-                                                 Value="False">
-                                        <Setter Property="BackgroundColor" Value="#9E9E9E" />
-                                        <Setter Property="IsEnabled" Value="False" />
-                                    </DataTrigger>
-                                </Button.Triggers>
-                            </Button>
-
-                            <!-- Cancel Button -->
-                            <Button Grid.Column="1"
-                                    Text="Cancel"
-                                    Command="{Binding CancelCommand}"
-                                    BackgroundColor="Transparent"
-                                    TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
-                                    BorderColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
-                                    BorderWidth="1"
-                                    FontSize="14"
-                                    HeightRequest="48"
-                                    CornerRadius="24"
-                                    Clicked="OnButtonPressed" />
-                        </Grid>
-
-                        <!-- ✅ CORREÇÃO 2: Cancel Button for New Items - EntityId em vez de FamilyId -->
-                        <Button Text="Cancel"
-                                Command="{Binding CancelCommand}"
-                                BackgroundColor="Transparent"
-                                TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
-                                BorderColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray500}}"
-                                BorderWidth="1"
+                        <!-- Delete Button (Edit Mode Only) -->
+                        <Button Grid.Row="1"
+                                Text="Delete Family"
+                                BackgroundColor="{StaticResource ErrorColor}"
+                                TextColor="White"
                                 FontSize="14"
-                                HeightRequest="48"
-                                CornerRadius="24"
-                                IsVisible="{Binding EntityId, Converter={StaticResource InvertedNullToBoolConverter}}"
-                                Clicked="OnButtonPressed" />
-                    </VerticalStackLayout>
-
-                    <!-- Unsaved Changes Warning -->
-                    <Border BackgroundColor="#FBC02D"
-                            Padding="15,10"
-                            IsVisible="{Binding HasUnsavedChanges}"
-                            Margin="0,10,0,0">
-                        <Border.StrokeShape>
-                            <RoundRectangle CornerRadius="8" />
-                        </Border.StrokeShape>
-
-                        <Grid ColumnDefinitions="Auto,*">
-                            <Label Grid.Column="0"
-                                   Text="⚠️"
-                                   FontSize="16"
-                                   VerticalOptions="Center"
-                                   Margin="0,0,10,0" />
-
-                            <Label Grid.Column="1"
-                                   Text="You have unsaved changes"
-                                   FontSize="12"
-                                   FontAttributes="Bold"
-                                   TextColor="White"
-                                   VerticalOptions="Center" />
-                        </Grid>
-                    </Border>
-
-                    <!-- ✅ REMOVIDO: Bottom spacing que causava caixa preta -->
+                                HeightRequest="44"
+                                CornerRadius="22"
+                                Command="{Binding DeleteCommand}"
+                                IsVisible="{Binding IsEditMode}"
+                                IsEnabled="{Binding CanDelete}"
+                                Pressed="OnButtonPressed">
+                            <Button.Shadow>
+                                <Shadow Brush="Black" Opacity="0.2" Radius="8" Offset="0,3" />
+                            </Button.Shadow>
+                        </Button>
+                    </Grid>
                 </VerticalStackLayout>
             </ScrollView>
         </Border>
 
+        <!-- Connection Test Overlay -->
+        <Grid x:Name="ConnectionTestOverlay"
+              BackgroundColor="Black"
+              Opacity="0.7"
+              IsVisible="False">
+
+            <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray900}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                    StrokeThickness="2"
+                    Padding="30"
+                    WidthRequest="280"
+                    HeightRequest="160"
+                    VerticalOptions="Center"
+                    HorizontalOptions="Center">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16" />
+                </Border.StrokeShape>
+
+                <VerticalStackLayout Spacing="20" VerticalOptions="Center">
+                    <ActivityIndicator IsRunning="True"
+                                       Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                       WidthRequest="40"
+                                       HeightRequest="40"
+                                       HorizontalOptions="Center" />
+
+                    <Label Text="Testing Connection..."
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                           HorizontalOptions="Center" />
+
+                    <Label Text="Please wait while we verify your internet connection"
+                           FontSize="13"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                           HorizontalOptions="Center"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
         <!-- Loading overlay -->
-        <Grid IsVisible="{Binding IsBusy}"
-              BackgroundColor="#80000000">
-            <VerticalStackLayout Spacing="15"
-                                 HorizontalOptions="Center"
-                                 VerticalOptions="Center">
+        <Grid BackgroundColor="Black"
+              Opacity="0.5"
+              IsVisible="{Binding IsBusy}">
+
+            <VerticalStackLayout Spacing="15" VerticalOptions="Center" HorizontalOptions="Center">
                 <ActivityIndicator IsRunning="{Binding IsBusy}"
-                                   Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                                   Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                    WidthRequest="40"
                                    HeightRequest="40" />
+
                 <Label Text="{Binding LoadingMessage}"
+                       FontSize="16"
+                       FontAttributes="Bold"
                        TextColor="White"
-                       FontSize="14"
                        HorizontalOptions="Center" />
             </VerticalStackLayout>
         </Grid>
-
-        <!-- ✅ CORRIGIDO: Connection test overlay sempre disponível -->
-        <Border BackgroundColor="#E0FFFFFF"
-                Padding="15,10"
-                HorizontalOptions="Center"
-                VerticalOptions="End"
-                Margin="20,20,20,100"
-                IsVisible="{Binding ConnectionTestResult, Converter={StaticResource StringToBoolConverter}}"
-                x:Name="ConnectionTestOverlay">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="8" />
-            </Border.StrokeShape>
-            <VerticalStackLayout Spacing="5">
-                <Label Text="Connection Test"
-                       FontSize="12"
-                       FontAttributes="Bold"
-                       TextColor="{StaticResource OnSurface}"
-                       HorizontalOptions="Center" />
-                <Label Text="{Binding ConnectionTestResult}"
-                       FontSize="10"
-                       TextColor="{StaticResource OnSurface}"
-                       HorizontalOptions="Center" />
-            </VerticalStackLayout>
-        </Border>
     </Grid>
 </ContentPage>
