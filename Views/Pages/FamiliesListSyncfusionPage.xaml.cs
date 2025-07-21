@@ -7,7 +7,7 @@ using CommunityToolkit.Maui.Core;
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamiliesListSyncfusionPage com todos os erros resolvidos
+/// ✅ CORRIGIDO: FamiliesListSyncfusionPage com binding e eventos resolvidos
 /// </summary>
 public partial class FamiliesListSyncfusionPage : ContentPage
 {
@@ -19,7 +19,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         _viewModel = viewModel;
         BindingContext = _viewModel;
 
-        Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_PAGE] Initialized with corrected syntax");
+        Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_PAGE] Initialized with corrected ItemsSource binding");
     }
 
     protected override async void OnAppearing()
@@ -28,20 +28,20 @@ public partial class FamiliesListSyncfusionPage : ContentPage
 
         try
         {
-            // Check if ListView is initialized
-            if (FamiliesListView.SelectedItems == null)
-            {
-                Debug.WriteLine($"🔧 [FAMILIES_SYNCFUSION_PAGE] Initializing ListView.SelectedItems");
-                await Task.Delay(100);
-            }
+            Debug.WriteLine("🚀 [FAMILIES_SYNCFUSION_PAGE] OnAppearing - Starting initialization");
+
+            // Perform entrance animation and load data in parallel
+            var animationTask = PerformEntranceAnimation();
+            var dataTask = _viewModel.OnAppearingAsync();
+
+            await Task.WhenAll(animationTask, dataTask);
+
+            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] OnAppearing completed - Items count: {_viewModel.Items.Count}");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] Error checking SelectedItems: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] OnAppearing error: {ex.Message}");
         }
-
-        await PerformEntranceAnimation();
-        await _viewModel.OnAppearingAsync();
     }
 
     #region Animation Methods
@@ -54,15 +54,15 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         try
         {
             // Initial state
-            RootGrid.Opacity = 0;
-            RootGrid.Scale = 0.95;
-            RootGrid.TranslationY = 30;
+            ListRootGrid.Opacity = 0;
+            ListRootGrid.Scale = 0.95;
+            ListRootGrid.TranslationY = 30;
 
             // Smooth entrance animation
             await Task.WhenAll(
-                RootGrid.FadeTo(1, 600, Easing.CubicOut),
-                RootGrid.ScaleTo(1, 600, Easing.SpringOut),
-                RootGrid.TranslateTo(0, 0, 600, Easing.CubicOut)
+                ListRootGrid.FadeTo(1, 600, Easing.CubicOut),
+                ListRootGrid.ScaleTo(1, 600, Easing.SpringOut),
+                ListRootGrid.TranslateTo(0, 0, 600, Easing.CubicOut)
             );
 
             Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_PAGE] Entrance animation completed");
@@ -70,7 +70,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] Animation error: {ex.Message}");
-            RootGrid.Opacity = 1;
+            ListRootGrid.Opacity = 1;
         }
     }
 
@@ -120,9 +120,9 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     {
         try
         {
-            // Apply filter in real-time
-            _viewModel.ApplyFilterCommand.Execute(null);
+            // Apply filter in real-time with debounce
             Debug.WriteLine($"🔍 [FAMILIES_SYNCFUSION_PAGE] Search text changed: '{e.NewTextValue}'");
+            _viewModel.ApplyFilterCommand.Execute(null);
         }
         catch (Exception ex)
         {
@@ -176,22 +176,6 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         }
     }
 
-    /// <summary>
-    /// Handler for multi-selection toggle
-    /// </summary>
-    private void OnMultiSelectTapped(object sender, EventArgs e)
-    {
-        try
-        {
-            Debug.WriteLine($"🔘 [FAMILIES_SYNCFUSION_PAGE] Multi-select toggle tapped");
-            _viewModel.ToggleMultiSelectCommand.Execute(null);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] Multi-select toggle error: {ex.Message}");
-        }
-    }
-
     #endregion
 
     #region Syncfusion ListView Event Handlers
@@ -204,7 +188,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             {
                 Debug.WriteLine($"👆 [FAMILIES_SYNCFUSION_PAGE] Item tapped: {item.Name} - MultiSelect: {_viewModel.IsMultiSelectMode}");
 
-                if (!_viewModel.IsMultiSelectMode && FamiliesListView.SelectionMode == Syncfusion.Maui.ListView.SelectionMode.None)
+                if (!_viewModel.IsMultiSelectMode)
                 {
                     Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_PAGE] Navigating to edit: {item.Name}");
                     _viewModel.NavigateToEditCommand.Execute(item);
@@ -212,7 +196,8 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                 else
                 {
                     Debug.WriteLine($"🔘 [FAMILIES_SYNCFUSION_PAGE] In multi-select mode - toggling selection");
-                    item.ToggleSelectionCommand.Execute(null);
+                    item.ToggleFamilySelectionCommand.Execute(null);
+                    _viewModel.UpdateFabForSelection();
                 }
             }
         }
@@ -232,12 +217,17 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                 _viewModel.ToggleMultiSelectCommand.Execute(null);
 
                 // Activate multiple selection mode in ListView
-                FamiliesListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.Multiple;
+                FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.Multiple;
 
                 // Select the item that was pressed
                 if (e.DataItem is FamilyItemViewModel item)
                 {
                     item.IsSelected = true;
+                    if (!_viewModel.SelectedItems.Contains(item))
+                    {
+                        _viewModel.SelectedItems.Add(item);
+                    }
+                    _viewModel.UpdateFabForSelection();
                 }
             }
         }
@@ -262,6 +252,10 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                     {
                         item.IsSelected = true;
                     }
+                    if (!_viewModel.SelectedItems.Contains(item))
+                    {
+                        _viewModel.SelectedItems.Add(item);
+                    }
                 }
             }
 
@@ -273,8 +267,14 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                     {
                         item.IsSelected = false;
                     }
+                    if (_viewModel.SelectedItems.Contains(item))
+                    {
+                        _viewModel.SelectedItems.Remove(item);
+                    }
                 }
             }
+
+            _viewModel.UpdateFabForSelection();
         }
         catch (Exception ex)
         {
@@ -284,7 +284,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
 
     #endregion
 
-    #region Swipe Event Handlers
+    #region Swipe Event Handlers (Disabled - Using Context Menu Instead)
 
     private void OnSwipeStarting(object sender, Syncfusion.Maui.ListView.SwipeStartingEventArgs e)
     {
@@ -300,76 +300,77 @@ public partial class FamiliesListSyncfusionPage : ContentPage
 
     private void OnSwiping(object sender, Syncfusion.Maui.ListView.SwipingEventArgs e)
     {
-        try
-        {
-            // Minimal log for debug
-            Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_PAGE] Swiping");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] Swiping error: {ex.Message}");
-        }
+        // Minimal logging for performance
     }
 
-    /// <summary>
-    /// Original swipe functionality preserved
-    /// </summary>
-    private async void OnSwipeEnded(object sender, Syncfusion.Maui.ListView.SwipeEndedEventArgs e)
+    private void OnSwipeEnded(object sender, Syncfusion.Maui.ListView.SwipeEndedEventArgs e)
     {
         try
         {
-            // Use DataItem that exists in the event
-            if (e.DataItem is not FamilyItemViewModel item)
-            {
-                Debug.WriteLine($"⚠️ [FAMILIES_SYNCFUSION_PAGE] SwipeEnded: DataItem is not FamilyItemViewModel");
-                return;
-            }
-
-            Debug.WriteLine($"✋ [FAMILIES_SYNCFUSION_PAGE] SwipeEnded - Item: {item.Name}");
-
-            // ActionSheet to choose swipe action
-            var result = await DisplayActionSheet(
-                $"Action for '{item.Name}'",
-                "Cancel",
-                null,
-                "Toggle Favorite ⭐",
-                "Delete 🗑️"
-            );
-
-            switch (result)
-            {
-                case "Toggle Favorite ⭐":
-                    Debug.WriteLine($"⭐ [FAMILIES_SYNCFUSION_PAGE] Toggle favorite for: {item.Name}");
-                    await _viewModel.ToggleFavoriteCommand.ExecuteAsync(item);
-                    break;
-
-                case "Delete 🗑️":
-                    if (item.IsSystemDefault)
-                    {
-                        var toast = Toast.Make("System families cannot be deleted", ToastDuration.Short, 14);
-                        await toast.Show();
-                        return;
-                    }
-
-                    Debug.WriteLine($"🗑️ [FAMILIES_SYNCFUSION_PAGE] Delete action for: {item.Name}");
-
-                    var confirm = await DisplayAlert(
-                        "Delete Family",
-                        $"Are you sure you want to delete '{item.Name}'?",
-                        "Delete",
-                        "Cancel"
-                    );
-
-                    if (confirm)
-                    {
-                        await _viewModel.DeleteSingleCommand.ExecuteAsync(item);
-                    }
-                    break;
-            }
+            Debug.WriteLine($"✋ [FAMILIES_SYNCFUSION_PAGE] SwipeEnded event triggered");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] SwipeEnded error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// ✅ Context menu para ações (substituindo swipe)
+    /// </summary>
+    private async void OnItemContextMenuRequested(object sender, EventArgs e)
+    {
+        try
+        {
+            if (sender is Element element && element.BindingContext is FamilyItemViewModel item)
+            {
+                var actions = new List<string> { "Edit ✏️" };
+
+                if (item.IsFavorite)
+                    actions.Add("Remove from Favorites ⭐");
+                else
+                    actions.Add("Add to Favorites ⭐");
+
+                if (!item.IsSystemDefault)
+                    actions.Add("Delete 🗑️");
+
+                var result = await DisplayActionSheet(
+                    $"Actions for '{item.Name}'",
+                    "Cancel",
+                    null,
+                    actions.ToArray()
+                );
+
+                switch (result)
+                {
+                    case "Edit ✏️":
+                        await _viewModel.NavigateToEditCommand.ExecuteAsync(item);
+                        break;
+
+                    case "Add to Favorites ⭐":
+                    case "Remove from Favorites ⭐":
+                        await _viewModel.ToggleFavoriteCommand.ExecuteAsync(item);
+                        break;
+
+                    case "Delete 🗑️":
+                        var confirm = await DisplayAlert(
+                            "Delete Family",
+                            $"Are you sure you want to delete '{item.Name}'?",
+                            "Delete",
+                            "Cancel"
+                        );
+
+                        if (confirm)
+                        {
+                            await _viewModel.DeleteSingleCommand.ExecuteAsync(item);
+                        }
+                        break;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] Context menu error: {ex.Message}");
         }
     }
 
@@ -384,7 +385,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     {
         try
         {
-            PullToRefresh.IsRefreshing = true;
+            ListRefresh.IsRefreshing = true;
             Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_PAGE] ListView refresh triggered via SfPullToRefresh");
         }
         catch (Exception ex)
@@ -400,7 +401,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     {
         try
         {
-            FamiliesListView.SelectedItems?.Clear();
+            FamilyListView.SelectedItems?.Clear();
             _viewModel.SelectedItems.Clear();
 
             foreach (var item in _viewModel.Items)
@@ -409,7 +410,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             }
 
             _viewModel.IsMultiSelectMode = false;
-            FamiliesListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
+            FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
             _viewModel.UpdateFabForSelection();
 
             // Smooth animation out of selection mode
@@ -430,7 +431,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     {
         try
         {
-            FamiliesListView.SelectAll();
+            FamilyListView.SelectAll();
             Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] Selected all items via Syncfusion native method");
         }
         catch (Exception ex)
@@ -446,14 +447,14 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     {
         try
         {
-            if (FamiliesListView.SelectionMode == Syncfusion.Maui.ListView.SelectionMode.None)
+            if (FamilyListView.SelectionMode == Syncfusion.Maui.ListView.SelectionMode.None)
             {
-                FamiliesListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.Multiple;
+                FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.Multiple;
                 Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] Entered multi-selection mode");
             }
             else
             {
-                FamiliesListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
+                FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
                 ClearSelections();
                 Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] Exited multi-selection mode");
             }
@@ -469,14 +470,12 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     #region Utility Methods
 
     /// <summary>
-    /// Scroll to top method - simplified to avoid Syncfusion API issues
+    /// Scroll to top method
     /// </summary>
     public void ScrollToTop()
     {
         try
         {
-            // Since Syncfusion ScrollTo methods have complex signatures and vary by version,
-            // we'll use a simple approach that works across platforms
             if (_viewModel.Items.Any())
             {
                 Debug.WriteLine($"📜 [FAMILIES_SYNCFUSION_PAGE] Scroll to top requested - {_viewModel.Items.Count} items available");
@@ -503,6 +502,22 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] GetSelectedItemsCount error: {ex.Message}");
             return 0;
+        }
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Force refresh da ListView
+    /// </summary>
+    public async Task ForceRefreshAsync()
+    {
+        try
+        {
+            Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_PAGE] Force refresh requested");
+            await _viewModel.RefreshCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] ForceRefreshAsync error: {ex.Message}");
         }
     }
 

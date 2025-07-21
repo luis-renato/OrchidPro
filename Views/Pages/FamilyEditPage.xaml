@@ -18,7 +18,7 @@
                                StatusBarStyle="LightContent" />
     </ContentPage.Behaviors>
 
-    <!-- ✅ CORRIGIDO: Toolbar items com identificação correta do modo -->
+    <!-- ✅ CORRIGIDO: Toolbar items com comando correto -->
     <ContentPage.ToolbarItems>
         <ToolbarItem Text="{Binding IsEditMode, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Edit Mode|Create Mode'}"
                      Order="Secondary"
@@ -33,7 +33,7 @@
     </ContentPage.ToolbarItems>
 
     <!-- Main content with fade animation support -->
-    <Grid x:Name="RootGrid" Opacity="0">
+    <Grid x:Name="MainGrid" Opacity="0">
 
         <!-- Main content card -->
         <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray950}}"
@@ -49,7 +49,7 @@
             <ScrollView>
                 <VerticalStackLayout Padding="30,20,30,30" Spacing="25">
 
-                    <!-- ✅ CORRIGIDO: Header section com indicação clara do modo -->
+                    <!-- ✅ Header section com indicação clara do modo -->
                     <Grid RowDefinitions="Auto,Auto" RowSpacing="10">
                         <!-- Title row -->
                         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="15">
@@ -88,7 +88,7 @@
                                      HeightRequest="4" />
                     </Grid>
 
-                    <!-- ✅ CORRIGIDO: Form fields com fontes padronizadas -->
+                    <!-- ✅ Form fields com fontes padronizadas -->
                     <VerticalStackLayout Spacing="20">
 
                         <!-- Family Name Field -->
@@ -199,7 +199,7 @@
                                 </Grid>
                             </Border>
 
-                            <!-- ✅ NOVO: Favorite Status -->
+                            <!-- ✅ Favorite Status -->
                             <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
                                     Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
                                     StrokeThickness="1"
@@ -306,7 +306,7 @@
                     <!-- Action Buttons -->
                     <Grid RowDefinitions="Auto,Auto" RowSpacing="15" Margin="0,20,0,0">
 
-                        <!-- Save Button -->
+                        <!-- ✅ CORRIGIDO: Save Button com comando correto -->
                         <Button Grid.Row="0"
                                 Text="{Binding SaveButtonText}"
                                 BackgroundColor="{Binding SaveButtonColor}"
@@ -315,7 +315,7 @@
                                 FontAttributes="Bold"
                                 HeightRequest="50"
                                 CornerRadius="25"
-                                Command="{Binding SaveCommand}"
+                                Command="{Binding SaveFamilyCommand}"
                                 IsEnabled="{Binding CanSave}"
                                 Pressed="OnButtonPressed">
                             <Button.Shadow>
@@ -345,7 +345,7 @@
         </Border>
 
         <!-- Connection Test Overlay -->
-        <Grid x:Name="ConnectionTestOverlay"
+        <Grid x:Name="ConnectionOverlay"
               BackgroundColor="Black"
               Opacity="0.7"
               IsVisible="False">

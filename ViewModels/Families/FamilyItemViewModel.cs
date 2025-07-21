@@ -1,31 +1,80 @@
 ﻿using OrchidPro.Models;
 using OrchidPro.ViewModels.Base;
 using System.Diagnostics;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamilyItemViewModel com suporte a favoritos sem erros de override
+/// ✅ MELHORADO: FamilyItemViewModel com suporte completo a favoritos e binding otimizado
 /// </summary>
-public class FamilyItemViewModel : BaseItemViewModel<Family>
+public partial class FamilyItemViewModel : BaseItemViewModel<Family>
 {
     public override string EntityName => "Family";
 
     /// <summary>
-    /// ✅ NOVO: Propriedade IsFavorite
+    /// ✅ Propriedade IsFavorite para binding
     /// </summary>
     public bool IsFavorite { get; }
 
+    /// <summary>
+    /// ✅ NOVO: Observable property para seleção
+    /// </summary>
+    [ObservableProperty]
+    private bool isSelected;
+
+    /// <summary>
+    /// ✅ NOVO: Action para notificar mudanças de seleção
+    /// </summary>
+    public Action<FamilyItemViewModel>? SelectionChanged { get; set; }
+
     public FamilyItemViewModel(Family family) : base(family)
     {
-        IsFavorite = family.IsFavorite; // ✅ NOVO: Capturar favorito do modelo
+        IsFavorite = family.IsFavorite;
         Debug.WriteLine($"✅ [FAMILY_ITEM_VM] Created: {family.Name} (Favorite: {IsFavorite})");
+    }
+
+    /// <summary>
+    /// ✅ CORRIGIDO: Command para toggle de seleção - nome único
+    /// </summary>
+    [RelayCommand]
+    public void ToggleFamilySelection()
+    {
+        try
+        {
+            IsSelected = !IsSelected;
+            Debug.WriteLine($"🔘 [FAMILY_ITEM_VM] Selection toggled for {Name}: {IsSelected}");
+
+            // Notificar mudança para o parent ViewModel
+            SelectionChanged?.Invoke(this);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_ITEM_VM] ToggleFamilySelection error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Método para detectar mudanças de seleção
+    /// </summary>
+    partial void OnIsSelectedChanged(bool value)
+    {
+        try
+        {
+            Debug.WriteLine($"🔄 [FAMILY_ITEM_VM] IsSelected changed for {Name}: {value}");
+            SelectionChanged?.Invoke(this);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_ITEM_VM] OnIsSelectedChanged error: {ex.Message}");
+        }
     }
 
     // ✅ CUSTOMIZAÇÕES ESPECÍFICAS DE FAMILY:
 
     /// <summary>
-    /// ✅ MANTIDO: Preview personalizado para famílias botânicas
+    /// ✅ Preview personalizado para famílias botânicas
     /// </summary>
     public override string DescriptionPreview
     {
@@ -41,19 +90,19 @@ public class FamilyItemViewModel : BaseItemViewModel<Family>
     }
 
     /// <summary>
-    /// ✅ ATUALIZADO: Indicador específico para famílias com favorito
+    /// ✅ Indicador específico para famílias com favorito
     /// </summary>
     public override string RecentIndicator => IsRecent ? "🌿" : (IsFavorite ? "⭐" : "");
 
     /// <summary>
-    /// ✅ MANTIDO: Propriedades específicas de Family
+    /// ✅ Propriedades específicas de Family
     /// </summary>
     public bool IsOrchidaceae => Name.Contains("Orchidaceae", StringComparison.OrdinalIgnoreCase);
 
     public string FamilyTypeIndicator => IsOrchidaceae ? "🌺" : "🌿";
 
     /// <summary>
-    /// ✅ ATUALIZADO: Status display estendido para famílias com favorito
+    /// ✅ Status display estendido para famílias com favorito
     /// </summary>
     public override string FullStatusDisplay
     {
@@ -63,13 +112,13 @@ public class FamilyItemViewModel : BaseItemViewModel<Family>
             if (IsSystemDefault) status += " • System";
             if (IsRecent) status += " • New";
             if (IsOrchidaceae) status += " • Orchid";
-            if (IsFavorite) status += " • Favorite"; // ✅ NOVO: Indicador de favorito
+            if (IsFavorite) status += " • Favorite";
             return status;
         }
     }
 
     /// <summary>
-    /// ✅ NOVO: Cor do badge considerando favorito
+    /// ✅ Cor do badge considerando favorito
     /// </summary>
     public override Color StatusBadgeColor
     {
@@ -83,21 +132,93 @@ public class FamilyItemViewModel : BaseItemViewModel<Family>
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Usar new ao invés de override para propriedade não virtual
+    /// ✅ Display name com indicadores visuais
     /// </summary>
     public new string DisplayName => $"{Name}{(IsSystemDefault ? " (System)" : "")}{(IsFavorite ? " ⭐" : "")}";
 
-    // ✅ COMPATIBILIDADE: Método para obter o modelo (mantido para não quebrar código existente)
-    public new Family ToModel() => base.ToModel();
+    /// <summary>
+    /// ✅ Método para obter o modelo atualizado
+    /// </summary>
+    public new Family ToModel()
+    {
+        var family = base.ToModel();
+        // O IsFavorite já está no modelo base, mas garantimos consistência
+        return family;
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Propriedades para UI binding otimizado
+    /// </summary>
+    public string SelectionIcon => IsSelected ? "☑️" : "☐";
+    public Color SelectionColor => IsSelected ?
+        Color.FromArgb("#2196F3") :
+        Color.FromArgb("#E0E0E0");
+
+    /// <summary>
+    /// ✅ NOVO: Indicador de status visual combinado
+    /// </summary>
+    public string StatusIcon
+    {
+        get
+        {
+            if (!IsActive) return "⏸️";
+            if (IsFavorite) return "⭐";
+            if (IsOrchidaceae) return "🌺";
+            if (IsSystemDefault) return "🔒";
+            return "🌿";
+        }
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Tooltip text para informações adicionais
+    /// </summary>
+    public string TooltipText
+    {
+        get
+        {
+            var parts = new List<string>();
+
+            if (IsFavorite) parts.Add("Favorite family");
+            if (IsOrchidaceae) parts.Add("Orchid family");
+            if (IsSystemDefault) parts.Add("System default");
+            if (!IsActive) parts.Add("Inactive");
+
+            parts.Add($"Created {CreatedAt:dd/MM/yyyy}");
+
+            return string.Join(" • ", parts);
+        }
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Método para comparação (útil para sorting)
+    /// </summary>
+    public int CompareTo(FamilyItemViewModel? other)
+    {
+        if (other == null) return 1;
+
+        // Favoritos primeiro
+        if (IsFavorite && !other.IsFavorite) return -1;
+        if (!IsFavorite && other.IsFavorite) return 1;
+
+        // Depois por nome
+        return string.Compare(Name, other.Name, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Override ToString para debug
+    /// </summary>
+    public override string ToString()
+    {
+        return $"FamilyItemVM: {Name} (ID: {Id}, Selected: {IsSelected}, Favorite: {IsFavorite})";
+    }
 
     // ✅ TODA A FUNCIONALIDADE ORIGINAL MANTIDA:
-    // ✅ Seleção com checkbox binding
-    // ✅ Command para toggle de seleção  
-    // ✅ Action para notificar mudanças de seleção
+    // ✅ Herança de BaseItemViewModel com todas as funcionalidades
+    // ✅ Propriedades para UI binding
     // ✅ Status badges com cores
     // ✅ Indicadores visuais (recent, system, etc.)
     // ✅ Preview de descrição truncada
     // ✅ Formatação de datas
-    // ✅ Propriedades para UI binding
     // ✅ Debug e diagnóstico
+    // ✅ Compatibilidade com código existente
 }

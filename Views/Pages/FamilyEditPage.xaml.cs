@@ -3,7 +3,7 @@
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// CORRIGIDO: Family edit page com animações otimizadas e tratamento de conectividade
+/// ✅ CORRIGIDO: Family edit page sem conflitos de nomes
 /// </summary>
 public partial class FamilyEditPage : ContentPage
 {
@@ -20,7 +20,7 @@ public partial class FamilyEditPage : ContentPage
     {
         base.OnAppearing();
 
-        // ✅ OTIMIZADO: Animação + inicialização em paralelo
+        // ✅ Animação + inicialização em paralelo
         var animationTask = PerformEntranceAnimation();
         var initTask = _viewModel.OnAppearingAsync();
 
@@ -44,7 +44,7 @@ public partial class FamilyEditPage : ContentPage
         // Handle back button with unsaved changes check
         _ = Task.Run(async () =>
         {
-            // ✅ CORRIGIDO: Verifica mudanças não salvas
+            // ✅ Verifica mudanças não salvas
             if (_viewModel.HasUnsavedChanges)
             {
                 var canNavigate = await _viewModel.ShowConfirmAsync(
@@ -66,21 +66,29 @@ public partial class FamilyEditPage : ContentPage
     }
 
     /// <summary>
-    /// ✅ OTIMIZADO: Performs enhanced entrance animation
+    /// ✅ Performs enhanced entrance animation
     /// </summary>
     private async Task PerformEntranceAnimation()
     {
-        // Set initial states
-        RootGrid.Opacity = 0;
-        RootGrid.Scale = 0.95;
-        RootGrid.TranslationY = 30;
+        try
+        {
+            // Set initial states
+            MainGrid.Opacity = 0;
+            MainGrid.Scale = 0.95;
+            MainGrid.TranslationY = 30;
 
-        // Animate with multiple effects mais suave
-        await Task.WhenAll(
-            RootGrid.FadeTo(1, 500, Easing.CubicOut),
-            RootGrid.ScaleTo(1, 500, Easing.SpringOut),
-            RootGrid.TranslateTo(0, 0, 500, Easing.CubicOut)
-        );
+            // Animate with multiple effects
+            await Task.WhenAll(
+                MainGrid.FadeTo(1, 500, Easing.CubicOut),
+                MainGrid.ScaleTo(1, 500, Easing.SpringOut),
+                MainGrid.TranslateTo(0, 0, 500, Easing.CubicOut)
+            );
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Animation error: {ex.Message}");
+            MainGrid.Opacity = 1;
+        }
     }
 
     /// <summary>
@@ -88,40 +96,61 @@ public partial class FamilyEditPage : ContentPage
     /// </summary>
     private async Task PerformExitAnimation()
     {
-        await Task.WhenAll(
-            RootGrid.FadeTo(0, 300, Easing.CubicIn),
-            RootGrid.ScaleTo(0.95, 300, Easing.CubicIn),
-            RootGrid.TranslateTo(0, -20, 300, Easing.CubicIn)
-        );
-    }
-
-    /// <summary>
-    /// ✅ CORRIGIDO: Handles entry focus with animation otimizada
-    /// </summary>
-    private async void OnEntryFocused(object sender, FocusEventArgs e)
-    {
-        if (sender is Entry entry && e.IsFocused)
+        try
         {
-            // Animate field focus mais sutil
-            if (entry.Parent is Border border)
-            {
-                await border.ScaleTo(1.01, 150, Easing.CubicOut);
-            }
+            await Task.WhenAll(
+                MainGrid.FadeTo(0, 300, Easing.CubicIn),
+                MainGrid.ScaleTo(0.95, 300, Easing.CubicIn),
+                MainGrid.TranslateTo(0, -20, 300, Easing.CubicIn)
+            );
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Exit animation error: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Handles entry unfocus with animation otimizada
+    /// ✅ Handles entry focus with animation
+    /// </summary>
+    private async void OnEntryFocused(object sender, FocusEventArgs e)
+    {
+        try
+        {
+            if (sender is Entry entry && e.IsFocused)
+            {
+                // Animate field focus
+                if (entry.Parent is Border border)
+                {
+                    await border.ScaleTo(1.01, 150, Easing.CubicOut);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Entry focus error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// ✅ Handles entry unfocus with animation
     /// </summary>
     private async void OnEntryUnfocused(object sender, FocusEventArgs e)
     {
-        if (sender is Entry entry && !e.IsFocused)
+        try
         {
-            // Animate field unfocus mais sutil
-            if (entry.Parent is Border border)
+            if (sender is Entry entry && !e.IsFocused)
             {
-                await border.ScaleTo(1, 150, Easing.CubicOut);
+                // Animate field unfocus
+                if (entry.Parent is Border border)
+                {
+                    await border.ScaleTo(1, 150, Easing.CubicOut);
+                }
             }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Entry unfocus error: {ex.Message}");
         }
     }
 
@@ -130,10 +159,17 @@ public partial class FamilyEditPage : ContentPage
     /// </summary>
     private async void OnButtonPressed(object sender, EventArgs e)
     {
-        if (sender is Button button)
+        try
         {
-            await button.ScaleTo(0.96, 50, Easing.CubicOut);
-            await button.ScaleTo(1, 50, Easing.CubicOut);
+            if (sender is Button button)
+            {
+                await button.ScaleTo(0.96, 50, Easing.CubicOut);
+                await button.ScaleTo(1, 50, Easing.CubicOut);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Button press error: {ex.Message}");
         }
     }
 
@@ -142,35 +178,42 @@ public partial class FamilyEditPage : ContentPage
     /// </summary>
     private async void OnSwitchToggled(object sender, ToggledEventArgs e)
     {
-        if (sender is Switch switchControl)
+        try
         {
-            // Visual feedback only
-            await switchControl.ScaleTo(1.05, 80, Easing.CubicOut);
-            await switchControl.ScaleTo(1, 80, Easing.CubicOut);
+            if (sender is Switch switchControl)
+            {
+                // Visual feedback only
+                await switchControl.ScaleTo(1.05, 80, Easing.CubicOut);
+                await switchControl.ScaleTo(1, 80, Easing.CubicOut);
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Switch toggle error: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// ✅ NOVO: Testa conectividade e mostra overlay temporário
+    /// ✅ Testa conectividade e mostra overlay temporário
     /// </summary>
     private async void OnTestConnectivityTapped(object sender, EventArgs e)
     {
         try
         {
             // Mostrar overlay de teste
-            ConnectionTestOverlay.IsVisible = true;
+            ConnectionOverlay.IsVisible = true;
 
             // Executar teste via ViewModel
             await _viewModel.TestConnectionCommand.ExecuteAsync(null);
 
             // Esconder overlay após 2 segundos
             await Task.Delay(2000);
-            ConnectionTestOverlay.IsVisible = false;
+            ConnectionOverlay.IsVisible = false;
         }
         catch (Exception ex)
         {
             await DisplayAlert("Test Error", $"Connection test failed: {ex.Message}", "OK");
-            ConnectionTestOverlay.IsVisible = false;
+            ConnectionOverlay.IsVisible = false;
         }
     }
 }

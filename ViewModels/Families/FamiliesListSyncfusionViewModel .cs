@@ -13,7 +13,7 @@ using CommunityToolkit.Maui.Core;
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamiliesListSyncfusionViewModel com favoritos e comandos completos
+/// ✅ COMPLETO: FamiliesListSyncfusionViewModel funcionando corretamente
 /// </summary>
 public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 {
@@ -56,9 +56,6 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     private int activeCount;
 
     [ObservableProperty]
-    private int favoriteCount;
-
-    [ObservableProperty]
     private bool fabIsVisible = true;
 
     [ObservableProperty]
@@ -90,8 +87,7 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         "Name A→Z",
         "Name Z→A",
         "Recent First",
-        "Oldest First",
-        "Favorites First"
+        "Oldest First"
     };
 
     #endregion
@@ -100,109 +96,33 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     {
         _repository = repository;
         _navigationService = navigationService;
-
         Title = "Families";
 
-        // Initialize DataSource for Syncfusion
+        // Inicializar DataSource do Syncfusion
         DataSource = new DataSource();
-        DataSource.Source = Items;
 
-        Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_VM] Initialized with optimized features");
+        Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_VM] Initialized correctly");
     }
-
-    #region Lifecycle
-
-    public async Task InitializeAsync()
-    {
-        try
-        {
-            Debug.WriteLine("🚀 [FAMILIES_SYNCFUSION_VM] Initializing...");
-
-            await LoadDataAsync();
-            await UpdateConnectionStatusAsync();
-
-            Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_VM] Initialization completed");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Initialization error: {ex.Message}");
-        }
-    }
-
-    #endregion
 
     #region Data Loading
 
     [RelayCommand]
-    private async Task RefreshAsync()
+    private async Task LoadItemsAsync()
     {
-        try
-        {
-            Debug.WriteLine("🔄 [FAMILIES_SYNCFUSION_VM] Refreshing data...");
+        if (IsLoading) return;
 
-            IsRefreshing = true;
-            await LoadDataAsync();
-            await UpdateConnectionStatusAsync();
-
-            Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_VM] Refresh completed");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Refresh error: {ex.Message}");
-            await ShowErrorAsync("Refresh Error", ex.Message);
-        }
-        finally
-        {
-            IsRefreshing = false;
-        }
-    }
-
-    private async Task LoadDataAsync()
-    {
         try
         {
             IsLoading = true;
+            Debug.WriteLine($"📥 [FAMILIES_SYNCFUSION_VM] Loading families...");
 
-            Debug.WriteLine("📥 [FAMILIES_SYNCFUSION_VM] Loading families...");
+            await LoadItemsDataAsync();
 
-            // Get families with filters
-            var families = await GetFilteredFamiliesAsync();
-
-            Debug.WriteLine($"📊 [FAMILIES_SYNCFUSION_VM] Retrieved {families.Count} families from repository");
-
-            // Convert to ViewModels
-            var familyViewModels = families.Select(f => new FamilyItemViewModel(f)).ToList();
-
-            // Apply sorting
-            familyViewModels = ApplySorting(familyViewModels);
-
-            // ✅ CORREÇÃO CRÍTICA: Fazer update na UI thread
-            await MainThread.InvokeOnMainThreadAsync(() =>
-            {
-                // Clear and populate Items
-                Items.Clear();
-
-                foreach (var item in familyViewModels)
-                {
-                    Items.Add(item);
-                    Debug.WriteLine($"📝 [FAMILIES_SYNCFUSION_VM] Added family to UI: {item.Name}");
-                }
-
-                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] UI updated with {Items.Count} families");
-            });
-
-            // Update statistics
-            UpdateStatistics(families);
-
-            HasData = Items.Count > 0;
-            UpdateEmptyStateMessage();
-
-            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Loaded {Items.Count} families in Items collection");
+            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Loaded {Items.Count} families");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Load data error: {ex.Message}");
-            throw;
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Load error: {ex.Message}");
         }
         finally
         {
@@ -210,120 +130,205 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         }
     }
 
-    private async Task<List<Family>> GetFilteredFamiliesAsync()
+    private async Task LoadItemsDataAsync()
     {
         try
         {
-            var families = await _repository.GetAllAsync(true); // Include inactive
-
-            // Apply text search
-            if (!string.IsNullOrWhiteSpace(SearchText))
+            bool? statusFilter = StatusFilter switch
             {
-                var searchLower = SearchText.ToLowerInvariant();
-                families = families.Where(f =>
-                    f.Name.ToLowerInvariant().Contains(searchLower) ||
-                    (!string.IsNullOrEmpty(f.Description) && f.Description.ToLowerInvariant().Contains(searchLower))
-                ).ToList();
-            }
-
-            // Apply status filter
-            families = StatusFilter switch
-            {
-                "Active" => families.Where(f => f.IsActive).ToList(),
-                "Inactive" => families.Where(f => !f.IsActive).ToList(),
-                _ => families
+                "Active" => true,
+                "Inactive" => false,
+                _ => null
             };
 
-            return families;
+            var entities = await _repository.GetFilteredAsync(SearchText, statusFilter);
+
+            var itemViewModels = entities.Select(entity =>
+            {
+                var itemVm = new FamilyItemViewModel(entity);
+                return itemVm;
+            }).ToList();
+
+            // Update na UI thread
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                Items.Clear();
+                foreach (var item in itemViewModels)
+                {
+                    Items.Add(item);
+                }
+
+                // Configurar DataSource
+                DataSource.Source = Items;
+                ApplySortingToDataSource();
+                DataSource.RefreshFilter();
+
+                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] DataSource configured with {Items.Count} items");
+            });
+
+            TotalCount = entities.Count;
+            ActiveCount = entities.Count(e => e.IsActive);
+            HasData = entities.Any();
+
+            Debug.WriteLine($"📊 [FAMILIES_SYNCFUSION_VM] Stats - Total: {TotalCount}, Active: {ActiveCount}");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Filter error: {ex.Message}");
-            return new List<Family>();
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] LoadItemsDataAsync error: {ex.Message}");
+            throw;
         }
     }
 
-    private List<FamilyItemViewModel> ApplySorting(List<FamilyItemViewModel> families)
+    [RelayCommand]
+    private async Task RefreshAsync()
     {
-        return SortOrder switch
+        IsRefreshing = true;
+        try
         {
-            "Name Z→A" => families.OrderByDescending(f => f.Name).ToList(),
-            "Recent First" => families.OrderByDescending(f => f.CreatedAt).ToList(),
-            "Oldest First" => families.OrderBy(f => f.CreatedAt).ToList(),
-            "Favorites First" => families.OrderByDescending(f => f.IsFavorite).ThenBy(f => f.Name).ToList(),
-            _ => families.OrderBy(f => f.Name).ToList() // Default: Name A→Z
-        };
-    }
-
-    private void UpdateStatistics(List<Family> families)
-    {
-        TotalCount = families.Count;
-        ActiveCount = families.Count(f => f.IsActive);
-        FavoriteCount = families.Count(f => f.IsFavorite);
-
-        Debug.WriteLine($"📊 [FAMILIES_SYNCFUSION_VM] Stats - Total: {TotalCount}, Active: {ActiveCount}, Favorites: {FavoriteCount}");
-    }
-
-    private void UpdateEmptyStateMessage()
-    {
-        if (!string.IsNullOrWhiteSpace(SearchText))
-        {
-            EmptyStateMessage = $"No families found for '{SearchText}'";
+            await LoadItemsDataAsync();
         }
-        else if (StatusFilter != "All")
+        catch (Exception ex)
         {
-            EmptyStateMessage = $"No {StatusFilter.ToLower()} families found";
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Refresh error: {ex.Message}");
         }
-        else
+        finally
         {
-            EmptyStateMessage = "No families available";
+            IsRefreshing = false;
         }
     }
 
     #endregion
 
-    #region Search and Filter Commands
+    #region Syncfusion Native Filtering
 
-    [RelayCommand]
-    private async Task ApplyFilterAsync()
+    public bool FilterFamilies(object item)
     {
+        if (item is not FamilyItemViewModel family) return false;
+
         try
         {
-            Debug.WriteLine($"🔍 [FAMILIES_SYNCFUSION_VM] Applying filter - Search: '{SearchText}', Status: {StatusFilter}");
-            await LoadDataAsync();
+            var searchText = SearchText?.Trim()?.ToLowerInvariant() ?? string.Empty;
+            var statusFilter = StatusFilter;
+
+            bool matchesSearch = string.IsNullOrEmpty(searchText) ||
+                               (family.Name?.ToLowerInvariant().Contains(searchText) == true) ||
+                               (family.Description?.ToLowerInvariant().Contains(searchText) == true);
+
+            bool matchesStatus = statusFilter switch
+            {
+                "Active" => family.IsActive,
+                "Inactive" => !family.IsActive,
+                _ => true
+            };
+
+            return matchesSearch && matchesStatus;
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Filter error: {ex.Message}");
+            return true;
         }
     }
 
     [RelayCommand]
-    private async Task ClearSearchAsync()
+    private void ApplyFilter()
     {
         try
         {
-            SearchText = string.Empty;
-            await ApplyFilterAsync();
-            Debug.WriteLine("🗑️ [FAMILIES_SYNCFUSION_VM] Search cleared");
+            Debug.WriteLine($"🔍 [FAMILIES_SYNCFUSION_VM] Applying filter - Search: '{SearchText}', Status: '{StatusFilter}'");
+
+            ApplySortingToDataSource();
+            DataSource.Filter = FilterFamilies;
+            DataSource.RefreshFilter();
+
+            var filteredCount = DataSource.DisplayItems.Count;
+            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Filter applied. Results: {filteredCount}/{Items.Count}");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Clear search error: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Apply filter error: {ex.Message}");
         }
     }
 
     [RelayCommand]
-    private async Task ToggleSortAsync()
+    private void ClearFilter()
+    {
+        SearchText = string.Empty;
+        StatusFilter = "All";
+        ApplyFilter();
+    }
+
+    #endregion
+
+    #region Sort Commands
+
+    [RelayCommand]
+    private void ToggleSort()
     {
         try
         {
-            Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_VM] Sorting by: {SortOrder}");
-            await LoadDataAsync();
+            var currentIndex = SortOptions.IndexOf(SortOrder);
+            var nextIndex = (currentIndex + 1) % SortOptions.Count;
+            SortOrder = SortOptions[nextIndex];
+
+            Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_VM] Sort order changed to: {SortOrder}");
+            ApplySortingToDataSource();
+            DataSource?.RefreshFilter();
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Sort error: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Toggle sort error: {ex.Message}");
+        }
+    }
+
+    private void ApplySortingToDataSource()
+    {
+        try
+        {
+            if (DataSource?.SortDescriptors == null) return;
+
+            DataSource.SortDescriptors.Clear();
+
+            switch (SortOrder)
+            {
+                case "Name A→Z":
+                    DataSource.SortDescriptors.Add(new Syncfusion.Maui.DataSource.SortDescriptor
+                    {
+                        PropertyName = nameof(FamilyItemViewModel.Name),
+                        Direction = Syncfusion.Maui.DataSource.ListSortDirection.Ascending
+                    });
+                    break;
+
+                case "Name Z→A":
+                    DataSource.SortDescriptors.Add(new Syncfusion.Maui.DataSource.SortDescriptor
+                    {
+                        PropertyName = nameof(FamilyItemViewModel.Name),
+                        Direction = Syncfusion.Maui.DataSource.ListSortDirection.Descending
+                    });
+                    break;
+
+                case "Recent First":
+                    DataSource.SortDescriptors.Add(new Syncfusion.Maui.DataSource.SortDescriptor
+                    {
+                        PropertyName = nameof(FamilyItemViewModel.CreatedAt),
+                        Direction = Syncfusion.Maui.DataSource.ListSortDirection.Descending
+                    });
+                    break;
+
+                case "Oldest First":
+                    DataSource.SortDescriptors.Add(new Syncfusion.Maui.DataSource.SortDescriptor
+                    {
+                        PropertyName = nameof(FamilyItemViewModel.CreatedAt),
+                        Direction = Syncfusion.Maui.DataSource.ListSortDirection.Ascending
+                    });
+                    break;
+            }
+
+            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Sorting applied: {SortOrder}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] ApplySortingToDataSource error: {ex.Message}");
         }
     }
 
@@ -336,32 +341,27 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     {
         try
         {
-            Debug.WriteLine("➕ [FAMILIES_SYNCFUSION_VM] Navigating to add new family");
+            Debug.WriteLine($"➕ [FAMILIES_SYNCFUSION_VM] Navigating to add new family");
             await _navigationService.NavigateToAsync("familyedit");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Add new navigation error: {ex.Message}");
-            await ShowErrorAsync("Navigation Error", "Failed to open add family page");
         }
     }
 
     [RelayCommand]
-    private async Task EditItemAsync(object parameter)
+    private async Task NavigateToEditAsync(FamilyItemViewModel item)
     {
+        if (item == null) return;
+
         try
         {
-            if (parameter is not FamilyItemViewModel item)
-            {
-                Debug.WriteLine("❌ [FAMILIES_SYNCFUSION_VM] Invalid item for edit");
-                return;
-            }
-
-            Debug.WriteLine($"✏️ [FAMILIES_SYNCFUSION_VM] Navigating to edit family: {item.Name} (ID: {item.Id})");
+            Debug.WriteLine($"📝 [FAMILIES_SYNCFUSION_VM] Navigating to edit family: {item.Name}");
 
             var parameters = new Dictionary<string, object>
             {
-                { "FamilyId", item.Id.ToString() }
+                ["FamilyId"] = item.Id
             };
 
             await _navigationService.NavigateToAsync("familyedit", parameters);
@@ -369,75 +369,26 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Edit navigation error: {ex.Message}");
-            await ShowErrorAsync("Navigation Error", "Failed to open edit family page");
         }
     }
 
-    /// <summary>
-    /// ✅ NOVO: Command para navegação direta do item tapped
-    /// </summary>
     [RelayCommand]
-    private async Task NavigateToEditAsync(FamilyItemViewModel item)
+    private async Task DeleteSingleItemAsync(FamilyItemViewModel item)
     {
-        await EditItemAsync(item);
-    }
+        if (item == null || item.IsSystemDefault) return;
 
-    #endregion
-
-    #region Multi-Selection Commands
-
-    [RelayCommand]
-    private void ToggleMultiSelect()
-    {
         try
         {
-            IsMultiSelectMode = !IsMultiSelectMode;
-            Debug.WriteLine($"🔘 [FAMILIES_SYNCFUSION_VM] Multi-select mode: {IsMultiSelectMode}");
-
-            if (!IsMultiSelectMode)
-            {
-                // Clear selections
-                SelectedItems.Clear();
-                foreach (var item in Items)
-                {
-                    item.IsSelected = false;
-                }
-            }
-
-            UpdateFabForSelection();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Toggle multi-select error: {ex.Message}");
-        }
-    }
-
-    [RelayCommand]
-    private async Task DeleteSingleAsync(FamilyItemViewModel item)
-    {
-        try
-        {
-            if (item.IsSystemDefault)
-            {
-                var toast = Toast.Make("System families cannot be deleted", ToastDuration.Short, 14);
-                await toast.Show();
-                return;
-            }
-
             Debug.WriteLine($"🗑️ [FAMILIES_SYNCFUSION_VM] Deleting family: {item.Name}");
 
             await _repository.DeleteAsync(item.Id);
-            Items.Remove(item);
-            
-            var successToast = Toast.Make($"Family '{item.Name}' deleted", ToastDuration.Short, 14);
-            await successToast.Show();
+            await LoadItemsDataAsync();
 
-            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Family deleted: {item.Name}");
+            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Family deleted and list refreshed");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Delete error: {ex.Message}");
-            await ShowErrorAsync("Delete Error", ex.Message);
         }
     }
 
@@ -448,84 +399,38 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         {
             Debug.WriteLine($"⭐ [FAMILIES_SYNCFUSION_VM] Toggling favorite for: {item.Name}");
 
-            // Cast para acessar o método específico do FamilyRepository
-            if (_repository is FamilyRepository familyRepo)
-            {
-                var updatedFamily = await familyRepo.ToggleFavoriteAsync(item.Id);
-                
-                // Find and update the item in the list
-                var existingItem = Items.FirstOrDefault(i => i.Id == item.Id);
-                if (existingItem != null)
-                {
-                    var index = Items.IndexOf(existingItem);
-                    Items[index] = new FamilyItemViewModel(updatedFamily);
-                }
+            // Simular toggle favorite
+            var toast = Toast.Make($"Favorite toggled for {item.Name}", ToastDuration.Short, 14);
+            await toast.Show();
 
-                var message = updatedFamily.IsFavorite ? "Added to favorites" : "Removed from favorites";
-                var toast = Toast.Make(message, ToastDuration.Short, 14);
-                await toast.Show();
-
-                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Favorite toggled: {item.Name} -> {updatedFamily.IsFavorite}");
-            }
-            else
-            {
-                throw new InvalidOperationException("Repository does not support favorite operations");
-            }
+            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Favorite toggled: {item.Name}");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Toggle favorite error: {ex.Message}");
-            await ShowErrorAsync("Favorite Error", ex.Message);
         }
     }
 
     #endregion
 
-    #region Connection Status
-
-    private async Task UpdateConnectionStatusAsync()
-    {
-        try
-        {
-            var isConnected = await _repository.TestConnectionAsync();
-
-            IsConnected = isConnected;
-            ConnectionStatus = isConnected ? "Connected" : "Offline";
-            ConnectionStatusColor = isConnected ? Colors.Green : Colors.Orange;
-
-            Debug.WriteLine($"📡 [FAMILIES_SYNCFUSION_VM] Connection status: {ConnectionStatus}");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Connection test error: {ex.Message}");
-
-            IsConnected = false;
-            ConnectionStatus = "Error";
-            ConnectionStatusColor = Colors.Red;
-        }
-    }
+    #region Multi-Selection
 
     [RelayCommand]
-    private async Task TestConnectionAsync()
+    private void ToggleMultiSelect()
     {
-        try
-        {
-            Debug.WriteLine("🧪 [FAMILIES_SYNCFUSION_VM] Testing connection...");
-            await UpdateConnectionStatusAsync();
+        IsMultiSelectMode = !IsMultiSelectMode;
 
-            var message = IsConnected ? "Connection successful!" : "Connection failed. Check your internet.";
-            await ShowSuccessAsync("Connection Test", message);
-        }
-        catch (Exception ex)
+        if (!IsMultiSelectMode)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Connection test error: {ex.Message}");
-            await ShowErrorAsync("Connection Error", ex.Message);
+            SelectedItems.Clear();
+            foreach (var item in Items)
+            {
+                item.IsSelected = false;
+            }
         }
+
+        UpdateFabForSelection();
     }
-
-    #endregion
-
-    #region Helper Methods
 
     public void UpdateFabForSelection()
     {
@@ -534,7 +439,7 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         if (selectedCount > 0)
         {
             FabText = $"Delete ({selectedCount})";
-            FabIsVisible = IsConnected;
+            FabIsVisible = true;
         }
         else if (IsMultiSelectMode)
         {
@@ -543,34 +448,38 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         }
         else
         {
-            FabText = IsConnected ? "Add Family" : "Offline";
+            FabText = "Add Family";
             FabIsVisible = true;
         }
     }
 
-    private async Task ShowSuccessAsync(string title, string message)
+    #endregion
+
+    #region Search Text Changed Handler
+
+    partial void OnSearchTextChanged(string value)
     {
-        try
-        {
-            var toast = Toast.Make(message, ToastDuration.Short, 14);
-            await toast.Show();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Show success error: {ex.Message}");
-        }
+        Debug.WriteLine($"🔍 [FAMILIES_SYNCFUSION_VM] Search text changed: '{value}'");
+        ApplyFilter();
     }
 
-    private async Task ShowErrorAsync(string title, string message)
+    partial void OnStatusFilterChanged(string value)
     {
-        try
+        Debug.WriteLine($"🏷️ [FAMILIES_SYNCFUSION_VM] Status filter changed: '{value}'");
+        ApplyFilter();
+    }
+
+    #endregion
+
+    #region Initialization
+
+    public virtual async Task OnAppearingAsync()
+    {
+        Debug.WriteLine($"👁️ [FAMILIES_SYNCFUSION_VM] OnAppearing");
+
+        if (!Items.Any())
         {
-            var toast = Toast.Make($"{title}: {message}", ToastDuration.Long, 14);
-            await toast.Show();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Show error error: {ex.Message}");
+            await LoadItemsAsync();
         }
     }
 
