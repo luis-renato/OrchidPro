@@ -14,6 +14,9 @@ public partial class AppShell : Shell
 
     public AppShell(SupabaseService supabaseService)
     {
+        //Register Syncfusion<sup>®</sup> license
+        Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense("Mzk1ODIxMEAzMzMwMmUzMDJlMzAzYjMzMzAzYkRoeUFQTmxzYk00RkNhN0M0QTZtYzZPcWF5YnViT3Z0Y2tMZlcvWGh4R289");
+
         InitializeComponent();
         _supabaseService = supabaseService;
 

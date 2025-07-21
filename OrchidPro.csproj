@@ -69,6 +69,8 @@
 
 		<!-- ✅ SUPABASE - BACKEND DIRETO (mantido) -->
 		<PackageReference Include="Supabase" Version="1.1.1" />
+		<PackageReference Include="Syncfusion.Maui.ListView" Version="30.1.40" />
+		<PackageReference Include="Syncfusion.Maui.PullToRefresh" Version="30.1.40" />
 
 		<!-- ✅ VALIDATION (mantido) -->
 		<PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
@@ -83,6 +85,15 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Compile Update="Views\Pages\FamiliesListSyncfusionPage.xaml.cs">
+	    <DependentUpon>FamiliesListSyncfusionPage.xaml</DependentUpon>
+	  </Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<MauiXaml Update="Views\Pages\FamiliesListSyncfusionPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
 		<MauiXaml Update="Views\Pages\LoginPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>

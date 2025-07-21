@@ -209,4 +209,31 @@ public class CollectionToBoolConverter : IValueConverter
     {
         throw new NotImplementedException();
     }
+
+    /// <summary>
+    /// ✅ NOVO: Converter para mostrar ícones de ordenação
+    /// </summary>
+    public class SortToIconConverter : IValueConverter
+    {
+        public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            if (value is string sortOrder)
+            {
+                return sortOrder switch
+                {
+                    "Name A→Z" => "🔤↑",
+                    "Name Z→A" => "🔤↓",
+                    "Recent First" => "🕐↓",
+                    "Oldest First" => "🕐↑",
+                    _ => "📊"
+                };
+            }
+            return "📊";
+        }
+
+        public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        {
+            throw new NotImplementedException();
+        }
+    }
 }

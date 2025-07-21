@@ -1,10 +1,12 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
+using OrchidPro.Services;
 using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
-using OrchidPro.Services;
-using OrchidPro.Views.Pages;
 using OrchidPro.ViewModels.Families;
+using OrchidPro.Views.Pages;
+using Syncfusion.Maui.Core.Hosting;
+using System;
 
 namespace OrchidPro;
 
@@ -23,6 +25,7 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .UseMauiCommunityToolkit()
+            .ConfigureSyncfusionCore()
             .ConfigureFonts(fonts =>
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
@@ -65,6 +68,9 @@ public static class MauiProgram
         // ViewModels should be transient to get fresh state per navigation
         services.AddTransient<FamiliesListViewModel>();
         services.AddTransient<FamilyEditViewModel>();
+        // ✅ NOVA: Versão Syncfusion(SfListView)
+        services.AddTransient<FamiliesListSyncfusionViewModel>();
+
 
         // ✅ PAGES - TRANSIENT (new instance per navigation)
         // ✅ CORRIGIDO: Todas as páginas registradas com DI
@@ -74,6 +80,7 @@ public static class MauiProgram
         services.AddTransient<FamiliesListPage>();
         services.AddTransient<FamilyEditPage>();
         services.AddTransient<TestSyncPage>();
+        services.AddTransient<FamiliesListSyncfusionPage>();
 
         // ✅ SHELL - SINGLETON (app navigation structure)
         services.AddSingleton<AppShell>();
@@ -94,6 +101,9 @@ public static class MauiProgram
 
         // ✅ CORRIGIDO: Testing and debug routes with proper DI
         Routing.RegisterRoute("testsync", typeof(TestSyncPage));
+
+        // Routes
+        Routing.RegisterRoute("families-syncfusion", typeof(FamiliesListSyncfusionPage));
 
         // Future routes for other modules
         Routing.RegisterRoute("genera", typeof(MainPage)); // Placeholder
