@@ -4,17 +4,24 @@ using OrchidPro.Models.Base;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// PASSO 3.1: IFamilyRepository corrigido - implementa IBaseRepository sem conflitos
-/// Mantém TODAS as assinaturas específicas + compatibilidade com interface base
+/// ✅ CORRIGIDO: IFamilyRepository com método ToggleFavoriteAsync
 /// </summary>
 public interface IFamilyRepository : IBaseRepository<Family>
 {
-    // ✅ MANTEMOS apenas assinaturas que diferem da base ou são específicas
-
     /// <summary>
     /// Gets count statistics for dashboard (versão específica de Family)
     /// </summary>
     Task<FamilyStatistics> GetFamilyStatisticsAsync();
+
+    /// <summary>
+    /// ✅ NOVO: Toggle favorite status for a family
+    /// </summary>
+    Task<Family> ToggleFavoriteAsync(Guid familyId);
+
+    /// <summary>
+    /// ✅ NOVO: Check if family name already exists
+    /// </summary>
+    Task<bool> NameExistsAsync(string name, Guid? excludeId = null);
 
     // ✅ TODOS os outros métodos são herdados da IBaseRepository<Family>
     // Não precisamos redeclará-los com 'new' porque não há conflito

@@ -3,12 +3,12 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:OrchidPro.ViewModels.Families"
              xmlns:mct="clr-namespace:CommunityToolkit.Maui.Behaviors;assembly=CommunityToolkit.Maui"
-             xmlns:syncfusion="clr-namespace:Syncfusion.Maui.ListView;assembly=Syncfusion.Maui.ListView"
-             xmlns:pulltoRefresh="clr-namespace:Syncfusion.Maui.PullToRefresh;assembly=Syncfusion.Maui.PullToRefresh"
+             xmlns:sflistview="clr-namespace:Syncfusion.Maui.ListView;assembly=Syncfusion.Maui.ListView"
+             xmlns:sfpulltorefresh="clr-namespace:Syncfusion.Maui.PullToRefresh;assembly=Syncfusion.Maui.PullToRefresh"
              x:Class="OrchidPro.Views.Pages.FamiliesListSyncfusionPage"
              x:DataType="vm:FamiliesListSyncfusionViewModel"
              x:Name="ParentPage"
-             Title="{Binding Title}"
+             Title="Families"
              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
              Shell.NavBarIsVisible="True"
              Shell.BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
@@ -34,9 +34,9 @@
                 <RoundRectangle CornerRadius="16" />
             </Border.StrokeShape>
 
-            <Grid RowDefinitions="Auto,Auto,*">
+            <Grid RowDefinitions="Auto,*">
 
-                <!-- Header -->
+                <!-- Header with statistics and connection status -->
                 <Border Grid.Row="0" 
                         BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SurfaceDark}}"
                         Padding="20,15">
@@ -44,97 +44,96 @@
                         <RoundRectangle CornerRadius="16,16,0,0" />
                     </Border.StrokeShape>
 
-                    <Grid RowDefinitions="Auto,Auto" RowSpacing="15">
-                        <!-- Title and stats row -->
-                        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="15">
-                            <VerticalStackLayout Grid.Column="0" Spacing="5">
-                                <Label Text="Botanical Families"
-                                       FontSize="20"
-                                       FontAttributes="Bold"
-                                       TextColor="{AppThemeBinding Light={StaticResource OnSecondary}, Dark={StaticResource OnSurfaceDark}}" />
+                    <!-- Statistics and connection status in single row -->
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="15">
 
-                                <Label x:Name="StatsLabel"
-                                       FontSize="13"
-                                       TextColor="{AppThemeBinding Light={StaticResource OnSecondary}, Dark={StaticResource OnSurfaceDark}}"
-                                       Opacity="0.8">
-                                    <Label.Text>
-                                        <MultiBinding StringFormat="{}{0} families • {1} active">
-                                            <Binding Path="TotalCount" />
-                                            <Binding Path="ActiveCount" />
-                                        </MultiBinding>
-                                    </Label.Text>
-                                </Label>
-                            </VerticalStackLayout>
+                        <!-- Statistics on the left -->
+                        <Label Grid.Column="0"
+                               FontSize="13"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                               VerticalOptions="Center">
+                            <Label.Text>
+                                <MultiBinding StringFormat="{}{0} families • {1} active • {2} favorites">
+                                    <Binding Path="TotalCount" />
+                                    <Binding Path="ActiveCount" />
+                                    <Binding Path="FavoriteCount" />
+                                </MultiBinding>
+                            </Label.Text>
+                        </Label>
 
-                            <!-- Connection status -->
-                            <Border Grid.Column="1"
-                                    BackgroundColor="{Binding ConnectionStatusColor}"
-                                    Padding="10,6"
-                                    VerticalOptions="Start"
-                                    HorizontalOptions="End">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="12" />
-                                </Border.StrokeShape>
-                                <Label Text="{Binding ConnectionStatus}"
-                                       FontSize="11"
-                                       FontAttributes="Bold"
-                                       TextColor="White"
-                                       HorizontalOptions="Center" />
-                            </Border>
-                        </Grid>
+                        <!-- Connection status on the right -->
+                        <Border Grid.Column="1"
+                                BackgroundColor="{Binding ConnectionStatusColor}"
+                                Padding="8,4"
+                                VerticalOptions="Center">
+                            <Border.StrokeShape>
+                                <RoundRectangle CornerRadius="10" />
+                            </Border.StrokeShape>
+                            <Label Text="{Binding ConnectionStatus}"
+                                   FontSize="10"
+                                   FontAttributes="Bold"
+                                   TextColor="White" />
+                        </Border>
+                    </Grid>
+                </Border>
 
-                        <!-- ✅ NOVO: Search and controls in one compact row -->
-                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
+                <!-- Main content with search and list -->
+                <Grid Grid.Row="1" RowDefinitions="Auto,*">
 
-                            <!-- Search entry -->
+                    <!-- Search bar with darker background -->
+                    <Border Grid.Row="0"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray800}}"
+                            Padding="20,15">
+
+                        <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="10">
+
+                            <!-- Search field expanded with white background -->
                             <Border Grid.Column="0"
-                                    BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray900}}"
-                                    Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray700}}"
+                                    Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
                                     StrokeThickness="1"
-                                    Padding="15,0"
                                     HeightRequest="44">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="22" />
                                 </Border.StrokeShape>
 
-                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="15,0">
                                     <Label Grid.Column="0" 
-                                           Text="🔍" 
+                                           Text="🔍"
                                            FontSize="16"
-                                           VerticalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}" />
+                                           VerticalOptions="Center" />
 
                                     <Entry Grid.Column="1"
                                            Text="{Binding SearchText}"
                                            Placeholder="Search families..."
+                                           FontSize="14"
                                            BackgroundColor="Transparent"
+                                           ReturnCommand="{Binding ApplyFilterCommand}"
                                            VerticalOptions="Center"
-                                           FontSize="15"
-                                           TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
-                                           PlaceholderColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
                                            Focused="OnSearchFocused"
                                            Unfocused="OnSearchUnfocused"
                                            TextChanged="OnSearchTextChanged" />
 
                                     <Button Grid.Column="2"
                                             Text="✕"
+                                            FontSize="12"
+                                            WidthRequest="24"
+                                            HeightRequest="24"
+                                            Padding="0"
                                             BackgroundColor="Transparent"
-                                            TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
-                                            FontSize="14"
-                                            Padding="8"
-                                            WidthRequest="32"
-                                            HeightRequest="32"
-                                            IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}"
-                                            Command="{Binding ClearFilterCommand}" />
+                                            TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                                            Command="{Binding ClearSearchCommand}"
+                                            IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}" />
                                 </Grid>
                             </Border>
 
-                            <!-- Status filter button -->
+                            <!-- Filter button - icon only -->
                             <Border Grid.Column="1"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
                                     Stroke="Transparent"
                                     Padding="12,0"
-                                    HeightRequest="44">
+                                    HeightRequest="44"
+                                    WidthRequest="44">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="22" />
                                 </Border.StrokeShape>
@@ -142,26 +141,19 @@
                                     <TapGestureRecognizer Tapped="OnFilterTapped" />
                                 </Border.GestureRecognizers>
 
-                                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
-                                    <Label Grid.Column="0" 
-                                           Text="📊"
-                                           FontSize="14"
-                                           VerticalOptions="Center" />
-                                    <Label Grid.Column="1"
-                                           Text="{Binding StatusFilter}"
-                                           FontSize="13"
-                                           FontAttributes="Bold"
-                                           VerticalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource OnTertiary}, Dark={StaticResource OnTertiaryDark}}" />
-                                </Grid>
+                                <Label Text="📊"
+                                       FontSize="16"
+                                       VerticalOptions="Center"
+                                       HorizontalOptions="Center" />
                             </Border>
 
-                            <!-- Sort button -->
+                            <!-- Sort button - icon only -->
                             <Border Grid.Column="2"
                                     BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
                                     Stroke="Transparent"
                                     Padding="12,0"
-                                    HeightRequest="44">
+                                    HeightRequest="44"
+                                    WidthRequest="44">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="22" />
                                 </Border.StrokeShape>
@@ -169,342 +161,125 @@
                                     <TapGestureRecognizer Tapped="OnSortTapped" />
                                 </Border.GestureRecognizers>
 
-                                <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="8">
-                                    <Label Grid.Column="0" 
-                                           Text="🔄"
-                                           FontSize="14"
-                                           VerticalOptions="Center" />
-                                    <Label Grid.Column="1"
-                                           Text="{Binding SortOrder, Converter={StaticResource SortDisplayConverter}}"
-                                           FontSize="13"
-                                           FontAttributes="Bold"
-                                           VerticalOptions="Center"
-                                           TextColor="{AppThemeBinding Light={StaticResource OnTertiary}, Dark={StaticResource OnTertiaryDark}}" />
-                                </Grid>
-                            </Border>
-
-                            <!-- Multi-select toggle -->
-                            <Border Grid.Column="3"
-                                    BackgroundColor="{Binding IsMultiSelectMode, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#A47764|#D0B8AE'}"
-                                    Stroke="Transparent"
-                                    Padding="12,0"
-                                    HeightRequest="44">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="22" />
-                                </Border.StrokeShape>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnMultiSelectTapped" />
-                                </Border.GestureRecognizers>
-
-                                <Label Text="{Binding IsMultiSelectMode, Converter={StaticResource BoolToStringConverter}, ConverterParameter='☑️|☐'}"
+                                <Label Text="🔄"
                                        FontSize="16"
                                        VerticalOptions="Center"
                                        HorizontalOptions="Center" />
                             </Border>
                         </Grid>
-                    </Grid>
-                </Border>
+                    </Border>
 
-                <!-- ✅ NOVO: Multi-select actions bar (compact) -->
-                <Border Grid.Row="1"
-                        BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                        IsVisible="{Binding IsMultiSelectMode}"
-                        Padding="20,12">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="0" />
-                    </Border.StrokeShape>
+                    <!-- Syncfusion ListView with pull-to-refresh -->
+                    <sfpulltorefresh:SfPullToRefresh x:Name="PullToRefresh"
+                                                     Grid.Row="1"
+                                                     IsRefreshing="{Binding IsRefreshing}"
+                                                     RefreshCommand="{Binding RefreshCommand}">
 
-                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="15">
-                        <Label Grid.Column="0"
-                               FontSize="14"
-                               FontAttributes="Bold"
-                               VerticalOptions="Center"
-                               TextColor="White">
-                            <Label.Text>
-                                <MultiBinding StringFormat="{}{0} selected">
-                                    <Binding Path="SelectedItems.Count" />
-                                </MultiBinding>
-                            </Label.Text>
-                        </Label>
-
-                        <Button Grid.Column="1"
-                                Text="Select All"
-                                FontSize="13"
-                                BackgroundColor="Transparent"
-                                TextColor="White"
-                                BorderColor="White"
-                                BorderWidth="1"
-                                Padding="12,6"
-                                Command="{Binding SelectAllCommand}" />
-
-                        <Button Grid.Column="2"
-                                Text="Delete"
-                                FontSize="13"
-                                BackgroundColor="{StaticResource ErrorColor}"
-                                TextColor="White"
-                                Padding="12,6"
-                                Command="{Binding DeleteSelectedCommand}"
-                                IsEnabled="{Binding SelectedItems.Count, Converter={StaticResource IntToBoolConverter}}" />
-
-                        <Button Grid.Column="3"
-                                Text="Cancel"
-                                FontSize="13"
-                                BackgroundColor="Transparent"
-                                TextColor="White"
-                                BorderColor="White"
-                                BorderWidth="1"
-                                Padding="12,6"
-                                Command="{Binding CancelSelectionCommand}" />
-                    </Grid>
-                </Border>
-
-                <!-- ListView Content -->
-                <pulltoRefresh:SfPullToRefresh Grid.Row="2"
-                                                   x:Name="PullToRefresh"
-                                                   PullingThreshold="150"
-                                                   RefreshViewHeight="50"
-                                                   RefreshViewThreshold="150"
-                                                   TransitionMode="SlideOnTop"
-                                                   ProgressColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                   IsRefreshing="{Binding IsRefreshing}"
-                                                   RefreshCommand="{Binding RefreshCommand}"
-                                                   IsEnabled="{Binding IsConnected}">
-
-                    <pulltoRefresh:SfPullToRefresh.PullableContent>
-                        <!-- ✅ MELHORADO: ListView com visual de seleção aprimorado -->
-                        <syncfusion:SfListView x:Name="ListView"
+                        <Grid>
+                            <!-- ✅ CORRIGIDO: ItemsSource binding direto sem DataSource -->
+                            <sflistview:SfListView x:Name="FamiliesListView"
                                                    ItemsSource="{Binding Items}"
-                                                   DataSource="{Binding DataSource}"
-                                                   ItemSize="90"
-                                                   AllowSwiping="True"
-                                                   SwipeOffset="90"
-                                                   SwipeThreshold="90"
                                                    SelectionMode="None"
-                                                   SelectionGesture="Tap"
-                                                   IsVisible="{Binding HasData}"
                                                    ItemTapped="OnItemTapped"
                                                    ItemLongPress="OnItemLongPress"
+                                                   SelectionChanged="OnSelectionChanged"
                                                    SwipeStarting="OnSwipeStarting"
                                                    Swiping="OnSwiping"
                                                    SwipeEnded="OnSwipeEnded"
-                                                   SelectionChanged="OnSelectionChanged">
+                                                   ItemSpacing="8"
+                                                   ScrollBarVisibility="Never"
+                                                   BackgroundColor="Transparent"
+                                                   Margin="10,0"
+                                                   ItemSize="120"
+                                                   AutoFitMode="Height">
 
-                            <!-- ✅ RIGHT SWIPE: Favorito -->
-                            <syncfusion:SfListView.StartSwipeTemplate>
-                                <DataTemplate>
-                                    <Grid BackgroundColor="#FF9800" 
-                                              HorizontalOptions="Fill" 
-                                              VerticalOptions="Fill">
-                                        <Label Text="⭐"
-                                                   FontSize="28"
-                                                   HorizontalOptions="Center"
-                                                   VerticalOptions="Center" />
-                                    </Grid>
-                                </DataTemplate>
-                            </syncfusion:SfListView.StartSwipeTemplate>
+                                <!-- ✅ TEMPLATE SIMPLIFICADO PARA TESTE -->
+                                <sflistview:SfListView.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FamilyItemViewModel">
+                                        <Grid Padding="16" BackgroundColor="White" Margin="8,4">
+                                            <Grid.RowDefinitions>
+                                                <RowDefinition Height="Auto" />
+                                                <RowDefinition Height="Auto" />
+                                            </Grid.RowDefinitions>
 
-                            <!-- ✅ LEFT SWIPE: Delete -->
-                            <syncfusion:SfListView.EndSwipeTemplate>
-                                <DataTemplate>
-                                    <Grid BackgroundColor="{StaticResource ErrorColor}" 
-                                              HorizontalOptions="Fill" 
-                                              VerticalOptions="Fill">
-                                        <Label Text="🗑️"
-                                                   FontSize="28"
-                                                   HorizontalOptions="Center"
-                                                   VerticalOptions="Center" />
-                                    </Grid>
-                                </DataTemplate>
-                            </syncfusion:SfListView.EndSwipeTemplate>
+                                            <!-- Nome da família -->
+                                            <Label Grid.Row="0"
+                                                   Text="{Binding Name}"
+                                                   FontSize="18"
+                                                   FontAttributes="Bold"
+                                                   TextColor="Black" />
 
-                            <!-- ✅ MELHORADO: Item template com visual de seleção profissional -->
-                            <syncfusion:SfListView.ItemTemplate>
-                                <DataTemplate x:DataType="vm:FamilyItemViewModel">
-                                    <Border Margin="20,5">
-                                        <Border.StrokeShape>
-                                            <RoundRectangle CornerRadius="12" />
-                                        </Border.StrokeShape>
-
-                                        <!-- ✅ NOVO: Visual de seleção profissional -->
-                                        <Border.Style>
-                                            <Style TargetType="Border">
-                                                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}" />
-                                                <Setter Property="Stroke" Value="Transparent" />
-                                                <Setter Property="StrokeThickness" Value="0" />
-                                                <Style.Triggers>
-                                                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
-                                                        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light=#F5F1ED, Dark=#2D2520}" />
-                                                        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" />
-                                                        <Setter Property="StrokeThickness" Value="2" />
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </Border.Style>
-
-                                        <Grid Padding="20,15" ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="15" RowSpacing="8">
-
-                                            <!-- Content area -->
-                                            <VerticalStackLayout Grid.Column="0" Grid.RowSpan="2" Spacing="6">
-
-                                                <!-- Name with favorite indicator -->
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                    <Label Grid.Column="0"
-                                                               Text="{Binding Name}"
-                                                               FontSize="16"
-                                                               FontAttributes="Bold"
-                                                               TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
-                                                               LineBreakMode="TailTruncation"
-                                                               MaxLines="1" />
-
-                                                    <!-- ✅ NOVO: Indicador de favorito -->
-                                                    <Label Grid.Column="1"
-                                                               Text="⭐"
-                                                               FontSize="16"
-                                                               IsVisible="{Binding IsFavorite}"
-                                                               VerticalOptions="Center" />
-                                                </Grid>
-
-                                                <!-- Description -->
-                                                <Label Text="{Binding DescriptionPreview}"
-                                                           FontSize="13"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
-                                                           LineBreakMode="TailTruncation"
-                                                           MaxLines="2"
-                                                           IsVisible="{Binding Description, Converter={StaticResource StringToBoolConverter}}" />
-
-                                                <!-- Status and metadata -->
-                                                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
-                                                    <!-- Status badge -->
-                                                    <Border Grid.Column="0"
-                                                                BackgroundColor="{Binding StatusBadgeColor}"
-                                                                Padding="8,3"
-                                                                VerticalOptions="Center">
-                                                        <Border.StrokeShape>
-                                                            <RoundRectangle CornerRadius="10" />
-                                                        </Border.StrokeShape>
-                                                        <Label Text="{Binding StatusDisplay}"
-                                                                   FontSize="11"
-                                                                   FontAttributes="Bold"
-                                                                   TextColor="White" />
-                                                    </Border>
-
-                                                    <!-- System indicator -->
-                                                    <Label Grid.Column="1"
-                                                               Text="System"
-                                                               FontSize="11"
-                                                               FontAttributes="Bold"
-                                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                               VerticalOptions="Center"
-                                                               IsVisible="{Binding IsSystemDefault}" />
-
-                                                    <!-- Spacer -->
-                                                    <BoxView Grid.Column="2" Color="Transparent" />
-
-                                                    <!-- Created date -->
-                                                    <Label Grid.Column="3"
-                                                               Text="{Binding CreatedAtFormatted}"
-                                                               FontSize="11"
-                                                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
-                                                               VerticalOptions="Center" />
-                                                </Grid>
-                                            </VerticalStackLayout>
-
-                                            <!-- ✅ MELHORADO: Selection checkbox com animação -->
-                                            <Border Grid.Column="1" Grid.Row="0"
-                                                        BackgroundColor="{Binding IsSelected, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#A47764|Transparent'}"
-                                                        Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                        StrokeThickness="2"
-                                                        WidthRequest="24"
-                                                        HeightRequest="24"
-                                                        VerticalOptions="Start"
-                                                        HorizontalOptions="End">
-                                                <Border.StrokeShape>
-                                                    <RoundRectangle CornerRadius="4" />
-                                                </Border.StrokeShape>
-
-                                                <Label Text="✓"
-                                                           FontSize="14"
-                                                           FontAttributes="Bold"
-                                                           TextColor="White"
-                                                           HorizontalOptions="Center"
-                                                           VerticalOptions="Center"
-                                                           IsVisible="{Binding IsSelected}" />
-                                            </Border>
+                                            <!-- Status -->
+                                            <Label Grid.Row="1"
+                                                   Text="{Binding StatusDisplay}"
+                                                   FontSize="14"
+                                                   TextColor="Gray" />
                                         </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </syncfusion:SfListView.ItemTemplate>
-                        </syncfusion:SfListView>
-                    </pulltoRefresh:SfPullToRefresh.PullableContent>
-                </pulltoRefresh:SfPullToRefresh>
+                                    </DataTemplate>
+                                </sflistview:SfListView.ItemTemplate>
 
-                <!-- Empty state -->
-                <VerticalStackLayout Grid.Row="2"
-                                     IsVisible="{Binding HasData, Converter={StaticResource InvertedBoolConverter}}"
-                                     Spacing="20"
-                                     VerticalOptions="Center"
-                                     HorizontalOptions="Center"
-                                     Padding="40">
+                                <!-- Empty view -->
+                                <sflistview:SfListView.EmptyView>
+                                    <VerticalStackLayout Spacing="20" Padding="40" VerticalOptions="Center">
+                                        <Label Text="🌿"
+                                               FontSize="64"
+                                               HorizontalOptions="Center" />
+                                        <Label Text="{Binding EmptyStateMessage}"
+                                               FontSize="16"
+                                               FontAttributes="Bold"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                                               HorizontalOptions="Center" />
+                                        <Label Text="Tap the + button to add your first family"
+                                               FontSize="14"
+                                               TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
+                                               HorizontalOptions="Center" />
+                                    </VerticalStackLayout>
+                                </sflistview:SfListView.EmptyView>
 
-                    <Label Text="🌿"
-                           FontSize="64"
-                           HorizontalOptions="Center" />
+                            </sflistview:SfListView>
 
-                    <Label Text="{Binding EmptyStateMessage}"
-                           FontSize="16"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
-                           HorizontalOptions="Center" />
+                            <!-- Loading overlay outside ListView -->
+                            <Grid IsVisible="{Binding IsLoading}"
+                                  BackgroundColor="#80000000">
+                                <VerticalStackLayout Spacing="15"
+                                                     HorizontalOptions="Center"
+                                                     VerticalOptions="Center">
+                                    <ActivityIndicator IsRunning="{Binding IsLoading}"
+                                                       Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                                                       WidthRequest="40"
+                                                       HeightRequest="40" />
+                                    <Label Text="Loading families..."
+                                           TextColor="White"
+                                           FontSize="14"
+                                           HorizontalOptions="Center" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Grid>
 
-                    <Label Text="Add your first botanical family to get started"
-                           FontSize="14"
-                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
-                           HorizontalOptions="Center" />
+                    </sfpulltorefresh:SfPullToRefresh>
 
-                    <Button Text="Add Family"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                            TextColor="White"
-                            FontAttributes="Bold"
-                            Padding="20,12"
-                            Command="{Binding AddNewCommand}">
-                        <Button.Shadow>
-                            <Shadow Brush="Black" Opacity="0.3" Radius="10" Offset="0,4" />
-                        </Button.Shadow>
-                    </Button>
-                </VerticalStackLayout>
-
-                <!-- Loading overlay -->
-                <Grid Grid.RowSpan="3"
-                      BackgroundColor="Black"
-                      Opacity="0.5"
-                      IsVisible="{Binding IsLoading}">
-
-                    <ActivityIndicator IsRunning="{Binding IsLoading}"
-                                       Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                       VerticalOptions="Center"
-                                       HorizontalOptions="Center" />
                 </Grid>
             </Grid>
         </Border>
 
-        <!-- ✅ NOVO: FAB moderno com contexto dinâmico -->
+        <!-- Optimized FAB -->
         <Button x:Name="FabButton"
-                Text="{Binding FabText}"
+                Text="+ Add Family"
+                FontSize="14"
+                FontAttributes="Bold"
                 BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                 TextColor="White"
-                FontSize="16"
-                FontAttributes="Bold"
                 CornerRadius="28"
                 WidthRequest="140"
                 HeightRequest="56"
                 HorizontalOptions="End"
                 VerticalOptions="End"
-                Margin="0,0,30,30"
+                Margin="20,20,30,30"
                 IsVisible="{Binding FabIsVisible}"
-                Command="{Binding AddNewCommand}">
-            <Button.Shadow>
-                <Shadow Brush="Black" Opacity="0.3" Radius="15" Offset="0,6" />
-            </Button.Shadow>
-        </Button>
+                IsEnabled="{Binding IsConnected}"
+                Scale="0.9"
+                Command="{Binding AddNewCommand}" />
+
     </Grid>
+
 </ContentPage>
