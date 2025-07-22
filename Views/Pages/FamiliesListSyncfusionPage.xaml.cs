@@ -7,7 +7,7 @@ using CommunityToolkit.Maui.Core;
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamiliesListSyncfusionPage com binding e eventos resolvidos
+/// ✅ CORRIGIDO: FamiliesListSyncfusionPage com binding direto funcionando
 /// </summary>
 public partial class FamiliesListSyncfusionPage : ContentPage
 {
@@ -19,7 +19,35 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         _viewModel = viewModel;
         BindingContext = _viewModel;
 
-        Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_PAGE] Initialized with corrected ItemsSource binding");
+        Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_PAGE] Initialized with direct Items binding");
+
+        // ✅ ADICIONADO: Hook do evento Refreshing como no exemplo oficial
+        ListRefresh.Refreshing += PullToRefresh_Refreshing;
+    }
+
+    /// <summary>
+    /// ✅ ADICIONADO: Handler do evento Refreshing (como no exemplo oficial)
+    /// </summary>
+    private async void PullToRefresh_Refreshing(object? sender, EventArgs e)
+    {
+        try
+        {
+            Debug.WriteLine("🔄 [FAMILIES_SYNCFUSION_PAGE] Pull-to-refresh triggered");
+
+            ListRefresh.IsRefreshing = true;
+
+            // Execute o refresh do ViewModel
+            await _viewModel.RefreshCommand.ExecuteAsync(null);
+
+            ListRefresh.IsRefreshing = false;
+
+            Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_PAGE] Pull-to-refresh completed");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] Pull-to-refresh error: {ex.Message}");
+            ListRefresh.IsRefreshing = false;
+        }
     }
 
     protected override async void OnAppearing()
@@ -37,6 +65,20 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             await Task.WhenAll(animationTask, dataTask);
 
             Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] OnAppearing completed - Items count: {_viewModel.Items.Count}");
+
+            // ✅ DIAGNÓSTICO: Log adicional para debug
+            if (_viewModel.Items.Any())
+            {
+                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] First item: {_viewModel.Items.First().Name}");
+                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] Last item: {_viewModel.Items.Last().Name}");
+            }
+            else
+            {
+                Debug.WriteLine("⚠️ [FAMILIES_SYNCFUSION_PAGE] No items in collection!");
+                Debug.WriteLine($"⚠️ [FAMILIES_SYNCFUSION_PAGE] ViewModel HasData: {_viewModel.HasData}");
+                Debug.WriteLine($"⚠️ [FAMILIES_SYNCFUSION_PAGE] ViewModel IsLoading: {_viewModel.IsLoading}");
+                Debug.WriteLine($"⚠️ [FAMILIES_SYNCFUSION_PAGE] ViewModel IsConnected: {_viewModel.IsConnected}");
+            }
         }
         catch (Exception ex)
         {
@@ -120,9 +162,9 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     {
         try
         {
-            // Apply filter in real-time with debounce
+            // ✅ CORREÇÃO: Remover aplicação direta de filtro - deixar o debounce do ViewModel funcionar
             Debug.WriteLine($"🔍 [FAMILIES_SYNCFUSION_PAGE] Search text changed: '{e.NewTextValue}'");
-            _viewModel.ApplyFilterCommand.Execute(null);
+            // O ViewModel já tem debounce no OnSearchTextChanged
         }
         catch (Exception ex)
         {
@@ -144,7 +186,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             {
                 _viewModel.StatusFilter = result;
                 Debug.WriteLine($"📊 [FAMILIES_SYNCFUSION_PAGE] Status filter changed to: {result}");
-                _viewModel.ApplyFilterCommand.Execute(null);
+                // O StatusFilter já tem OnChanged que dispara o filtro
             }
         }
         catch (Exception ex)
@@ -167,7 +209,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             {
                 _viewModel.SortOrder = result;
                 Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_PAGE] Sort order changed to: {result}");
-                _viewModel.ToggleSortCommand.Execute(null);
+                await _viewModel.ToggleSortCommand.ExecuteAsync(null);
             }
         }
         catch (Exception ex)
@@ -197,7 +239,6 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                 {
                     Debug.WriteLine($"🔘 [FAMILIES_SYNCFUSION_PAGE] In multi-select mode - toggling selection");
                     item.ToggleFamilySelectionCommand.Execute(null);
-                    _viewModel.UpdateFabForSelection();
                 }
             }
         }
@@ -223,10 +264,6 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                 if (e.DataItem is FamilyItemViewModel item)
                 {
                     item.IsSelected = true;
-                    if (!_viewModel.SelectedItems.Contains(item))
-                    {
-                        _viewModel.SelectedItems.Add(item);
-                    }
                     _viewModel.UpdateFabForSelection();
                 }
             }
@@ -252,10 +289,6 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                     {
                         item.IsSelected = true;
                     }
-                    if (!_viewModel.SelectedItems.Contains(item))
-                    {
-                        _viewModel.SelectedItems.Add(item);
-                    }
                 }
             }
 
@@ -266,10 +299,6 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                     if (item.IsSelected)
                     {
                         item.IsSelected = false;
-                    }
-                    if (_viewModel.SelectedItems.Contains(item))
-                    {
-                        _viewModel.SelectedItems.Remove(item);
                     }
                 }
             }
@@ -284,7 +313,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
 
     #endregion
 
-    #region Swipe Event Handlers (Disabled - Using Context Menu Instead)
+    #region Swipe Event Handlers
 
     private void OnSwipeStarting(object sender, Syncfusion.Maui.ListView.SwipeStartingEventArgs e)
     {
@@ -465,46 +494,6 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         }
     }
 
-    #endregion
-
-    #region Utility Methods
-
-    /// <summary>
-    /// Scroll to top method
-    /// </summary>
-    public void ScrollToTop()
-    {
-        try
-        {
-            if (_viewModel.Items.Any())
-            {
-                Debug.WriteLine($"📜 [FAMILIES_SYNCFUSION_PAGE] Scroll to top requested - {_viewModel.Items.Count} items available");
-                // Note: Actual scrolling implementation depends on Syncfusion version
-                // This method is available for future implementation when needed
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] ScrollToTop error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Get selected items count
-    /// </summary>
-    public int GetSelectedItemsCount()
-    {
-        try
-        {
-            return _viewModel.SelectedItems?.Count ?? 0;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] GetSelectedItemsCount error: {ex.Message}");
-            return 0;
-        }
-    }
-
     /// <summary>
     /// ✅ NOVO: Force refresh da ListView
     /// </summary>
@@ -518,6 +507,42 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] ForceRefreshAsync error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// ✅ DIAGNÓSTICO: Método para debugar binding
+    /// </summary>
+    public void DiagnoseBinding()
+    {
+        try
+        {
+            Debug.WriteLine("🔍 [FAMILIES_SYNCFUSION_PAGE] DIAGNÓSTICO DE BINDING:");
+            Debug.WriteLine($"  - BindingContext: {BindingContext?.GetType().Name ?? "NULL"}");
+            Debug.WriteLine($"  - ViewModel Items Count: {_viewModel?.Items?.Count ?? -1}");
+            Debug.WriteLine($"  - ListView ItemsSource: {FamilyListView?.ItemsSource?.GetType().Name ?? "NULL"}");
+
+            if (FamilyListView?.ItemsSource is System.Collections.IEnumerable enumerable)
+            {
+                var count = 0;
+                foreach (var item in enumerable)
+                {
+                    count++;
+                    if (count <= 3) // Log primeiros 3 items
+                    {
+                        Debug.WriteLine($"    Item {count}: {item?.GetType().Name} - {item}");
+                    }
+                }
+                Debug.WriteLine($"  - Total items in ItemsSource: {count}");
+            }
+
+            Debug.WriteLine($"  - ListView Visibility: {FamilyListView?.IsVisible}");
+            Debug.WriteLine($"  - ListView Height: {FamilyListView?.Height}");
+            Debug.WriteLine($"  - ListView Width: {FamilyListView?.Width}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] DiagnoseBinding error: {ex.Message}");
         }
     }
 
