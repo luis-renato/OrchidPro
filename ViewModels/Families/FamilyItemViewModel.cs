@@ -1,74 +1,30 @@
 ﻿using OrchidPro.Models;
-using OrchidPro.ViewModels.Base;
+using OrchidPro.ViewModels;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ✅ MELHORADO: FamilyItemViewModel com suporte completo a favoritos e binding otimizado
+/// ✅ CORRIGIDO: FamilyItemViewModel que estende o BaseItemViewModel existente
+/// - Adiciona apenas funcionalidades específicas de Family
+/// - IsSelected já existe na base
+/// - IsFavorite específico de Family
+/// - Compatível com código existente do GitHub
 /// </summary>
 public partial class FamilyItemViewModel : BaseItemViewModel<Family>
 {
     public override string EntityName => "Family";
 
     /// <summary>
-    /// ✅ Propriedade IsFavorite para binding
+    /// ✅ Propriedade IsFavorite específica de Family
     /// </summary>
     public bool IsFavorite { get; }
-
-    /// <summary>
-    /// ✅ NOVO: Observable property para seleção
-    /// </summary>
-    [ObservableProperty]
-    private bool isSelected;
-
-    /// <summary>
-    /// ✅ NOVO: Action para notificar mudanças de seleção
-    /// </summary>
-    public Action<FamilyItemViewModel>? SelectionChanged { get; set; }
 
     public FamilyItemViewModel(Family family) : base(family)
     {
         IsFavorite = family.IsFavorite;
-        Debug.WriteLine($"✅ [FAMILY_ITEM_VM] Created: {family.Name} (Favorite: {IsFavorite})");
-    }
-
-    /// <summary>
-    /// ✅ CORRIGIDO: Command para toggle de seleção - nome único
-    /// </summary>
-    [RelayCommand]
-    public void ToggleFamilySelection()
-    {
-        try
-        {
-            IsSelected = !IsSelected;
-            Debug.WriteLine($"🔘 [FAMILY_ITEM_VM] Selection toggled for {Name}: {IsSelected}");
-
-            // Notificar mudança para o parent ViewModel
-            SelectionChanged?.Invoke(this);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_ITEM_VM] ToggleFamilySelection error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ NOVO: Método para detectar mudanças de seleção
-    /// </summary>
-    partial void OnIsSelectedChanged(bool value)
-    {
-        try
-        {
-            Debug.WriteLine($"🔄 [FAMILY_ITEM_VM] IsSelected changed for {Name}: {value}");
-            SelectionChanged?.Invoke(this);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_ITEM_VM] OnIsSelectedChanged error: {ex.Message}");
-        }
+        Debug.WriteLine($"✅ [FAMILY_ITEM_VM] Created: {family.Name} (Favorite: {IsFavorite}, ID: {family.Id})");
     }
 
     // ✅ CUSTOMIZAÇÕES ESPECÍFICAS DE FAMILY:
@@ -137,16 +93,6 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
     public new string DisplayName => $"{Name}{(IsSystemDefault ? " (System)" : "")}{(IsFavorite ? " ⭐" : "")}";
 
     /// <summary>
-    /// ✅ Método para obter o modelo atualizado
-    /// </summary>
-    public new Family ToModel()
-    {
-        var family = base.ToModel();
-        // O IsFavorite já está no modelo base, mas garantimos consistência
-        return family;
-    }
-
-    /// <summary>
     /// ✅ NOVO: Propriedades para UI binding otimizado
     /// </summary>
     public string SelectionIcon => IsSelected ? "☑️" : "☐";
@@ -187,6 +133,16 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
 
             return string.Join(" • ", parts);
         }
+    }
+
+    /// <summary>
+    /// ✅ Método para obter o modelo atualizado
+    /// </summary>
+    public new Family ToModel()
+    {
+        var family = base.ToModel();
+        // O IsFavorite já está no modelo base, mas garantimos consistência
+        return family;
     }
 
     /// <summary>

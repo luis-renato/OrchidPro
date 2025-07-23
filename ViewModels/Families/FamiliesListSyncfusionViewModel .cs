@@ -4,15 +4,18 @@ using OrchidPro.Models;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
+using OrchidPro.ViewModels;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using CommunityToolkit.Maui.Alerts;
-using CommunityToolkit.Maui.Core;
 
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamiliesListSyncfusionViewModel com binding direto e sem DataSource
+/// ✅ CORRIGIDO: FamiliesListSyncfusionViewModel que usa a estrutura existente do GitHub
+/// - Usa FamilyItemViewModel existente (não duplica)
+/// - Estende BaseViewModel (não BaseListViewModel para evitar conflitos)
+/// - Remove DataSource do Syncfusion para máxima compatibilidade
+/// - Implementa todas as funcionalidades avançadas manualmente
 /// </summary>
 public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 {
@@ -72,12 +75,9 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     [ObservableProperty]
     private string sortOrder = "Name A→Z";
 
-    // ✅ REMOÇÃO: Não usar DataSource - usar binding direto para Items
-    // private DataSource dataSource; // REMOVIDO
-
     #endregion
 
-    #region Filter Options
+    #region Filter and Sort Options
 
     public List<string> StatusFilterOptions { get; } = new() { "All", "Active", "Inactive" };
 
@@ -92,14 +92,22 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 
     #endregion
 
+    #region Constructor
+
     public FamiliesListSyncfusionViewModel(IFamilyRepository repository, INavigationService navigationService)
     {
         _repository = repository;
         _navigationService = navigationService;
         Title = "Families";
+        IsConnected = true;
+        ConnectionStatus = "Connected";
+        ConnectionStatusColor = Colors.Green;
+        FabText = "Add Family";
 
-        Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_VM] Initialized with direct Items binding");
+        Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_VM] Initialized with GitHub-compatible structure");
     }
+
+    #endregion
 
     #region Data Loading
 
@@ -111,16 +119,24 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         try
         {
             IsLoading = true;
-            Debug.WriteLine($"📥 [FAMILIES_SYNCFUSION_VM] Loading families...");
+            Debug.WriteLine($"📥 [FAMILIES_SYNCFUSION_VM] Loading families with filter: {StatusFilter}");
 
             await LoadItemsDataAsync();
+
+            // Teste de conectividade em background
+            _ = Task.Run(async () =>
+            {
+                await Task.Delay(500);
+                await TestConnectionInBackgroundAsync();
+            });
 
             Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Loaded {Items.Count} families");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Load error: {ex.Message}");
-            await ShowErrorToast($"Error loading families: {ex.Message}");
+            await ShowErrorAsync("Failed to load families", "Check your connection and try again.");
+            UpdateConnectionStatus(false);
         }
         finally
         {
@@ -132,8 +148,6 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     {
         try
         {
-            Debug.WriteLine($"📊 [FAMILIES_SYNCFUSION_VM] LoadItemsDataAsync - Filter: '{StatusFilter}', Search: '{SearchText}'");
-
             bool? statusFilter = StatusFilter switch
             {
                 "Active" => true,
@@ -142,42 +156,27 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
             };
 
             var entities = await _repository.GetFilteredAsync(SearchText, statusFilter);
-            Debug.WriteLine($"📊 [FAMILIES_SYNCFUSION_VM] Retrieved {entities.Count} families from repository");
 
             var itemViewModels = entities.Select(entity =>
             {
                 var itemVm = new FamilyItemViewModel(entity);
-                // ✅ Configurar callback de mudança de seleção
-                itemVm.SelectionChanged = OnItemSelectionChanged;
+                // ✅ CORRIGIDO: Usar SelectionChangedAction da base (compatível com GitHub)
+                itemVm.SelectionChangedAction = OnItemSelectionChanged;
                 return itemVm;
             }).ToList();
 
-            // ✅ CORREÇÃO PRINCIPAL: Update na UI thread com binding direto
-            await MainThread.InvokeOnMainThreadAsync(() =>
+            // ✅ Aplicar ordenação
+            itemViewModels = ApplySorting(itemViewModels);
+
+            Items.Clear();
+            foreach (var item in itemViewModels)
             {
-                Items.Clear();
+                Items.Add(item);
+            }
 
-                // Aplicar sorting antes de adicionar
-                var sortedItems = ApplySorting(itemViewModels);
-
-                foreach (var item in sortedItems)
-                {
-                    Items.Add(item);
-                }
-
-                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Items collection updated with {Items.Count} items");
-                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] First item: {Items.FirstOrDefault()?.Name ?? "None"}");
-            });
-
-            // Atualizar estatísticas
             TotalCount = entities.Count;
             ActiveCount = entities.Count(e => e.IsActive);
             HasData = entities.Any();
-
-            // Atualizar status de conexão
-            IsConnected = await _repository.TestConnectionAsync();
-            ConnectionStatus = IsConnected ? "Connected" : "Offline";
-            ConnectionStatusColor = IsConnected ? Colors.Green : Colors.Orange;
 
             Debug.WriteLine($"📊 [FAMILIES_SYNCFUSION_VM] Stats - Total: {TotalCount}, Active: {ActiveCount}, HasData: {HasData}");
         }
@@ -191,19 +190,16 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     [RelayCommand]
     private async Task RefreshAsync()
     {
+        IsRefreshing = true;
         try
         {
-            IsRefreshing = true;
-            Debug.WriteLine("🔄 [FAMILIES_SYNCFUSION_VM] Manual refresh triggered");
-
+            await _repository.RefreshCacheAsync();
             await LoadItemsDataAsync();
-
-            await ShowSuccessToast("Families refreshed successfully");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Refresh error: {ex.Message}");
-            await ShowErrorToast("Error refreshing families");
+            await ShowErrorAsync("Refresh Failed", "Failed to refresh data. Please try again.");
         }
         finally
         {
@@ -213,19 +209,17 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 
     #endregion
 
-    #region Filtering
+    #region ✅ FILTROS E ORDENAÇÃO SIMPLES (SEM SYNCFUSION DATASOURCE)
 
     [RelayCommand]
-    private async Task ApplyFilterAsync()
+    private void ApplyFilter()
     {
         try
         {
-            Debug.WriteLine($"🔍 [FAMILIES_SYNCFUSION_VM] Applying filter - Search: '{SearchText}', Status: '{StatusFilter}'");
+            Debug.WriteLine($"🔍 [FAMILIES_SYNCFUSION_VM] Applying filter - Search: '{SearchText}', Status: '{StatusFilter}', Sort: '{SortOrder}'");
 
-            // Reload data com filtros aplicados
-            await LoadItemsDataAsync();
-
-            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Filter applied. Results: {Items.Count}");
+            // Recarregar dados com filtros aplicados
+            _ = Task.Run(async () => await LoadItemsDataAsync());
         }
         catch (Exception ex)
         {
@@ -234,29 +228,15 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     }
 
     [RelayCommand]
-    private async Task ClearFilterAsync()
+    private void ClearFilter()
     {
-        try
-        {
-            SearchText = string.Empty;
-            StatusFilter = "All";
-
-            await ApplyFilterAsync();
-
-            Debug.WriteLine("🧹 [FAMILIES_SYNCFUSION_VM] Filters cleared");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Clear filter error: {ex.Message}");
-        }
+        SearchText = string.Empty;
+        StatusFilter = "All";
+        ApplyFilter();
     }
 
-    #endregion
-
-    #region Sort Commands
-
     [RelayCommand]
-    private async Task ToggleSortAsync()
+    private void ToggleSort()
     {
         try
         {
@@ -266,8 +246,13 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 
             Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_VM] Sort order changed to: {SortOrder}");
 
-            // Recarregar para aplicar nova ordenação
-            await LoadItemsDataAsync();
+            // Reaplicar ordenação
+            var sortedItems = ApplySorting(Items.ToList());
+            Items.Clear();
+            foreach (var item in sortedItems)
+            {
+                Items.Add(item);
+            }
         }
         catch (Exception ex)
         {
@@ -276,7 +261,7 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     }
 
     /// <summary>
-    /// ✅ NOVO: Aplica sorting diretamente na lista de ViewModels
+    /// ✅ Aplicar ordenação simples (sem DataSource)
     /// </summary>
     private List<FamilyItemViewModel> ApplySorting(List<FamilyItemViewModel> items)
     {
@@ -306,6 +291,15 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     [RelayCommand]
     private async Task AddNewAsync()
     {
+        if (!IsConnected)
+        {
+            var canProceed = await ShowConfirmAsync(
+                "Offline Mode",
+                "You're currently offline. Creating new items may not work properly. Continue anyway?");
+
+            if (!canProceed) return;
+        }
+
         try
         {
             Debug.WriteLine($"➕ [FAMILIES_SYNCFUSION_VM] Navigating to add new family");
@@ -314,7 +308,7 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Add new navigation error: {ex.Message}");
-            await ShowErrorToast("Error navigating to new family page");
+            await ShowErrorAsync("Navigation Error", "Failed to open add family page");
         }
     }
 
@@ -323,13 +317,22 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     {
         if (item == null) return;
 
+        if (!IsConnected)
+        {
+            var canProceed = await ShowConfirmAsync(
+                "Offline Mode",
+                "You're currently offline. Editing may not work properly. Continue anyway?");
+
+            if (!canProceed) return;
+        }
+
         try
         {
             Debug.WriteLine($"📝 [FAMILIES_SYNCFUSION_VM] Navigating to edit family: {item.Name}");
 
             var parameters = new Dictionary<string, object>
             {
-                ["FamilyId"] = item.Id.ToString()
+                ["FamilyId"] = item.Id
             };
 
             await _navigationService.NavigateToAsync("familyedit", parameters);
@@ -337,291 +340,368 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Edit navigation error: {ex.Message}");
-            await ShowErrorToast("Error navigating to edit family");
+            await ShowErrorAsync("Navigation Error", "Failed to open edit family page");
         }
     }
 
     [RelayCommand]
-    private async Task DeleteSingleAsync(FamilyItemViewModel item)
-    {
-        if (item == null || item.IsSystemDefault) return;
-
-        try
-        {
-            Debug.WriteLine($"🗑️ [FAMILIES_SYNCFUSION_VM] Deleting family: {item.Name}");
-
-            await _repository.DeleteAsync(item.Id);
-            await LoadItemsDataAsync();
-
-            await ShowSuccessToast($"Family '{item.Name}' deleted successfully");
-            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Family deleted and list refreshed");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Delete error: {ex.Message}");
-            await ShowErrorToast($"Error deleting family: {ex.Message}");
-        }
-    }
-
-    [RelayCommand]
-    private async Task ToggleFavoriteAsync(FamilyItemViewModel item)
+    private async Task DeleteSingleItemAsync(FamilyItemViewModel item)
     {
         if (item == null) return;
 
+        if (!IsConnected)
+        {
+            await ShowErrorAsync("No Connection", "Cannot delete family without internet connection.");
+            return;
+        }
+
+        if (item.IsSystemDefault)
+        {
+            await ShowErrorAsync("Cannot Delete", "This is a system default family and cannot be deleted.");
+            return;
+        }
+
         try
         {
-            Debug.WriteLine($"⭐ [FAMILIES_SYNCFUSION_VM] Toggling favorite for: {item.Name}");
+            Debug.WriteLine($"🗑️ [FAMILIES_SYNCFUSION_VM] Attempting to delete single family: {item.Name}");
 
-            await _repository.ToggleFavoriteAsync(item.Id);
-            await LoadItemsDataAsync(); // Refresh to get updated data
+            var confirmed = await ShowConfirmAsync(
+                "Delete Family",
+                $"Are you sure you want to delete '{item.Name}'?");
 
-            var message = $"'{item.Name}' " + (item.IsFavorite ? "added to" : "removed from") + " favorites";
-            await ShowSuccessToast(message);
+            if (!confirmed) return;
 
-            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Favorite toggled: {item.Name}");
+            IsLoading = true;
+
+            var success = await _repository.DeleteAsync(item.Id);
+
+            if (success)
+            {
+                await ShowSuccessAsync($"Successfully deleted family '{item.Name}'");
+
+                Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_VM] === REFRESHING AFTER SINGLE DELETE ===");
+
+                _repository.InvalidateCacheExternal();
+                await _repository.RefreshCacheAsync();
+                await LoadItemsDataAsync();
+
+                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] === REFRESH COMPLETE ===");
+            }
+            else
+            {
+                await ShowErrorAsync("Delete Failed", $"Failed to delete family '{item.Name}'");
+            }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Toggle favorite error: {ex.Message}");
-            await ShowErrorToast("Error updating favorite status");
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Single delete error: {ex.Message}");
+
+            if (ex.Message.Contains("connection") || ex.Message.Contains("internet"))
+            {
+                UpdateConnectionStatus(false);
+                await ShowErrorAsync("Connection Error", "Failed to delete family. Check your internet connection.");
+            }
+            else
+            {
+                await ShowErrorAsync("Delete Error", "Failed to delete family. Please try again.");
+            }
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
 
     #endregion
 
-    #region Multi-Selection
+    #region ✅ MULTI-SELECTION - COMPLETO
 
     [RelayCommand]
     private void ToggleMultiSelect()
     {
-        IsMultiSelectMode = !IsMultiSelectMode;
-
-        if (!IsMultiSelectMode)
+        if (IsMultiSelectMode)
         {
-            // Clear all selections
-            foreach (var item in Items)
-            {
-                item.IsSelected = false;
-            }
-            SelectedItems.Clear();
+            ExitMultiSelectMode();
         }
-
-        UpdateFabForSelection();
-        Debug.WriteLine($"🔘 [FAMILIES_SYNCFUSION_VM] Multi-select mode: {IsMultiSelectMode}");
+        else
+        {
+            EnterMultiSelectMode();
+        }
     }
 
     [RelayCommand]
-    private void SelectAllItems()
+    private void SelectAll()
     {
-        try
+        foreach (var item in Items)
         {
-            foreach (var item in Items)
+            if (!item.IsSelected)
             {
-                if (!item.IsSelected)
+                item.IsSelected = true;
+                if (!SelectedItems.Contains(item))
                 {
-                    item.IsSelected = true;
-                    if (!SelectedItems.Contains(item))
-                    {
-                        SelectedItems.Add(item);
-                    }
+                    SelectedItems.Add(item);
                 }
             }
-
-            UpdateFabForSelection();
-            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Selected all {SelectedItems.Count} items");
         }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Select all error: {ex.Message}");
-        }
+        UpdateFabForSelection();
     }
 
     [RelayCommand]
-    private void DeselectAllItems()
+    private void DeselectAll()
     {
-        try
+        foreach (var item in Items)
         {
-            foreach (var item in Items)
-            {
-                item.IsSelected = false;
-            }
-            SelectedItems.Clear();
-
-            UpdateFabForSelection();
-            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Deselected all items");
+            item.IsSelected = false;
         }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Deselect all error: {ex.Message}");
-        }
+        SelectedItems.Clear();
+        UpdateFabForSelection();
     }
 
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
-        if (!SelectedItems.Any()) return;
+        if (!SelectedItems.Any())
+        {
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] No families selected for deletion");
+            return;
+        }
+
+        if (!IsConnected)
+        {
+            await ShowErrorAsync("No Connection", "Cannot delete families without internet connection.");
+            return;
+        }
 
         try
         {
-            var itemsToDelete = SelectedItems.Where(i => !i.IsSystemDefault).ToList();
-            if (!itemsToDelete.Any())
+            var selectedIds = SelectedItems.Select(f => f.Id).ToList();
+            var count = selectedIds.Count;
+
+            Debug.WriteLine($"🗑️ [FAMILIES_SYNCFUSION_VM] Attempting to delete {count} families");
+
+            var confirmed = await ShowConfirmAsync(
+                "Delete Families",
+                $"Are you sure you want to delete {count} {(count == 1 ? "family" : "families")}?");
+
+            if (!confirmed) return;
+
+            IsLoading = true;
+            ExitMultiSelectMode();
+
+            var deletedCount = await _repository.DeleteMultipleAsync(selectedIds);
+
+            if (deletedCount > 0)
             {
-                await ShowErrorToast("Cannot delete system default families");
-                return;
-            }
+                await ShowSuccessAsync($"Successfully deleted {deletedCount} {(deletedCount == 1 ? "family" : "families")}");
 
-            Debug.WriteLine($"🗑️ [FAMILIES_SYNCFUSION_VM] Deleting {itemsToDelete.Count} selected families");
+                Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_VM] === FORCING COMPLETE REFRESH ===");
 
-            var deletedCount = await _repository.DeleteMultipleAsync(itemsToDelete.Select(i => i.Id));
+                _repository.InvalidateCacheExternal();
+                await _repository.RefreshCacheAsync();
+                await LoadItemsDataAsync();
 
-            // Exit multi-select mode and refresh
-            ToggleMultiSelect();
-            await LoadItemsDataAsync();
-
-            await ShowSuccessToast($"Deleted {deletedCount} families successfully");
-            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Deleted {deletedCount} families");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Delete selected error: {ex.Message}");
-            await ShowErrorToast($"Error deleting families: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ Callback para mudanças de seleção nos items
-    /// </summary>
-    private void OnItemSelectionChanged(FamilyItemViewModel item)
-    {
-        try
-        {
-            if (item.IsSelected && !SelectedItems.Contains(item))
-            {
-                SelectedItems.Add(item);
-            }
-            else if (!item.IsSelected && SelectedItems.Contains(item))
-            {
-                SelectedItems.Remove(item);
-            }
-
-            UpdateFabForSelection();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] OnItemSelectionChanged error: {ex.Message}");
-        }
-    }
-
-    public void UpdateFabForSelection()
-    {
-        try
-        {
-            var selectedCount = SelectedItems.Count;
-
-            if (selectedCount > 0)
-            {
-                FabText = $"Delete ({selectedCount})";
-                FabIsVisible = true;
-            }
-            else if (IsMultiSelectMode)
-            {
-                FabText = "Cancel Selection";
-                FabIsVisible = true;
+                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] === COMPLETE REFRESH DONE ===");
             }
             else
             {
-                FabText = "Add Family";
-                FabIsVisible = true;
+                await ShowErrorAsync("Delete Failed", "No families were deleted");
             }
-
-            Debug.WriteLine($"🏷️ [FAMILIES_SYNCFUSION_VM] FAB updated: '{FabText}', Selected: {selectedCount}");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] UpdateFabForSelection error: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Delete error: {ex.Message}");
+
+            if (ex.Message.Contains("connection") || ex.Message.Contains("internet"))
+            {
+                UpdateConnectionStatus(false);
+                await ShowErrorAsync("Connection Error", "Failed to delete families. Check your internet connection.");
+            }
+            else
+            {
+                await ShowErrorAsync("Delete Error", "Failed to delete families. Please try again.");
+            }
+        }
+        finally
+        {
+            IsLoading = false;
         }
     }
-
-    #endregion
-
-    #region Search Text Changed Handler
 
     /// <summary>
-    /// ✅ CORREÇÃO: Debounce search para evitar muitas chamadas
+    /// ✅ CORRIGIDO: Callback para mudanças de seleção usando BaseItemViewModel<Family> (compatível)
     /// </summary>
-    private CancellationTokenSource? _searchCancellationTokenSource;
+    private void OnItemSelectionChanged(BaseItemViewModel<Family> item)
+    {
+        if (item == null)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] OnItemSelectionChanged called with null family");
+            return;
+        }
 
-    partial void OnSearchTextChanged(string value)
+        Debug.WriteLine($"🔘 [FAMILIES_SYNCFUSION_VM] OnItemSelectionChanged: {item.Name}, IsSelected: {item.IsSelected}");
+
+        var typedItem = Items.FirstOrDefault(i => i.Id == item.Id);
+        if (typedItem == null) return;
+
+        if (item.IsSelected)
+        {
+            if (!SelectedItems.Contains(typedItem))
+            {
+                SelectedItems.Add(typedItem);
+                Debug.WriteLine($"➕ [FAMILIES_SYNCFUSION_VM] Added {item.Name} to selection. Total: {SelectedItems.Count}");
+            }
+
+            if (!IsMultiSelectMode)
+            {
+                EnterMultiSelectMode();
+            }
+        }
+        else
+        {
+            SelectedItems.Remove(typedItem);
+            Debug.WriteLine($"➖ [FAMILIES_SYNCFUSION_VM] Removed {item.Name} from selection. Total: {SelectedItems.Count}");
+
+            if (!SelectedItems.Any() && IsMultiSelectMode)
+            {
+                ExitMultiSelectMode();
+            }
+        }
+
+        UpdateFabForSelection();
+    }
+
+    private void EnterMultiSelectMode()
+    {
+        IsMultiSelectMode = true;
+        UpdateFabForSelection();
+        Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Entered multi-select mode");
+    }
+
+    private void ExitMultiSelectMode()
+    {
+        IsMultiSelectMode = false;
+        DeselectAll();
+        UpdateFabForSelection();
+        Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Exited multi-select mode");
+    }
+
+    #endregion
+
+    #region Connectivity
+
+    [RelayCommand]
+    private async Task TestConnectionAsync()
     {
         try
         {
-            Debug.WriteLine($"🔍 [FAMILIES_SYNCFUSION_VM] Search text changed: '{value}'");
+            Debug.WriteLine($"🔍 [FAMILIES_SYNCFUSION_VM] Testing connection...");
 
-            // Cancel previous search
-            _searchCancellationTokenSource?.Cancel();
-            _searchCancellationTokenSource = new CancellationTokenSource();
+            var isConnected = await _repository.TestConnectionAsync();
+            UpdateConnectionStatus(isConnected);
 
-            // Debounce search
-            _ = Task.Run(async () =>
+            if (isConnected)
             {
-                await Task.Delay(300, _searchCancellationTokenSource.Token);
-
-                if (!_searchCancellationTokenSource.Token.IsCancellationRequested)
-                {
-                    await MainThread.InvokeOnMainThreadAsync(async () =>
-                    {
-                        await ApplyFilterAsync();
-                    });
-                }
-            }, _searchCancellationTokenSource.Token);
+                await ShowSuccessAsync("Connection restored! Data is now synchronized.");
+                await RefreshAsync();
+            }
+            else
+            {
+                await ShowErrorAsync("Still offline", "Check your internet connection and try again.");
+            }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] OnSearchTextChanged error: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Connection test error: {ex.Message}");
+            UpdateConnectionStatus(false);
+            await ShowErrorAsync("Connection test failed", ex.Message);
         }
     }
 
-    partial void OnStatusFilterChanged(string value)
+    private async Task TestConnectionInBackgroundAsync()
     {
         try
         {
-            Debug.WriteLine($"🏷️ [FAMILIES_SYNCFUSION_VM] Status filter changed: '{value}'");
-            _ = ApplyFilterAsync();
+            Debug.WriteLine($"🔍 [FAMILIES_SYNCFUSION_VM] Background connection test...");
+
+            var isConnected = await _repository.TestConnectionAsync();
+            UpdateConnectionStatus(isConnected);
+
+            Debug.WriteLine($"📡 [FAMILIES_SYNCFUSION_VM] Background test result: {(isConnected ? "Connected" : "Offline")}");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] OnStatusFilterChanged error: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Background connection test error: {ex.Message}");
+            UpdateConnectionStatus(false);
+        }
+    }
+
+    private void UpdateConnectionStatus(bool connected)
+    {
+        IsConnected = connected;
+        ConnectionStatus = connected ? "Connected" : "Offline";
+        ConnectionStatusColor = connected ? Colors.Green : Colors.Orange;
+
+        UpdateFabForSelection();
+
+        Debug.WriteLine($"📡 [FAMILIES_SYNCFUSION_VM] Connection status updated: {ConnectionStatus}");
+    }
+
+    #endregion
+
+    #region ✅ UI STATE MANAGEMENT - COMPLETO
+
+    /// <summary>
+    /// ✅ CORE: Update FAB baseado no estado atual
+    /// </summary>
+    public void UpdateFabForSelection()
+    {
+        var selectedCount = SelectedItems.Count;
+        Debug.WriteLine($"🎯 [FAMILIES_SYNCFUSION_VM] UpdateFabForSelection: {selectedCount} selected, MultiSelect: {IsMultiSelectMode}, Connected: {IsConnected}");
+
+        if (selectedCount > 0)
+        {
+            FabText = $"Delete ({selectedCount})";
+            FabIsVisible = IsConnected;
+            Debug.WriteLine($"🎯 [FAMILIES_SYNCFUSION_VM] FAB set to DELETE mode: {FabText}");
+        }
+        else if (IsMultiSelectMode)
+        {
+            FabText = "Cancel";
+            FabIsVisible = true;
+            Debug.WriteLine($"🎯 [FAMILIES_SYNCFUSION_VM] FAB set to CANCEL mode: {FabText}");
+        }
+        else
+        {
+            FabText = IsConnected ? "Add Family" : "Offline";
+            FabIsVisible = true;
+            Debug.WriteLine($"🎯 [FAMILIES_SYNCFUSION_VM] FAB set to ADD mode: {FabText}");
         }
     }
 
     #endregion
 
-    #region Toast Messages
+    #region ✅ SEARCH TEXT CHANGED HANDLER
 
-    private async Task ShowSuccessToast(string message)
+    /// <summary>
+    /// ✅ Handler otimizado para mudanças no texto de busca
+    /// </summary>
+    partial void OnSearchTextChanged(string value)
     {
-        try
-        {
-            var toast = Toast.Make(message, ToastDuration.Short, 14);
-            await toast.Show();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] ShowSuccessToast error: {ex.Message}");
-        }
+        Debug.WriteLine($"🔍 [FAMILIES_SYNCFUSION_VM] Search text changed: '{value}'");
+
+        // Aplicar filtro instantaneamente
+        ApplyFilter();
     }
 
-    private async Task ShowErrorToast(string message)
+    /// <summary>
+    /// ✅ Handler otimizado para mudanças no filtro de status
+    /// </summary>
+    partial void OnStatusFilterChanged(string value)
     {
-        try
-        {
-            var toast = Toast.Make(message, ToastDuration.Long, 14);
-            await toast.Show();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] ShowErrorToast error: {ex.Message}");
-        }
+        Debug.WriteLine($"🏷️ [FAMILIES_SYNCFUSION_VM] Status filter changed: '{value}'");
+
+        // Aplicar filtro instantaneamente
+        ApplyFilter();
     }
 
     #endregion
@@ -630,19 +710,15 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 
     public virtual async Task OnAppearingAsync()
     {
-        try
-        {
-            Debug.WriteLine($"👁️ [FAMILIES_SYNCFUSION_VM] OnAppearing");
+        Debug.WriteLine($"👁️ [FAMILIES_SYNCFUSION_VM] OnAppearing");
 
-            // Always load data to ensure fresh information
+        if (!Items.Any())
+        {
             await LoadItemsAsync();
-
-            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] OnAppearing completed with {Items.Count} items");
         }
-        catch (Exception ex)
+        else
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] OnAppearing error: {ex.Message}");
-            await ShowErrorToast("Error loading families");
+            _ = TestConnectionInBackgroundAsync();
         }
     }
 
