@@ -344,6 +344,7 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         }
     }
 
+    // ✅ VERSÃO CORRIGIDA DO MÉTODO:
     [RelayCommand]
     private async Task DeleteSingleItemAsync(FamilyItemViewModel item)
     {
@@ -363,13 +364,7 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 
         try
         {
-            Debug.WriteLine($"🗑️ [FAMILIES_SYNCFUSION_VM] Attempting to delete single family: {item.Name}");
-
-            var confirmed = await ShowConfirmAsync(
-                "Delete Family",
-                $"Are you sure you want to delete '{item.Name}'?");
-
-            if (!confirmed) return;
+            Debug.WriteLine($"🗑️ [FAMILIES_SYNCFUSION_VM] Deleting family: {item.Name}");
 
             IsLoading = true;
 
@@ -377,34 +372,22 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 
             if (success)
             {
-                await ShowSuccessAsync($"Successfully deleted family '{item.Name}'");
+                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] Family deleted successfully: {item.Name}");
 
-                Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_VM] === REFRESHING AFTER SINGLE DELETE ===");
-
+                // Refresh data
                 _repository.InvalidateCacheExternal();
                 await _repository.RefreshCacheAsync();
                 await LoadItemsDataAsync();
-
-                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_VM] === REFRESH COMPLETE ===");
             }
             else
             {
-                await ShowErrorAsync("Delete Failed", $"Failed to delete family '{item.Name}'");
+                throw new Exception("Delete operation returned false");
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Single delete error: {ex.Message}");
-
-            if (ex.Message.Contains("connection") || ex.Message.Contains("internet"))
-            {
-                UpdateConnectionStatus(false);
-                await ShowErrorAsync("Connection Error", "Failed to delete family. Check your internet connection.");
-            }
-            else
-            {
-                await ShowErrorAsync("Delete Error", "Failed to delete family. Please try again.");
-            }
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_VM] Delete error: {ex.Message}");
+            throw; // Re-throw para ser capturado no swipe handler
         }
         finally
         {
