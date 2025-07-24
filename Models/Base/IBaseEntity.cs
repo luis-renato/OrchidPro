@@ -3,9 +3,7 @@
 namespace OrchidPro.Models.Base;
 
 /// <summary>
-/// PASSO 1: Interface base para todas as entidades do sistema
-/// Esta interface define propriedades comuns que todas as entidades devem ter
-/// Permite criar ViewModels genéricos sem quebrar o código existente
+/// ✅ ATUALIZADO: Interface base sem IsSystemDefault
 /// </summary>
 public interface IBaseEntity
 {
@@ -35,9 +33,10 @@ public interface IBaseEntity
     bool IsActive { get; set; }
 
     /// <summary>
-    /// Indica se é um dado padrão do sistema
+    /// ✅ ATUALIZADO: IsSystemDefault como computed property
+    /// Baseado em UserId == null ao invés de campo no banco
     /// </summary>
-    bool IsSystemDefault { get; set; }
+    bool IsSystemDefault { get; }
 
     /// <summary>
     /// Data de criação
@@ -74,8 +73,7 @@ public interface IBaseEntity
 }
 
 /// <summary>
-/// PASSO 1: Interface genérica para repositórios
-/// Define operações CRUD padrão que todos os repositórios devem implementar
+/// Interface genérica para repositórios
 /// </summary>
 public interface IBaseRepository<T> where T : class, IBaseEntity
 {
@@ -102,7 +100,7 @@ public interface IBaseRepository<T> where T : class, IBaseEntity
 }
 
 /// <summary>
-/// PASSO 1: Estatísticas base para qualquer entidade
+/// Estatísticas base para qualquer entidade
 /// </summary>
 public class BaseStatistics
 {

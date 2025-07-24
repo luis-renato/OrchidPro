@@ -4,8 +4,8 @@ using System.ComponentModel.DataAnnotations;
 namespace OrchidPro.Models;
 
 /// <summary>
-/// Family model with IsFavorite functionality
-/// ✅ ATUALIZADO: Adicionado campo IsFavorite
+/// Family model - ATUALIZADO: Removido IsSystemDefault
+/// ✅ Schema atualizado sem is_system_default
 /// </summary>
 public class Family : IBaseEntity
 {
@@ -33,9 +33,9 @@ public class Family : IBaseEntity
     public string? Description { get; set; }
 
     /// <summary>
-    /// Indicates if this is a system default family
+    /// ✅ REMOVIDO: IsSystemDefault - não existe mais no schema
+    /// Agora identificamos dados do sistema por UserId == null
     /// </summary>
-    public bool IsSystemDefault { get; set; } = false;
 
     /// <summary>
     /// Indicates if the family is active
@@ -43,7 +43,7 @@ public class Family : IBaseEntity
     public bool IsActive { get; set; } = true;
 
     /// <summary>
-    /// ✅ NOVO: Indicates if this family is marked as favorite by the user
+    /// ✅ Indicates if this family is marked as favorite by the user
     /// </summary>
     public bool IsFavorite { get; set; } = false;
 
@@ -58,6 +58,11 @@ public class Family : IBaseEntity
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
+    /// ✅ ATUALIZADO: IsSystemDefault baseado em UserId
+    /// </summary>
+    public bool IsSystemDefault => UserId == null;
+
+    /// <summary>
     /// Display name for UI purposes
     /// </summary>
     public string DisplayName => $"{Name}{(IsSystemDefault ? " (System)" : "")}{(IsFavorite ? " ⭐" : "")}";
@@ -68,7 +73,7 @@ public class Family : IBaseEntity
     public string StatusDisplay => IsActive ? "Active" : "Inactive";
 
     /// <summary>
-    /// ✅ NOVO: Extended status display with favorite indicator
+    /// ✅ Extended status display with favorite indicator
     /// </summary>
     public string FullStatusDisplay
     {
@@ -111,9 +116,9 @@ public class Family : IBaseEntity
             UserId = this.UserId,
             Name = this.Name,
             Description = this.Description,
-            IsSystemDefault = this.IsSystemDefault,
+            // ✅ REMOVIDO: IsSystemDefault não é mais copiado (é computed property)
             IsActive = this.IsActive,
-            IsFavorite = this.IsFavorite, // ✅ NOVO: Incluir favorito no clone
+            IsFavorite = this.IsFavorite,
             CreatedAt = this.CreatedAt,
             UpdatedAt = this.UpdatedAt
         };
@@ -128,7 +133,7 @@ public class Family : IBaseEntity
     }
 
     /// <summary>
-    /// ✅ NOVO: Toggle favorite status
+    /// ✅ Toggle favorite status
     /// </summary>
     public void ToggleFavorite()
     {

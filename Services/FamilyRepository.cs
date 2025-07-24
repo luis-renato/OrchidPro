@@ -6,7 +6,7 @@ using System.Diagnostics;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamilyRepository com implementação completa sem duplicação
+/// ✅ ATUALIZADO: FamilyRepository com método ToggleFavoriteAsync implementado
 /// </summary>
 public class FamilyRepository : IFamilyRepository
 {
@@ -23,7 +23,7 @@ public class FamilyRepository : IFamilyRepository
         _supabaseService = supabaseService;
         _familyService = familyService;
 
-        Debug.WriteLine("✅ [FAMILY_REPO] Initialized with complete IFamilyRepository implementation");
+        Debug.WriteLine("✅ [FAMILY_REPO] Initialized with ToggleFavoriteAsync support");
     }
 
     #region IBaseRepository<Family> Implementation
@@ -138,28 +138,35 @@ public class FamilyRepository : IFamilyRepository
     /// </summary>
     public async Task<Family> CreateAsync(Family family)
     {
-        var isConnected = await TestConnectionAsync();
-        if (!isConnected)
-        {
-            throw new InvalidOperationException("Cannot create family - no internet connection available");
-        }
-
-        await _semaphore.WaitAsync();
         try
         {
+            family.Id = Guid.NewGuid();
+            family.CreatedAt = DateTime.UtcNow;
+            family.UpdatedAt = DateTime.UtcNow;
+
+            // ✅ CORREÇÃO: GetCurrentUserId() retorna string?, não Guid?
+            var userIdString = _supabaseService.GetCurrentUserId();
+            if (Guid.TryParse(userIdString, out Guid userId))
+            {
+                family.UserId = userId;
+            }
+            else
+            {
+                family.UserId = null; // System default se não conseguir parsear
+            }
+
             Debug.WriteLine($"➕ [FAMILY_REPO] Creating family: {family.Name}");
 
-            var created = await _familyService.CreateAsync(family);
-
-            // Invalidar cache para forçar refresh na próxima consulta
+            var result = await _familyService.CreateAsync(family);
             InvalidateCache();
 
-            Debug.WriteLine($"✅ [FAMILY_REPO] Created and cache invalidated: {created.Name}");
-            return created;
+            Debug.WriteLine($"✅ [FAMILY_REPO] Family created successfully: {result.Name}");
+            return result;
         }
-        finally
+        catch (Exception ex)
         {
-            _semaphore.Release();
+            Debug.WriteLine($"❌ [FAMILY_REPO] Create failed: {ex.Message}");
+            throw;
         }
     }
 
@@ -168,92 +175,166 @@ public class FamilyRepository : IFamilyRepository
     /// </summary>
     public async Task<Family> UpdateAsync(Family family)
     {
-        var isConnected = await TestConnectionAsync();
-        if (!isConnected)
-        {
-            throw new InvalidOperationException("Cannot update family - no internet connection available");
-        }
-
-        await _semaphore.WaitAsync();
         try
         {
-            Debug.WriteLine($"📝 [FAMILY_REPO] Updating family: {family.Name}");
+            family.UpdatedAt = DateTime.UtcNow;
 
-            var updated = await _familyService.UpdateAsync(family);
+            Debug.WriteLine($"📝 [FAMILY_REPO] Updating family: {family.Name} (Favorite: {family.IsFavorite})");
 
-            // Invalidar cache
+            var result = await _familyService.UpdateAsync(family);
             InvalidateCache();
 
-            Debug.WriteLine($"✅ [FAMILY_REPO] Updated and cache invalidated: {updated.Name}");
-            return updated;
+            Debug.WriteLine($"✅ [FAMILY_REPO] Family updated successfully: {result.Name}");
+            return result;
         }
-        finally
+        catch (Exception ex)
         {
-            _semaphore.Release();
+            Debug.WriteLine($"❌ [FAMILY_REPO] Update failed: {ex.Message}");
+            throw;
         }
     }
 
     /// <summary>
-    /// Delete de família
+    /// Deleta família por ID
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
-        var isConnected = await TestConnectionAsync();
-        if (!isConnected)
-        {
-            throw new InvalidOperationException("Cannot delete family - no internet connection available");
-        }
-
-        await _semaphore.WaitAsync();
         try
         {
             Debug.WriteLine($"🗑️ [FAMILY_REPO] Deleting family: {id}");
 
-            var success = await _familyService.DeleteAsync(id);
+            var result = await _familyService.DeleteAsync(id);
+            InvalidateCache();
 
-            if (success)
-            {
-                Debug.WriteLine("🗑️ [FAMILY_REPO] Delete successful - invalidating cache");
-                InvalidateCache();
-                Debug.WriteLine($"✅ [FAMILY_REPO] Deleted and cache invalidated");
-            }
-
-            return success;
+            Debug.WriteLine($"✅ [FAMILY_REPO] Family deleted successfully");
+            return result;
         }
-        finally
+        catch (Exception ex)
         {
-            _semaphore.Release();
+            Debug.WriteLine($"❌ [FAMILY_REPO] Delete failed: {ex.Message}");
+            throw;
         }
     }
 
     /// <summary>
-    /// Delete múltiplo
+    /// Deleta múltiplas famílias
     /// </summary>
     public async Task<int> DeleteMultipleAsync(IEnumerable<Guid> ids)
     {
-        var isConnected = await TestConnectionAsync();
-        if (!isConnected)
+        try
         {
-            throw new InvalidOperationException("Cannot delete families - no internet connection available");
-        }
+            var idsArray = ids.ToArray();
+            Debug.WriteLine($"🗑️ [FAMILY_REPO] Deleting {idsArray.Length} families");
 
-        int count = 0;
-        foreach (var id in ids)
-        {
-            if (await DeleteAsync(id))
+            // ✅ CORREÇÃO: Implementar sem usar SupabaseFamilyService.DeleteMultipleAsync que não existe
+            int deletedCount = 0;
+            foreach (var id in idsArray)
             {
-                count++;
+                try
+                {
+                    var deleted = await _familyService.DeleteAsync(id);
+                    if (deleted) deletedCount++;
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"❌ [FAMILY_REPO] Failed to delete {id}: {ex.Message}");
+                }
             }
-        }
 
-        if (count > 0)
-        {
-            Debug.WriteLine($"🗑️ [FAMILY_REPO] Invalidating cache after deleting {count} families");
             InvalidateCache();
-        }
 
-        return count;
+            Debug.WriteLine($"✅ [FAMILY_REPO] {deletedCount} families deleted successfully");
+            return deletedCount;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_REPO] Delete multiple failed: {ex.Message}");
+            throw;
+        }
     }
+
+    /// <summary>
+    /// Verifica se nome existe
+    /// </summary>
+    public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
+    {
+        var families = await GetAllAsync(true);
+        var exists = families.Any(f =>
+            string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase) &&
+            f.Id != excludeId);
+
+        Debug.WriteLine($"🔍 [FAMILY_REPO] Name '{name}' exists: {exists}");
+        return exists;
+    }
+
+    #endregion
+
+    #region ✅ NOVO: IFamilyRepository Specific Methods
+
+    /// <summary>
+    /// ✅ NOVO: Toggle favorite status for a family
+    /// </summary>
+    public async Task<Family> ToggleFavoriteAsync(Guid familyId)
+    {
+        try
+        {
+            Debug.WriteLine($"⭐ [FAMILY_REPO] Toggling favorite for family: {familyId}");
+
+            // Buscar família atual
+            var family = await GetByIdAsync(familyId);
+            if (family == null)
+            {
+                throw new ArgumentException($"Family with ID {familyId} not found");
+            }
+
+            // Toggle favorite
+            var originalFavoriteStatus = family.IsFavorite;
+            family.ToggleFavorite(); // Método que já existe no modelo Family
+
+            Debug.WriteLine($"⭐ [FAMILY_REPO] Family '{family.Name}' favorite: {originalFavoriteStatus} → {family.IsFavorite}");
+
+            // Salvar no banco
+            var result = await UpdateAsync(family);
+
+            Debug.WriteLine($"✅ [FAMILY_REPO] Favorite toggled successfully for: {family.Name}");
+            return result;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_REPO] ToggleFavorite failed: {ex.Message}");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Obtém estatísticas das famílias
+    /// </summary>
+    public async Task<FamilyStatistics> GetFamilyStatisticsAsync()
+    {
+        try
+        {
+            var families = await GetAllAsync(true);
+
+            return new FamilyStatistics
+            {
+                TotalCount = families.Count,
+                ActiveCount = families.Count(f => f.IsActive),
+                InactiveCount = families.Count(f => !f.IsActive),
+                SystemDefaultCount = families.Count(f => f.IsSystemDefault),
+                UserCreatedCount = families.Count(f => !f.IsSystemDefault),
+                LastRefreshTime = _lastCacheUpdate ?? DateTime.UtcNow
+            };
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_REPO] GetFamilyStatisticsAsync error: {ex.Message}");
+            return new FamilyStatistics();
+        }
+    }
+
+    #endregion
+
+    #region Connection and Maintenance
 
     /// <summary>
     /// Testa conectividade
@@ -262,33 +343,18 @@ public class FamilyRepository : IFamilyRepository
     {
         try
         {
-            return await _familyService.TestConnectionAsync();
+            // ✅ CORREÇÃO: Usar método correto do SupabaseService
+            return await _supabaseService.TestSyncConnectionAsync();
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILY_REPO] Connection test error: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILY_REPO] Connection test failed: {ex.Message}");
             return false;
         }
     }
 
     /// <summary>
-    /// Refresh cache async
-    /// </summary>
-    public async Task RefreshCacheAsync()
-    {
-        await _semaphore.WaitAsync();
-        try
-        {
-            await RefreshCacheInternalAsync();
-        }
-        finally
-        {
-            _semaphore.Release();
-        }
-    }
-
-    /// <summary>
-    /// Refresh all data with operation result
+    /// ✅ NOVO: Refresh all data with operation result
     /// </summary>
     public async Task<OperationResult> RefreshAllDataAsync()
     {
@@ -339,7 +405,7 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Get cache information
+    /// ✅ NOVO: Get cache information
     /// </summary>
     public string GetCacheInfo()
     {
@@ -359,7 +425,7 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Invalidate cache externally
+    /// ✅ NOVO: Invalidate cache externally
     /// </summary>
     public void InvalidateCacheExternal()
     {
@@ -374,9 +440,9 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Get statistics with base interface implementation
+    /// Obtém estatísticas gerais (implementação da interface base)
     /// </summary>
-    async Task<BaseStatistics> IBaseRepository<Family>.GetStatisticsAsync()
+    public async Task<BaseStatistics> GetStatisticsAsync()
     {
         var familyStats = await GetFamilyStatisticsAsync();
 
@@ -392,69 +458,16 @@ public class FamilyRepository : IFamilyRepository
         };
     }
 
-    #endregion
-
-    #region IFamilyRepository Specific Implementation
-
     /// <summary>
-    /// Verifica se nome já existe
+    /// Força refresh do cache
     /// </summary>
-    public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
+    public async Task RefreshCacheAsync()
     {
-        try
-        {
-            var isConnected = await TestConnectionAsync();
-            if (isConnected)
-            {
-                return await _familyService.NameExistsAsync(name, excludeId);
-            }
-            else
-            {
-                Debug.WriteLine("📡 [FAMILY_REPO] Offline - checking name in cache");
-                var cachedFamilies = GetFromCache(true);
-
-                var exists = cachedFamilies.Any(f =>
-                    string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase) &&
-                    f.Id != excludeId);
-
-                Debug.WriteLine($"💾 [FAMILY_REPO] Cache name check for '{name}': {exists}");
-                return exists;
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_REPO] NameExists error: {ex.Message}");
-
-            var cachedFamilies = GetFromCache(true);
-            return cachedFamilies.Any(f =>
-                string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase) &&
-                f.Id != excludeId);
-        }
-    }
-
-    /// <summary>
-    /// Toggle favorite status
-    /// </summary>
-    public async Task<Family> ToggleFavoriteAsync(Guid familyId)
-    {
-        var isConnected = await TestConnectionAsync();
-        if (!isConnected)
-        {
-            throw new InvalidOperationException("Cannot toggle favorite - no internet connection available");
-        }
-
         await _semaphore.WaitAsync();
         try
         {
-            Debug.WriteLine($"⭐ [FAMILY_REPO] Toggling favorite for family: {familyId}");
-
-            var updatedFamily = await _familyService.ToggleFavoriteAsync(familyId);
-
-            // Invalidar cache
-            InvalidateCache();
-
-            Debug.WriteLine($"✅ [FAMILY_REPO] Favorite toggled and cache invalidated: {updatedFamily.Name} -> {updatedFamily.IsFavorite}");
-            return updatedFamily;
+            Debug.WriteLine("🔄 [FAMILY_REPO] Force cache refresh requested");
+            await RefreshCacheInternalAsync();
         }
         finally
         {
@@ -463,48 +476,13 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Get family statistics (specific method)
+    /// Obtém status do cache
     /// </summary>
-    public async Task<FamilyStatistics> GetFamilyStatisticsAsync()
+    public (bool IsValid, DateTime? LastUpdate, int ItemCount) GetCacheStatus()
     {
-        try
+        lock (_cacheLock)
         {
-            var isConnected = await TestConnectionAsync();
-            if (isConnected)
-            {
-                var serviceStats = await _familyService.GetStatisticsAsync();
-
-                // Converte para FamilyStatistics
-                return new FamilyStatistics
-                {
-                    TotalCount = serviceStats.TotalCount,
-                    ActiveCount = serviceStats.ActiveCount,
-                    InactiveCount = serviceStats.InactiveCount,
-                    SystemDefaultCount = serviceStats.SystemDefaultCount,
-                    UserCreatedCount = serviceStats.UserCreatedCount,
-                    LastRefreshTime = serviceStats.LastRefreshTime
-                };
-            }
-            else
-            {
-                Debug.WriteLine("📡 [FAMILY_REPO] Offline - calculating stats from cache");
-                var cachedFamilies = GetFromCache(true);
-
-                return new FamilyStatistics
-                {
-                    TotalCount = cachedFamilies.Count,
-                    ActiveCount = cachedFamilies.Count(f => f.IsActive),
-                    InactiveCount = cachedFamilies.Count(f => !f.IsActive),
-                    SystemDefaultCount = cachedFamilies.Count(f => f.IsSystemDefault),
-                    UserCreatedCount = cachedFamilies.Count(f => !f.IsSystemDefault),
-                    LastRefreshTime = _lastCacheUpdate ?? DateTime.UtcNow
-                };
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_REPO] GetFamilyStatisticsAsync error: {ex.Message}");
-            return new FamilyStatistics();
+            return (IsCacheValid(), _lastCacheUpdate, _cache.Count);
         }
     }
 

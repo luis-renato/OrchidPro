@@ -282,7 +282,6 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
                 Description = Description,
                 IsActive = IsActive,
                 IsFavorite = IsFavorite,
-                IsSystemDefault = IsSystemDefault,
                 UserId = Guid.NewGuid(), // TODO: Get from auth service
                 CreatedAt = IsEditMode ? CreatedAt : DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow

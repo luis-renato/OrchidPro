@@ -82,7 +82,7 @@
                             <Label Text="{Binding ConnectionStatus}"
                                    FontSize="10"
                                    FontAttributes="Bold"
-                                   TextColor="White" />
+                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}" />
                         </Border>
                     </Grid>
                 </Border>
@@ -186,12 +186,12 @@
                                                      RefreshCommand="{Binding RefreshCommand}">
                         <sfpulltorefresh:SfPullToRefresh.PullableContent>
 
-                            <!-- ListView com cor de seleção mais clara e espaço no topo -->
+                            <!-- ✅ CORRIGIDO: ListView com cores do ResourceDictionary -->
                             <sflistview:SfListView x:Name="FamilyListView"
                                                ItemsSource="{Binding Items}"
                                                SelectionMode="Multiple"
                                                SelectionGesture="LongPress"
-                                               SelectionBackground="#E8D5C4"
+                                               SelectionBackground="{AppThemeBinding Light=#E8D5C4, Dark=#4A3A30}"
                                                ItemTapped="OnItemTapped"
                                                ItemLongPress="OnItemLongPress"
                                                SelectionChanged="OnSelectionChanged"
@@ -207,29 +207,30 @@
                                                SwipeOffset="90"
                                                SwipeThreshold="90">
 
-                                <!-- Swipe templates -->
+                                <!-- ✅ CORRIGIDO: StartSwipeTemplate - usar WarningColor -->
                                 <sflistview:SfListView.StartSwipeTemplate>
                                     <DataTemplate>
-                                        <Grid BackgroundColor="#FF9800" 
+                                        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}" 
                                               HorizontalOptions="Fill" 
                                               VerticalOptions="Fill">
                                             <Label Text="⭐"
                                                    FontSize="32"
-                                                   TextColor="White"
+                                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
                                                    HorizontalOptions="Center"
                                                    VerticalOptions="Center" />
                                         </Grid>
                                     </DataTemplate>
                                 </sflistview:SfListView.StartSwipeTemplate>
 
+                                <!-- ✅ CORRIGIDO: EndSwipeTemplate - usar ErrorColor -->
                                 <sflistview:SfListView.EndSwipeTemplate>
                                     <DataTemplate>
-                                        <Grid BackgroundColor="#F44336" 
+                                        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource ErrorColor}, Dark={StaticResource ErrorColor}}" 
                                               HorizontalOptions="Fill" 
                                               VerticalOptions="Fill">
                                             <Label Text="🗑️"
                                                    FontSize="32"
-                                                   TextColor="White"
+                                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
                                                    HorizontalOptions="Center"
                                                    VerticalOptions="Center" />
                                         </Grid>
@@ -277,7 +278,7 @@
                                                             <Label Text="{Binding IsActive, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Active|Inactive'}"
                                                                FontSize="11"
                                                                FontAttributes="Bold"
-                                                               TextColor="White" />
+                                                               TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}" />
                                                         </Border>
                                                     </Grid>
 
@@ -322,7 +323,7 @@
 
                                         <Button Text="Add Family"
                                             BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                            TextColor="White"
+                                            TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
                                             FontSize="16"
                                             FontAttributes="Bold"
                                             CornerRadius="25"
@@ -354,14 +355,14 @@
                                    WidthRequest="40"
                                    HeightRequest="40" />
                 <Label Text="Loading families..."
-                       TextColor="White"
+                       TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
                        FontSize="14"
                        FontAttributes="Bold"
                        HorizontalOptions="Center" />
             </VerticalStackLayout>
         </Grid>
 
-        <!-- ✅ FAB COM BUTTON NORMAL IGUAL SEU CÓDIGO -->
+        <!-- ✅ FAB COM BUTTON NORMAL USANDO CORES DO RESOURCE -->
         <Button x:Name="FabButton"
                 Text="{Binding FabText, FallbackValue='Add Family'}"
                 FontSize="14"
@@ -377,7 +378,7 @@
                 Scale="0.9"
                 Clicked="OnFabPressed"
                 BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                TextColor="White" />
+                TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}" />
 
     </Grid>
 

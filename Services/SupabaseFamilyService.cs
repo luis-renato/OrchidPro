@@ -7,7 +7,7 @@ using Supabase.Postgrest.Models;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// ✅ CORRIGIDO: Model Supabase com todos os campos da tabela families
+/// ✅ ATUALIZADO: Model Supabase sem is_system_default
 /// </summary>
 [Table("families")]
 public class SupabaseFamily : BaseModel
@@ -24,13 +24,14 @@ public class SupabaseFamily : BaseModel
     [Column("description")]
     public string? Description { get; set; }
 
-    [Column("is_system_default")]
-    public bool? IsSystemDefault { get; set; } = false;
+    /// <summary>
+    /// ✅ REMOVIDO: is_system_default não existe mais no schema
+    /// </summary>
 
     [Column("is_active")]
     public bool? IsActive { get; set; } = true;
 
-    [Column("is_favorite")] // ✅ NOVO: Campo favorito
+    [Column("is_favorite")]
     public bool? IsFavorite { get; set; } = false;
 
     [Column("created_at")]
@@ -40,7 +41,7 @@ public class SupabaseFamily : BaseModel
     public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// ✅ CORRIGIDO: Converte SupabaseFamily para Family
+    /// ✅ ATUALIZADO: Converte SupabaseFamily para Family
     /// </summary>
     public Family ToFamily()
     {
@@ -50,7 +51,7 @@ public class SupabaseFamily : BaseModel
             UserId = this.UserId,
             Name = this.Name ?? string.Empty,
             Description = this.Description,
-            IsSystemDefault = this.IsSystemDefault ?? false,
+            // ✅ REMOVIDO: IsSystemDefault não é mais setado (é computed property baseado em UserId)
             IsActive = this.IsActive ?? true,
             IsFavorite = this.IsFavorite ?? false,
             CreatedAt = this.CreatedAt ?? DateTime.UtcNow,
@@ -59,7 +60,7 @@ public class SupabaseFamily : BaseModel
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Converte Family para SupabaseFamily
+    /// ✅ ATUALIZADO: Converte Family para SupabaseFamily
     /// </summary>
     public static SupabaseFamily FromFamily(Family family)
     {
@@ -69,7 +70,7 @@ public class SupabaseFamily : BaseModel
             UserId = family.UserId,
             Name = family.Name,
             Description = family.Description,
-            IsSystemDefault = family.IsSystemDefault,
+            // ✅ REMOVIDO: IsSystemDefault não é mais enviado para o banco
             IsActive = family.IsActive,
             IsFavorite = family.IsFavorite,
             CreatedAt = family.CreatedAt,
@@ -79,7 +80,7 @@ public class SupabaseFamily : BaseModel
 }
 
 /// <summary>
-/// ✅ CORRIGIDO: Serviço Supabase com logs detalhados e correção para UUID
+/// ✅ ATUALIZADO: Serviço Supabase sem referências a IsSystemDefault
 /// </summary>
 public class SupabaseFamilyService
 {
@@ -91,7 +92,7 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Busca todas as famílias com logs detalhados
+    /// ✅ ATUALIZADO: Busca todas as famílias (sistema identificado por UserId null)
     /// </summary>
     public async Task<List<Family>> GetAllAsync()
     {
@@ -108,216 +109,155 @@ public class SupabaseFamilyService
             var currentUserIdString = _supabaseService.GetCurrentUserId();
             Debug.WriteLine($"📥 [FAMILY_SERVICE] Current user ID: '{currentUserIdString}'");
 
-            // ✅ CORREÇÃO PRINCIPAL: Validar e converter userId corretamente
+            // ✅ CORREÇÃO: Validar e converter userId corretamente
             Guid? currentUserId = null;
-
-            if (!string.IsNullOrEmpty(currentUserIdString) && !string.IsNullOrWhiteSpace(currentUserIdString))
+            if (Guid.TryParse(currentUserIdString, out Guid parsedUserId))
             {
-                if (Guid.TryParse(currentUserIdString, out var parsedGuid) && parsedGuid != Guid.Empty)
-                {
-                    currentUserId = parsedGuid;
-                    Debug.WriteLine($"✅ [FAMILY_SERVICE] Parsed user ID: {currentUserId}");
-                }
-                else
-                {
-                    Debug.WriteLine($"❌ [FAMILY_SERVICE] Invalid user ID format: '{currentUserIdString}'");
-                    // ✅ CORREÇÃO: Em vez de retornar vazio, usar mock data para testes
-                    Debug.WriteLine("🧪 [FAMILY_SERVICE] Returning mock data for testing");
-                    return GetMockFamilies();
-                }
+                currentUserId = parsedUserId;
+                Debug.WriteLine($"✅ [FAMILY_SERVICE] Parsed user ID: {currentUserId}");
             }
             else
             {
-                Debug.WriteLine("❌ [FAMILY_SERVICE] User ID is null or empty - using mock data");
-                return GetMockFamilies();
+                Debug.WriteLine($"⚠️ [FAMILY_SERVICE] Could not parse user ID, will only get system families");
             }
 
-            // ✅ CORREÇÃO: Buscar todas as famílias e filtrar no cliente
-            Debug.WriteLine("🔍 [FAMILY_SERVICE] Executing Supabase query...");
-
-            var response = await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Select("*")
-                .Get();
-
-            Debug.WriteLine($"📊 [FAMILY_SERVICE] Supabase response received");
-            Debug.WriteLine($"📊 [FAMILY_SERVICE] Response is null: {response == null}");
-            Debug.WriteLine($"📊 [FAMILY_SERVICE] Models is null: {response?.Models == null}");
-            Debug.WriteLine($"📊 [FAMILY_SERVICE] Models count: {response?.Models?.Count() ?? 0}");
-
-            if (response?.Models == null || !response.Models.Any())
+            if (currentUserId.HasValue)
             {
-                Debug.WriteLine("📝 [FAMILY_SERVICE] No families found in database - returning mock data");
-                return GetMockFamilies();
+                // ✅ CORREÇÃO: Query simples - buscar todos e filtrar no cliente
+                var response = await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Select("*")
+                    .Get();
+
+                Debug.WriteLine($"🔍 [FAMILY_SERVICE] Querying all families");
+
+                if (response?.Models == null || !response.Models.Any())
+                {
+                    Debug.WriteLine("📝 [FAMILY_SERVICE] No families found in database - returning mock data");
+                    return GetMockFamilies();
+                }
+
+                // ✅ Filtrar no cliente: famílias do usuário OU system defaults (UserId == null)
+                var filteredFamilies = response.Models.Where(sf =>
+                    sf.UserId == currentUserId || sf.UserId == null
+                ).ToList();
+
+                Debug.WriteLine($"✅ [FAMILY_SERVICE] Found {response.Models.Count()} total families in database");
+                Debug.WriteLine($"✅ [FAMILY_SERVICE] Filtered to {filteredFamilies.Count} families for user");
+
+                var families = filteredFamilies
+                    .Select(sf => sf.ToFamily())
+                    .OrderBy(f => f.Name)
+                    .ToList();
+
+                Debug.WriteLine($"✅ [FAMILY_SERVICE] Final result: {families.Count} families");
+
+                // ✅ DIAGNÓSTICO: Log detalhado das famílias
+                foreach (var family in families.Take(3))
+                {
+                    Debug.WriteLine($"  - Family: {family.Name} (ID: {family.Id}, Active: {family.IsActive}, Favorite: {family.IsFavorite}, System: {family.IsSystemDefault})");
+                }
+
+                return families;
             }
-
-            // ✅ Filtrar no cliente: famílias do usuário OU system defaults
-            var filteredFamilies = response.Models.Where(sf =>
-                sf.UserId == currentUserId || sf.UserId == null
-            ).ToList();
-
-            Debug.WriteLine($"✅ [FAMILY_SERVICE] Found {response.Models.Count()} total families in database");
-            Debug.WriteLine($"✅ [FAMILY_SERVICE] Filtered to {filteredFamilies.Count} families for user");
-
-            var families = filteredFamilies
-                .Select(sf => sf.ToFamily())
-                .OrderBy(f => f.Name)
-                .ToList();
-
-            Debug.WriteLine($"✅ [FAMILY_SERVICE] Final result: {families.Count} families");
-
-            // ✅ DIAGNÓSTICO: Log detalhado das famílias
-            foreach (var family in families.Take(3))
+            else
             {
-                Debug.WriteLine($"  - Family: {family.Name} (ID: {family.Id}, Active: {family.IsActive}, Favorite: {family.IsFavorite})");
-            }
+                // Só famílias do sistema se não há usuário autenticado
+                var response = await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Select("*")
+                    .Where(f => f.UserId == null)
+                    .Get();
 
-            return families;
+                Debug.WriteLine($"🔍 [FAMILY_SERVICE] Querying only system families (no authenticated user)");
+
+                if (response?.Models == null || !response.Models.Any())
+                {
+                    Debug.WriteLine("📝 [FAMILY_SERVICE] No families found in database - returning mock data");
+                    return GetMockFamilies();
+                }
+
+                var families = response.Models
+                    .Select(sf => sf.ToFamily())
+                    .OrderBy(f => f.Name)
+                    .ToList();
+
+                Debug.WriteLine($"✅ [FAMILY_SERVICE] Final result: {families.Count} families");
+
+                // ✅ DIAGNÓSTICO: Log detalhado das famílias  
+                foreach (var family in families.Take(3))
+                {
+                    Debug.WriteLine($"  - Family: {family.Name} (ID: {family.Id}, Active: {family.IsActive}, Favorite: {family.IsFavorite}, System: {family.IsSystemDefault})");
+                }
+
+                return families;
+            }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILY_SERVICE] GetAllAsync failed: {ex.Message}");
             Debug.WriteLine($"❌ [FAMILY_SERVICE] Stack trace: {ex.StackTrace}");
 
-            // ✅ CORREÇÃO: Em caso de erro, retornar mock data em vez de exception
             Debug.WriteLine("🆘 [FAMILY_SERVICE] Returning mock data due to error");
             return GetMockFamilies();
         }
     }
 
     /// <summary>
-    /// ✅ NOVO: Mock data para testes quando não há conexão ou dados
+    /// ✅ ATUALIZADO: Mock families sem IsSystemDefault explícito
     /// </summary>
     private List<Family> GetMockFamilies()
     {
         try
         {
-            Debug.WriteLine("🧪 [FAMILY_SERVICE] Generating mock families for testing");
+            Debug.WriteLine("🎭 [FAMILY_SERVICE] Creating mock families for offline/fallback");
 
-            var mockFamilies = new List<Family>
+            return new List<Family>
             {
                 new Family
                 {
-                    Id = Guid.NewGuid(),
+                    Id = Guid.Parse("11111111-1111-1111-1111-111111111111"),
+                    UserId = null, // ✅ Sistema identificado por UserId null
                     Name = "Orchidaceae",
-                    Description = "The orchid family - largest family of flowering plants with over 25,000 species",
-                    IsSystemDefault = true,
+                    Description = "The orchid family - largest family of flowering plants",
                     IsActive = true,
-                    IsFavorite = true,
-                    UserId = null,
+                    IsFavorite = false,
                     CreatedAt = DateTime.UtcNow.AddDays(-30),
-                    UpdatedAt = DateTime.UtcNow.AddDays(-5)
-                },
-                new Family
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "Bromeliaceae",
-                    Description = "Bromeliad family including pineapples and air plants",
-                    IsSystemDefault = true,
-                    IsActive = true,
-                    IsFavorite = false,
-                    UserId = null,
-                    CreatedAt = DateTime.UtcNow.AddDays(-25),
-                    UpdatedAt = DateTime.UtcNow.AddDays(-3)
-                },
-                new Family
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "Araceae",
-                    Description = "Aroid family including anthuriums and philodendrons",
-                    IsSystemDefault = true,
-                    IsActive = true,
-                    IsFavorite = false,
-                    UserId = null,
-                    CreatedAt = DateTime.UtcNow.AddDays(-20),
-                    UpdatedAt = DateTime.UtcNow.AddDays(-2)
-                },
-                new Family
-                {
-                    Id = Guid.NewGuid(),
-                    Name = "Cactaceae",
-                    Description = "Cactus family adapted to arid environments",
-                    IsSystemDefault = true,
-                    IsActive = true,
-                    IsFavorite = true,
-                    UserId = null,
-                    CreatedAt = DateTime.UtcNow.AddDays(-15),
                     UpdatedAt = DateTime.UtcNow.AddDays(-1)
                 },
                 new Family
                 {
-                    Id = Guid.NewGuid(),
-                    Name = "Gesneriaceae",
-                    Description = "African violet family with beautiful flowers",
-                    IsSystemDefault = false,
+                    Id = Guid.Parse("22222222-2222-2222-2222-222222222222"),
+                    UserId = null, // ✅ Sistema identificado por UserId null
+                    Name = "Rosaceae",
+                    Description = "The rose family including roses, apples, and many fruit trees",
                     IsActive = true,
                     IsFavorite = false,
-                    UserId = Guid.NewGuid(),
-                    CreatedAt = DateTime.UtcNow.AddDays(-10),
-                    UpdatedAt = DateTime.UtcNow
+                    CreatedAt = DateTime.UtcNow.AddDays(-25),
+                    UpdatedAt = DateTime.UtcNow.AddDays(-2)
+                },
+                new Family
+                {
+                    Id = Guid.Parse("33333333-3333-3333-3333-333333333333"),
+                    UserId = null, // ✅ Sistema identificado por UserId null
+                    Name = "Asteraceae",
+                    Description = "The sunflower family - one of the largest plant families",
+                    IsActive = true,
+                    IsFavorite = false,
+                    CreatedAt = DateTime.UtcNow.AddDays(-20),
+                    UpdatedAt = DateTime.UtcNow.AddDays(-3)
                 }
             };
-
-            Debug.WriteLine($"✅ [FAMILY_SERVICE] Generated {mockFamilies.Count} mock families");
-            return mockFamilies;
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] Error generating mock families: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILY_SERVICE] GetMockFamilies failed: {ex.Message}");
             return new List<Family>();
         }
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Busca famílias com filtros e logs detalhados
-    /// </summary>
-    public async Task<List<Family>> GetFilteredAsync(string? searchText = null, bool? isActive = null)
-    {
-        try
-        {
-            Debug.WriteLine($"🔍 [FAMILY_SERVICE] GetFilteredAsync - Search: '{searchText}', Active: {isActive}");
-
-            // ✅ CORREÇÃO: Usar GetAllAsync como base para evitar duplicação de lógica
-            var allFamilies = await GetAllAsync();
-
-            Debug.WriteLine($"📊 [FAMILY_SERVICE] Retrieved {allFamilies.Count} families from GetAllAsync");
-
-            var filteredFamilies = allFamilies.AsEnumerable();
-
-            // Aplicar filtro de texto
-            if (!string.IsNullOrEmpty(searchText))
-            {
-                var searchLower = searchText.ToLowerInvariant();
-                filteredFamilies = filteredFamilies.Where(f =>
-                    f.Name.ToLowerInvariant().Contains(searchLower) ||
-                    (!string.IsNullOrEmpty(f.Description) && f.Description.ToLowerInvariant().Contains(searchLower))
-                );
-                Debug.WriteLine($"🔍 [FAMILY_SERVICE] Applied text filter: '{searchText}'");
-            }
-
-            // Aplicar filtro de status
-            if (isActive.HasValue)
-            {
-                filteredFamilies = filteredFamilies.Where(f => f.IsActive == isActive.Value);
-                Debug.WriteLine($"🏷️ [FAMILY_SERVICE] Applied status filter: {isActive.Value}");
-            }
-
-            var result = filteredFamilies.OrderBy(f => f.Name).ToList();
-
-            Debug.WriteLine($"✅ [FAMILY_SERVICE] Filtered query returned {result.Count} families");
-
-            return result;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] GetFilteredAsync failed: {ex.Message}");
-            // Return mock data em caso de erro
-            return GetMockFamilies();
-        }
-    }
-
-    /// <summary>
-    /// ✅ CORRIGIDO: Cria nova família com validação UUID
+    /// ✅ Cria nova família
     /// </summary>
     public async Task<Family> CreateAsync(Family family)
     {
@@ -325,32 +265,7 @@ public class SupabaseFamilyService
         {
             Debug.WriteLine($"➕ [FAMILY_SERVICE] Creating family: {family.Name}");
 
-            var currentUserIdString = _supabaseService.GetCurrentUserId();
-
-            // ✅ CORREÇÃO: Validar UUID antes de criar
-            if (!string.IsNullOrEmpty(currentUserIdString) && !string.IsNullOrWhiteSpace(currentUserIdString))
-            {
-                if (Guid.TryParse(currentUserIdString, out var parsedGuid) && parsedGuid != Guid.Empty)
-                {
-                    family.UserId = parsedGuid;
-                    Debug.WriteLine($"✅ [FAMILY_SERVICE] Assigned user ID: {family.UserId}");
-                }
-                else
-                {
-                    Debug.WriteLine($"❌ [FAMILY_SERVICE] Invalid user ID for creation: '{currentUserIdString}'");
-                    throw new InvalidOperationException("Invalid user ID - cannot create family");
-                }
-            }
-            else
-            {
-                // Para system defaults, usar null
-                family.UserId = null;
-                Debug.WriteLine("✅ [FAMILY_SERVICE] Creating system default family (no user ID)");
-            }
-
-            family.CreatedAt = DateTime.UtcNow;
             family.UpdatedAt = DateTime.UtcNow;
-
             var supabaseFamily = SupabaseFamily.FromFamily(family);
 
             var response = await _supabaseService.Client
@@ -371,7 +286,7 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Atualiza família existente
+    /// ✅ Atualiza família existente
     /// </summary>
     public async Task<Family> UpdateAsync(Family family)
     {
@@ -399,7 +314,7 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Deleta família
+    /// ✅ Deleta família
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
@@ -424,7 +339,7 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Busca família por ID
+    /// ✅ Busca família por ID
     /// </summary>
     public async Task<Family?> GetByIdAsync(Guid id)
     {
@@ -453,14 +368,13 @@ public class SupabaseFamilyService
         {
             Debug.WriteLine($"❌ [FAMILY_SERVICE] GetByIdAsync failed: {ex.Message}");
 
-            // ✅ CORREÇÃO: Tentar buscar nos mock data
             var mockFamilies = GetMockFamilies();
             return mockFamilies.FirstOrDefault(f => f.Id == id);
         }
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Verifica se nome já existe
+    /// ✅ Verifica se nome já existe
     /// </summary>
     public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
     {
@@ -468,7 +382,6 @@ public class SupabaseFamilyService
         {
             Debug.WriteLine($"🔍 [FAMILY_SERVICE] Checking if name exists: '{name}', exclude: {excludeId}");
 
-            // ✅ CORREÇÃO: Usar GetAllAsync para consistência
             var allFamilies = await GetAllAsync();
 
             var exists = allFamilies.Any(f =>
@@ -486,7 +399,7 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Toggle favorite
+    /// ✅ Toggle favorite
     /// </summary>
     public async Task<Family> ToggleFavoriteAsync(Guid familyId)
     {
@@ -494,7 +407,6 @@ public class SupabaseFamilyService
         {
             Debug.WriteLine($"⭐ [FAMILY_SERVICE] Toggling favorite for family: {familyId}");
 
-            // Buscar família atual
             var response = await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Select("*")
@@ -506,20 +418,18 @@ public class SupabaseFamilyService
                 throw new InvalidOperationException($"Family {familyId} not found");
             }
 
-            // Toggle do status favorito
             var updatedFamily = new SupabaseFamily
             {
                 Id = familyId,
                 UserId = response.UserId,
                 Name = response.Name,
                 Description = response.Description,
-                IsSystemDefault = response.IsSystemDefault ?? false,
+                // ✅ REMOVIDO: IsSystemDefault não é mais enviado
                 IsActive = response.IsActive ?? true,
                 IsFavorite = !(response.IsFavorite ?? false), // ✅ TOGGLE
                 UpdatedAt = DateTime.UtcNow
             };
 
-            // Update no banco
             await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Where(f => f.Id == familyId)
@@ -527,7 +437,6 @@ public class SupabaseFamilyService
 
             Debug.WriteLine($"✅ [FAMILY_SERVICE] Family {familyId} favorite status: {updatedFamily.IsFavorite}");
 
-            // Buscar dados atualizados
             var updatedResponse = await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Select("*")
@@ -544,7 +453,7 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// ✅ NOVO: Teste de conectividade
+    /// ✅ Teste de conectividade
     /// </summary>
     public async Task<bool> TestConnectionAsync()
     {
@@ -558,7 +467,6 @@ public class SupabaseFamilyService
                 return false;
             }
 
-            // Query simples para testar conectividade
             var response = await _supabaseService.Client
                 .From<SupabaseFamily>()
                 .Select("id")
@@ -576,7 +484,7 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
-    /// ✅ NOVO: Busca estatísticas das famílias
+    /// ✅ ATUALIZADO: Estatísticas sem IsSystemDefault
     /// </summary>
     public async Task<FamilyStatistics> GetStatisticsAsync()
     {
@@ -584,7 +492,6 @@ public class SupabaseFamilyService
         {
             Debug.WriteLine("📊 [FAMILY_SERVICE] Getting family statistics...");
 
-            // ✅ CORREÇÃO: Usar GetAllAsync para consistência
             var families = await GetAllAsync();
 
             var statistics = new FamilyStatistics
@@ -592,12 +499,12 @@ public class SupabaseFamilyService
                 TotalCount = families.Count,
                 ActiveCount = families.Count(f => f.IsActive),
                 InactiveCount = families.Count(f => !f.IsActive),
-                SystemDefaultCount = families.Count(f => f.IsSystemDefault),
+                SystemDefaultCount = families.Count(f => f.IsSystemDefault), // ✅ Computed property baseado em UserId
                 UserCreatedCount = families.Count(f => !f.IsSystemDefault),
                 LastRefreshTime = DateTime.UtcNow
             };
 
-            Debug.WriteLine($"📊 [FAMILY_SERVICE] Statistics: {statistics.TotalCount} total, {statistics.ActiveCount} active");
+            Debug.WriteLine($"📊 [FAMILY_SERVICE] Statistics: {statistics.TotalCount} total, {statistics.ActiveCount} active, {statistics.SystemDefaultCount} system");
 
             return statistics;
         }

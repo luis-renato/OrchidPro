@@ -94,15 +94,13 @@ public static class MauiProgram
     /// </summary>
     private static void RegisterRoutes()
     {
-        // Family management routes
-        Routing.RegisterRoute("families", typeof(FamiliesListPage));
+        // ✅ CORREÇÃO: Remover rota duplicada - só manter uma
         Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
-        Routing.RegisterRoute("familydetails", typeof(FamilyEditPage));
 
         // ✅ CORRIGIDO: Testing and debug routes with proper DI
         Routing.RegisterRoute("testsync", typeof(TestSyncPage));
 
-        // Routes
+        // ✅ Main families route
         Routing.RegisterRoute("families-syncfusion", typeof(FamiliesListSyncfusionPage));
 
         // Future routes for other modules

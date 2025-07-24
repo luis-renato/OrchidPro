@@ -148,7 +148,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     #region ✅ FAB VISUAL UPDATES - CORRIGIDO PARA BUTTON
 
     /// <summary>
-    /// ✅ CORRIGIDO: Atualizar visual do FAB (Button nativo)
+    /// ✅ CORRIGIDO: Atualizar visual do FAB usando cores do ResourceDictionary
     /// </summary>
     private void UpdateFabVisual()
     {
@@ -164,22 +164,33 @@ public partial class FamiliesListSyncfusionPage : ContentPage
 
                 if (selectedCount > 0)
                 {
-                    // Modo Delete - vermelho com quantidade
-                    FabButton.BackgroundColor = Color.FromArgb("#D32F2F");
+                    // ✅ CORREÇÃO: Modo Delete - usar ErrorColor do ResourceDictionary
+                    var errorColor = Application.Current?.Resources.TryGetValue("ErrorColor", out var error) == true
+                        ? (Color)error
+                        : Color.FromArgb("#D32F2F"); // Fallback
+
+                    FabButton.BackgroundColor = errorColor;
                     FabButton.Text = $"Delete ({selectedCount})";
                     Debug.WriteLine($"🔴 [FAB_VISUAL] Set to DELETE mode: Delete ({selectedCount})");
                 }
                 else if (_viewModel?.IsMultiSelectMode == true)
                 {
-                    // Modo Cancel - cinza
-                    FabButton.BackgroundColor = Color.FromArgb("#757575");
+                    // ✅ CORREÇÃO: Modo Cancel - usar Gray500 do ResourceDictionary
+                    var grayColor = Application.Current?.Resources.TryGetValue("Gray500", out var gray) == true
+                        ? (Color)gray
+                        : Color.FromArgb("#757575"); // Fallback
+
+                    FabButton.BackgroundColor = grayColor;
                     FabButton.Text = "Cancel";
                     Debug.WriteLine($"⚫ [FAB_VISUAL] Set to CANCEL mode");
                 }
                 else
                 {
-                    // Modo Add - cores padrão do app
-                    var primaryColor = Application.Current?.Resources["Primary"] as Color ?? Color.FromArgb("#A47764");
+                    // ✅ CORREÇÃO: Modo Add - usar Primary do ResourceDictionary
+                    var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
+                        ? (Color)primary
+                        : Color.FromArgb("#A47764"); // Fallback
+
                     FabButton.BackgroundColor = primaryColor;
                     FabButton.Text = "Add Family";
                     Debug.WriteLine($"🟢 [FAB_VISUAL] Set to ADD mode");
@@ -192,16 +203,19 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         {
             Debug.WriteLine($"❌ [FAB_VISUAL] Error updating FAB visual: {ex.Message}");
 
-            // ✅ FALLBACK - garantir que pelo menos o básico funcione
+            // ✅ CORREÇÃO: Fallback usando Primary do ResourceDictionary
             Device.BeginInvokeOnMainThread(() =>
             {
                 FabButton.IsVisible = true;
                 FabButton.Text = "Add Family";
-                FabButton.BackgroundColor = Color.FromArgb("#A47764");
+
+                var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
+                    ? (Color)primary
+                    : Color.FromArgb("#A47764");
+                FabButton.BackgroundColor = primaryColor;
             });
         }
     }
-
     #endregion
 
     #region ✅ TOOLBAR ITEMS HANDLERS
@@ -253,23 +267,44 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     }
 
     /// <summary>
-    /// ✅ Deselect All toolbar item handler
+    /// ✅ CORRIGIDO: Clear All - limpar seleção E filtros usando comando do ViewModel
     /// </summary>
-    private void OnDeselectAllTapped(object sender, EventArgs e)
+    private async void OnDeselectAllTapped(object sender, EventArgs e)
     {
         try
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] Deselect All toolbar tapped");
+            Debug.WriteLine($"🧹 [FAMILIES_SYNCFUSION_PAGE] Clear All toolbar tapped - will clear selections AND filters");
 
-            foreach (var item in _viewModel.Items)
+            // ✅ USAR COMANDO DO VIEWMODEL que limpa seleção + filtros
+            if (_viewModel?.ClearSelectionCommand?.CanExecute(null) == true)
             {
-                item.IsSelected = false;
+                _viewModel.ClearSelectionCommand.Execute(null);
+                Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] ClearSelectionCommand executed - filters and selection cleared");
+            }
+            else
+            {
+                // ✅ FALLBACK: Limpar manualmente se comando não estiver disponível
+                Debug.WriteLine($"⚠️ [FAMILIES_SYNCFUSION_PAGE] ClearSelectionCommand not available - doing manual clear");
+
+                // Limpar seleções
+                foreach (var item in _viewModel.Items)
+                {
+                    item.IsSelected = false;
+                }
+                _viewModel.SelectedItems.Clear();
+                FamilyListView.SelectedItems?.Clear();
+
+                // Limpar filtros
+                _viewModel.SearchText = string.Empty;
+                _viewModel.StatusFilter = "All";
+                _viewModel.SortOrder = "Name A→Z";
+
+                // Sair do modo multisseleção
+                _viewModel.IsMultiSelectMode = false;
+                FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
             }
 
-            _viewModel.SelectedItems.Clear();
-            FamilyListView.SelectedItems?.Clear();
-
-            // Force refresh all items visually
+            // ✅ FORÇAR REFRESH VISUAL
             Device.BeginInvokeOnMainThread(() =>
             {
                 for (int i = 0; i < _viewModel.Items.Count; i++)
@@ -280,13 +315,18 @@ public partial class FamiliesListSyncfusionPage : ContentPage
 
             _viewModel.UpdateFabForSelection();
             UpdateFabVisual();
+
+            // ✅ TOAST DE FEEDBACK
+            await ShowToast("🧹 Cleared selections and filters", CommunityToolkit.Maui.Core.ToastDuration.Short);
+
+            Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] Clear All completed successfully");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] Deselect All toolbar error: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] Clear All error: {ex.Message}");
+            await ShowToast($"❌ Failed to clear: {ex.Message}", CommunityToolkit.Maui.Core.ToastDuration.Short);
         }
     }
-
     #endregion
 
     #region ✅ SEARCH BAR EVENTS - ATUALIZADO
@@ -476,6 +516,9 @@ public partial class FamiliesListSyncfusionPage : ContentPage
 
     #region ✅ FAB HANDLER - SEM DUPLA CONFIRMAÇÃO
 
+    /// <summary>
+    /// ✅ CORRIGIDO: FAB handler com toast de sucesso garantido
+    /// </summary>
     private async void OnFabPressed(object sender, EventArgs e)
     {
         try
@@ -488,11 +531,11 @@ public partial class FamiliesListSyncfusionPage : ContentPage
 
             if (selectedCount > 0)
             {
-                Debug.WriteLine($"🗑️ [FAMILIES_SYNCFUSION_PAGE] Executing delete for {selectedCount} items - BYPASS CONFIRMATION");
+                Debug.WriteLine($"🗑️ [FAMILIES_SYNCFUSION_PAGE] Executing delete for {selectedCount} items");
 
                 try
                 {
-                    // ✅ USAR COMANDO EXISTENTE MAS BYPASS A CONFIRMAÇÃO
+                    // ✅ USAR COMANDO EXISTENTE
                     if (_viewModel?.DeleteSelectedCommand?.CanExecute(null) == true)
                     {
                         await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
@@ -504,12 +547,9 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                     _viewModel.IsMultiSelectMode = false;
                     FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
 
-                    // ✅ REFRESH DADOS
-                    await _viewModel.RefreshCommand.ExecuteAsync(null);
-
                     UpdateFabVisual();
 
-                    // ✅ TOAST DE SUCESSO
+                    // ✅ GARANTIR TOAST DE SUCESSO (já que removemos o alert do ViewModel)
                     await ShowToast($"✅ {selectedCount} families deleted successfully", CommunityToolkit.Maui.Core.ToastDuration.Short);
                 }
                 catch (Exception deleteEx)
@@ -550,7 +590,6 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             await ShowToast($"❌ Action failed: {ex.Message}", CommunityToolkit.Maui.Core.ToastDuration.Short);
         }
     }
-
     #endregion
 
     #region ✅ FILTER AND SORT HANDLERS - ATUALIZADO
@@ -844,7 +883,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     }
 
     /// <summary>
-    /// ✅ SwipeEnded - executar ação baseada no threshold
+    /// ✅ SwipeEnded - CORRIGIDO: executar ação com comando do ViewModel
     /// </summary>
     private async void OnSwipeEnded(object sender, Syncfusion.Maui.ListView.SwipeEndedEventArgs e)
     {
@@ -887,13 +926,24 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                         break;
                     }
 
-                    // Toggle favorite status (simulado - você implementaria a lógica real)
-                    var newFavoriteStatus = !item.IsFavorite;
-                    var message = newFavoriteStatus ? "Added to favorites!" : "Removed from favorites!";
+                    // ✅ CORREÇÃO: Capturar status ANTES do toggle para mostrar mensagem correta
+                    try
+                    {
+                        var wasAlreadyFavorite = item.IsFavorite; // ✅ Status ANTES do toggle
 
-                    await ShowToast($"⭐ {message}", ToastDuration.Short);
+                        Debug.WriteLine($"⭐ [SWIPE_ENDED] Calling ToggleFavoriteAsync for: {item.Name} (Currently: {wasAlreadyFavorite})");
+                        await _viewModel.ToggleFavoriteCommand.ExecuteAsync(item);
+                        Debug.WriteLine($"✅ [SWIPE_ENDED] ToggleFavorite completed for: {item.Name}");
 
-                    Debug.WriteLine($"✅ [SWIPE_ENDED] FAVORITE completed for: {item.Name}");
+                        // ✅ CORREÇÃO: Mostrar mensagem baseada no status ANTES do toggle
+                        var message = wasAlreadyFavorite ? "Removed from favorites" : "Added to favorites! ⭐";
+                        await ShowToast(message, ToastDuration.Short);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.WriteLine($"❌ [SWIPE_ENDED] ToggleFavorite failed: {ex.Message}");
+                        await ShowToast("Failed to update favorite status", ToastDuration.Short);
+                    }
                     break;
 
                 case "Left":
@@ -907,28 +957,23 @@ public partial class FamiliesListSyncfusionPage : ContentPage
 
                     if (item.IsSystemDefault)
                     {
-                        await ShowToast("Cannot delete system default family", ToastDuration.Short);
+                        await ShowToast("Cannot delete system default families", ToastDuration.Short);
                         break;
                     }
 
-                    Debug.WriteLine($"🗑️ [SWIPE_ENDED] Executing delete for: {item.Name} - USING EXISTING COMMAND");
-
+                    // ✅ CORREÇÃO: Usar comando do ViewModel para deletar + garantir toast
                     try
                     {
-                        // ✅ USAR COMANDO EXISTENTE
-                        if (_viewModel?.DeleteSingleItemCommand?.CanExecute(item) == true)
-                        {
-                            await _viewModel.DeleteSingleItemCommand.ExecuteAsync(item);
-                        }
+                        Debug.WriteLine($"🗑️ [SWIPE_ENDED] Calling DeleteSingleItemAsync for: {item.Name}");
+                        await _viewModel.DeleteSingleItemCommand.ExecuteAsync(item);
+                        Debug.WriteLine($"✅ [SWIPE_ENDED] Delete completed for: {item.Name}");
 
-                        // ✅ REFRESH DADOS
-                        await _viewModel.RefreshCommand.ExecuteAsync(null);
-
-                        await ShowToast("✅ Family deleted successfully", ToastDuration.Short);
+                        // ✅ GARANTIR TOAST DE SUCESSO (já que removemos o alert do ViewModel)
+                        await ShowToast($"✅ '{item.Name}' deleted successfully", ToastDuration.Short);
                     }
-                    catch (Exception deleteEx)
+                    catch (Exception ex)
                     {
-                        Debug.WriteLine($"❌ [SWIPE_ENDED] Delete failed: {deleteEx.Message}");
+                        Debug.WriteLine($"❌ [SWIPE_ENDED] Delete failed: {ex.Message}");
                         await ShowToast("❌ Failed to delete family", ToastDuration.Short);
                     }
                     break;
@@ -951,7 +996,6 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             await DisplayAlert("Error", $"Swipe action failed: {ex.Message}", "OK");
         }
     }
-
     #endregion
 
     #region ✅ UTILITY METHODS
