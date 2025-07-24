@@ -37,91 +37,48 @@
     <!-- Botanical Management Section -->
     <FlyoutItem Title="Botanical Data" Icon="plant.png">
         <Tab Title="Families">
-            <!-- ✅ ATUALIZADO: Usar FamiliesListSyncfusionPage como padrão -->
+            <!-- ✅ CORRIGIDO: Usar FamiliesListSyncfusionPage como padrão -->
             <ShellContent Title="Families" 
-                          Icon="family.png" 
-                          Route="families" 
-                          ContentTemplate="{DataTemplate pages:FamiliesListSyncfusionPage}" />
+                         Icon="family.png" 
+                         Route="families" 
+                         ContentTemplate="{DataTemplate pages:FamiliesListSyncfusionPage}" />
         </Tab>
-        <Tab Title="Genera">
+
+        <!-- Future: Genera -->
+        <Tab Title="Genera" IsEnabled="False">
             <ShellContent Title="Genera" 
-                          Icon="genus.png" 
-                          Route="genera" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
+                         Icon="genus.png" 
+                         Route="genera" />
         </Tab>
-        <Tab Title="Species">
+
+        <!-- Future: Species -->
+        <Tab Title="Species" IsEnabled="False">
             <ShellContent Title="Species" 
-                          Icon="species.png" 
-                          Route="species" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
+                         Icon="species.png" 
+                         Route="species" />
         </Tab>
     </FlyoutItem>
 
-    <!-- Plant Management Section -->
-    <FlyoutItem Title="My Plants" Icon="orchid.png">
-        <Tab Title="Orchid Collection">
-            <ShellContent Title="My Orchids" 
-                          Icon="orchid_collection.png" 
-                          Route="orchids" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
-        </Tab>
-        <Tab Title="Care Schedule">
-            <ShellContent Title="Care Schedule" 
-                          Icon="calendar.png" 
-                          Route="schedule" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
-        </Tab>
-        <Tab Title="Health Tracking">
-            <ShellContent Title="Health Status" 
-                          Icon="health.png" 
-                          Route="health" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
-        </Tab>
+    <!-- Plants Management Section -->
+    <FlyoutItem Title="My Plants" Icon="plant_collection.png" IsEnabled="False">
+        <ShellContent Route="plants" />
     </FlyoutItem>
 
-    <!-- Tools & Analytics -->
-    <FlyoutItem Title="Analytics" Icon="chart.png">
-        <Tab Title="Reports">
-            <ShellContent Title="Reports" 
-                          Icon="report.png" 
-                          Route="reports" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
-        </Tab>
-        <Tab Title="Statistics">
-            <ShellContent Title="Statistics" 
-                          Icon="stats.png" 
-                          Route="statistics" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
-        </Tab>
+    <!-- Analytics Section -->
+    <FlyoutItem Title="Analytics" Icon="analytics.png" IsEnabled="False">
+        <ShellContent Route="analytics" />
     </FlyoutItem>
 
     <!-- Settings Section -->
-    <FlyoutItem Title="Settings" Icon="settings.png">
-        <ShellContent Route="SettingsPage" ContentTemplate="{DataTemplate local:MainPage}" />
+    <FlyoutItem Title="Settings" Icon="settings.png" IsEnabled="False">
+        <ShellContent Route="settings" />
     </FlyoutItem>
 
-    <!-- Sync Status -->
-    <FlyoutItem Title="Sync Status" Icon="sync.png">
-        <ShellContent Route="SyncPage" ContentTemplate="{DataTemplate pages:TestSyncPage}" />
+    <!-- ✅ DEBUG: Test Sync Page -->
+    <FlyoutItem Title="🧪 Test Sync" Icon="debug.png" FlyoutDisplayOptions="AsMultipleItems">
+        <ShellContent Title="Test Sync" 
+                     Route="testsync" 
+                     ContentTemplate="{DataTemplate pages:TestSyncPage}" />
     </FlyoutItem>
-
-    <!-- Rodapé do menu com logout -->
-    <Shell.FlyoutFooter>
-        <Grid BackgroundColor="{StaticResource Secondary}" HeightRequest="80">
-            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="5">
-                <Button Text="Logout" 
-                        BackgroundColor="Transparent"
-                        TextColor="{StaticResource OnSecondary}"
-                        FontSize="14"
-                        Clicked="OnLogoutClicked"
-                        HorizontalOptions="Center" />
-                <Label Text="v1.0.0" 
-                       FontSize="10" 
-                       TextColor="{StaticResource OnSecondary}" 
-                       Opacity="0.6"
-                       HorizontalOptions="Center" />
-            </VerticalStackLayout>
-        </Grid>
-    </Shell.FlyoutFooter>
 
 </Shell>

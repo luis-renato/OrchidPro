@@ -1,16 +1,12 @@
 ﻿using OrchidPro.Models;
-using OrchidPro.ViewModels;
+using OrchidPro.ViewModels.Base;
 using System.Diagnostics;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamilyItemViewModel que estende o BaseItemViewModel existente
-/// - Adiciona apenas funcionalidades específicas de Family
-/// - IsSelected já existe na base
-/// - IsFavorite específico de Family
-/// - Compatível com código existente do GitHub
+/// ✅ CORRIGIDO: FamilyItemViewModel compatível com BaseItemViewModel existente
 /// </summary>
 public partial class FamilyItemViewModel : BaseItemViewModel<Family>
 {
@@ -26,8 +22,6 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
         IsFavorite = family.IsFavorite;
         Debug.WriteLine($"✅ [FAMILY_ITEM_VM] Created: {family.Name} (Favorite: {IsFavorite}, ID: {family.Id})");
     }
-
-    // ✅ CUSTOMIZAÇÕES ESPECÍFICAS DE FAMILY:
 
     /// <summary>
     /// ✅ Preview personalizado para famílias botânicas
@@ -54,7 +48,6 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
     /// ✅ Propriedades específicas de Family
     /// </summary>
     public bool IsOrchidaceae => Name.Contains("Orchidaceae", StringComparison.OrdinalIgnoreCase);
-
     public string FamilyTypeIndicator => IsOrchidaceae ? "🌺" : "🌿";
 
     /// <summary>
@@ -93,15 +86,13 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
     public new string DisplayName => $"{Name}{(IsSystemDefault ? " (System)" : "")}{(IsFavorite ? " ⭐" : "")}";
 
     /// <summary>
-    /// ✅ NOVO: Propriedades para UI binding otimizado
+    /// ✅ Propriedades para UI binding otimizado
     /// </summary>
     public string SelectionIcon => IsSelected ? "☑️" : "☐";
-    public Color SelectionColor => IsSelected ?
-        Color.FromArgb("#2196F3") :
-        Color.FromArgb("#E0E0E0");
+    public Color SelectionColor => IsSelected ? Color.FromArgb("#2196F3") : Color.FromArgb("#E0E0E0");
 
     /// <summary>
-    /// ✅ NOVO: Indicador de status visual combinado
+    /// ✅ Indicador de status visual combinado
     /// </summary>
     public string StatusIcon
     {
@@ -116,7 +107,7 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
     }
 
     /// <summary>
-    /// ✅ NOVO: Tooltip text para informações adicionais
+    /// ✅ Tooltip text para informações adicionais
     /// </summary>
     public string TooltipText
     {
@@ -140,13 +131,11 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
     /// </summary>
     public new Family ToModel()
     {
-        var family = base.ToModel();
-        // O IsFavorite já está no modelo base, mas garantimos consistência
-        return family;
+        return base.ToModel();
     }
 
     /// <summary>
-    /// ✅ NOVO: Método para comparação (útil para sorting)
+    /// ✅ Método para comparação (útil para sorting)
     /// </summary>
     public int CompareTo(FamilyItemViewModel? other)
     {
@@ -161,20 +150,10 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
     }
 
     /// <summary>
-    /// ✅ NOVO: Override ToString para debug
+    /// ✅ Override ToString para debug
     /// </summary>
     public override string ToString()
     {
         return $"FamilyItemVM: {Name} (ID: {Id}, Selected: {IsSelected}, Favorite: {IsFavorite})";
     }
-
-    // ✅ TODA A FUNCIONALIDADE ORIGINAL MANTIDA:
-    // ✅ Herança de BaseItemViewModel com todas as funcionalidades
-    // ✅ Propriedades para UI binding
-    // ✅ Status badges com cores
-    // ✅ Indicadores visuais (recent, system, etc.)
-    // ✅ Preview de descrição truncada
-    // ✅ Formatação de datas
-    // ✅ Debug e diagnóstico
-    // ✅ Compatibilidade com código existente
 }

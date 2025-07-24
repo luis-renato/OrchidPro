@@ -11,11 +11,13 @@ using CommunityToolkit.Mvvm.Input;
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ✅ MELHORADO: FamilyEditViewModel com funcionalidades completas e otimizadas
+/// ✅ CORRIGIDO: FamilyEditViewModel com navegação e validação em tempo real
 /// </summary>
-public partial class FamilyEditViewModel : BaseEditViewModel<Family>
+public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttributable
 {
     private readonly IFamilyRepository _familyRepository;
+    private Timer? _validationTimer;
+    private readonly int _validationDelay = 800; // 800ms debounce
 
     /// <summary>
     /// ✅ Propriedade IsFavorite para binding
@@ -36,33 +38,44 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
     private bool isEditMode;
 
     /// <summary>
-    /// ✅ NOVO: Validação de nome em tempo real
+    /// ✅ CORRIGIDO: Validação de nome em tempo real com debounce
     /// </summary>
     [ObservableProperty]
     private string nameValidationMessage = string.Empty;
 
     /// <summary>
-    /// ✅ NOVO: Flag para indicar se o nome é válido
+    /// ✅ CORRIGIDO: Flag para indicar se o nome é válido
     /// </summary>
     [ObservableProperty]
     private bool isNameValid = true;
 
     /// <summary>
-    /// ✅ NOVO: Propriedade para ID atual (evitar conflito com BaseEditViewModel)
+    /// ✅ CORRIGIDO: Propriedade para ID atual - remove duplicação
     /// </summary>
-    [ObservableProperty]
-    private Guid currentId = Guid.NewGuid();
+    public Guid? CurrentFamilyId => EntityId;
+
     /// <summary>
-    /// ✅ NOVO: Cor do botão de salvar baseada na validação
+    /// ✅ Cor do botão de salvar baseada na validação
     /// </summary>
     [ObservableProperty]
     private Color saveButtonColor = Colors.Green;
 
     /// <summary>
-    /// ✅ NOVO: Texto do botão de salvar dinâmico
+    /// ✅ Texto do botão de salvar dinâmico
     /// </summary>
     [ObservableProperty]
     private string saveButtonText = "Save";
+
+    /// <summary>
+    /// ✅ NOVO: Indica se está validando nome
+    /// </summary>
+    [ObservableProperty]
+    private bool isValidatingName;
+
+    /// <summary>
+    /// ✅ NOVO: Lista de famílias para validação rápida
+    /// </summary>
+    private List<Family> _allFamilies = new();
 
     public override string EntityName => "Family";
     public override string EntityNamePlural => "Families";
@@ -71,12 +84,202 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
         : base(familyRepository, navigationService)
     {
         _familyRepository = familyRepository;
-        Debug.WriteLine("✅ [FAMILY_EDIT_VM] Initialized with enhanced features");
+        Debug.WriteLine("✅ [FAMILY_EDIT_VM] Initialized with real-time validation");
 
-        // Initialize validation
+        // Initialize
         UpdateFormCompletionProgress();
         UpdateSaveButton();
+
+        // Carregar dados para validação
+        _ = LoadAllFamiliesForValidationAsync();
     }
+
+    #region ✅ CORRIGIDA: Navegação e Query Attributes
+
+    /// <summary>
+    /// ✅ CORRIGIDO: Processa parâmetros de navegação corretamente
+    /// </summary>
+    public new void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        try
+        {
+            Debug.WriteLine($"🔍 [FAMILY_EDIT_VM] ApplyQueryAttributes called with {query.Count} parameters");
+
+            // ✅ CORRIGIDO: Verificar diferentes formatos de parâmetro
+            Guid? familyId = null;
+
+            // Tentar diferentes chaves de parâmetro
+            if (query.TryGetValue("FamilyId", out var familyIdObj))
+            {
+                familyId = ConvertToGuid(familyIdObj);
+                Debug.WriteLine($"📝 [FAMILY_EDIT_VM] Found FamilyId parameter: {familyId}");
+            }
+            else if (query.TryGetValue("Id", out var idObj))
+            {
+                familyId = ConvertToGuid(idObj);
+                Debug.WriteLine($"📝 [FAMILY_EDIT_VM] Found Id parameter: {familyId}");
+            }
+
+            if (familyId.HasValue && familyId.Value != Guid.Empty)
+            {
+                EntityId = familyId;
+                IsEditMode = true;
+                Title = "Edit Family";
+                SaveButtonText = "Update";
+                Debug.WriteLine($"✅ [FAMILY_EDIT_VM] EDIT MODE for Family ID: {familyId}");
+            }
+            else
+            {
+                EntityId = null;
+                IsEditMode = false;
+                Title = "New Family";
+                SaveButtonText = "Create";
+                Debug.WriteLine($"✅ [FAMILY_EDIT_VM] CREATE MODE");
+            }
+
+            // ✅ CHAMAR O MÉTODO DA BASE TAMBÉM
+            base.ApplyQueryAttributes(query);
+
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] ApplyQueryAttributes error: {ex.Message}");
+            // Em caso de erro, assumir modo criação
+            IsEditMode = false;
+            Title = "New Family";
+        }
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Converte object para Guid de forma segura
+    /// </summary>
+    private Guid? ConvertToGuid(object obj)
+    {
+        if (obj == null) return null;
+
+        if (obj is Guid guid)
+            return guid;
+
+        if (obj is string str && Guid.TryParse(str, out var parsedGuid))
+            return parsedGuid;
+
+        Debug.WriteLine($"⚠️ [FAMILY_EDIT_VM] Cannot convert {obj} to Guid");
+        return null;
+    }
+
+    #endregion
+
+    #region ✅ CORRIGIDA: Validação de Nome em Tempo Real
+
+    /// <summary>
+    /// ✅ CORRIGIDO: Monitoring de mudanças no Name via PropertyChanged
+    /// </summary>
+    protected override void SetupValidation()
+    {
+        base.SetupValidation();
+
+        PropertyChanged += (s, e) =>
+        {
+            if (e.PropertyName == nameof(Name))
+            {
+                Debug.WriteLine($"🔤 [FAMILY_EDIT_VM] Name changed to: '{Name}'");
+
+                // Cancel previous validation timer
+                _validationTimer?.Dispose();
+
+                // Reset validation state
+                IsNameValid = true;
+                NameValidationMessage = string.Empty;
+
+                // Start new validation timer (debounce)
+                if (!string.IsNullOrWhiteSpace(Name))
+                {
+                    _validationTimer = new Timer(async _ => await ValidateNameAsync(Name),
+                                               null, _validationDelay, Timeout.Infinite);
+                }
+
+                UpdateFormCompletionProgress();
+                UpdateSaveButton();
+            }
+        };
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Carrega todas as famílias para validação rápida
+    /// </summary>
+    private async Task LoadAllFamiliesForValidationAsync()
+    {
+        try
+        {
+            _allFamilies = await _familyRepository.GetAllAsync(true);
+            Debug.WriteLine($"📋 [FAMILY_EDIT_VM] Loaded {_allFamilies.Count} families for validation");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Failed to load families for validation: {ex.Message}");
+            _allFamilies = new List<Family>();
+        }
+    }
+
+    /// <summary>
+    /// ✅ CORRIGIDO: Validação de nome em tempo real com debounce
+    /// </summary>
+    private async Task ValidateNameAsync(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                IsNameValid = true;
+                NameValidationMessage = string.Empty;
+                IsValidatingName = false;
+            });
+            return;
+        }
+
+        Device.BeginInvokeOnMainThread(() => IsValidatingName = true);
+
+        try
+        {
+            // ✅ OTIMIZAÇÃO: Usar cache local primeiro
+            var existsInCache = _allFamilies.Any(f =>
+                string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                f.Id != (CurrentFamilyId ?? Guid.Empty));
+
+            bool nameExists = existsInCache;
+
+            // ✅ FALLBACK: Se cache vazio, consultar repositório
+            if (_allFamilies.Count == 0)
+            {
+                nameExists = await _familyRepository.NameExistsAsync(name, CurrentFamilyId);
+            }
+
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                IsNameValid = !nameExists;
+                NameValidationMessage = nameExists ? $"'{name}' already exists" : string.Empty;
+                IsValidatingName = false;
+
+                UpdateSaveButton();
+
+                Debug.WriteLine($"🔍 [FAMILY_EDIT_VM] Name validation: '{name}' - Valid: {IsNameValid}");
+            });
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Name validation error: {ex.Message}");
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                IsNameValid = true; // Assume válido em caso de erro
+                NameValidationMessage = string.Empty;
+                IsValidatingName = false;
+            });
+        }
+    }
+
+    #endregion
+
+    #region ✅ Form Management
 
     /// <summary>
     /// ✅ Implementação dos métodos partial gerados pelo ObservableProperty
@@ -88,86 +291,20 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
     }
 
     /// <summary>
-    /// ✅ NOVO: Validação do nome em tempo real
-    /// </summary>
-    private void ValidateName()
-    {
-        try
-        {
-            if (string.IsNullOrWhiteSpace(Name))
-            {
-                NameValidationMessage = "Family name is required";
-                IsNameValid = false;
-            }
-            else if (Name.Length < 2)
-            {
-                NameValidationMessage = "Family name must be at least 2 characters";
-                IsNameValid = false;
-            }
-            else if (Name.Length > 255)
-            {
-                NameValidationMessage = "Family name cannot exceed 255 characters";
-                IsNameValid = false;
-            }
-            else if (!IsValidBotanicalName(Name))
-            {
-                NameValidationMessage = "Consider using a valid botanical family name (e.g., ending in -aceae)";
-                IsNameValid = true; // Warning, not error
-            }
-            else
-            {
-                NameValidationMessage = string.Empty;
-                IsNameValid = true;
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] ValidateName error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ NOVO: Atualiza o botão de salvar baseado na validação
-    /// </summary>
-    private void UpdateSaveButton()
-    {
-        try
-        {
-            if (IsEditMode)
-            {
-                SaveButtonText = "Update Family";
-                SaveButtonColor = IsNameValid ? Color.FromArgb("#4CAF50") : Color.FromArgb("#FF5722");
-            }
-            else
-            {
-                SaveButtonText = "Create Family";
-                SaveButtonColor = IsNameValid ? Color.FromArgb("#2196F3") : Color.FromArgb("#FF5722");
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] UpdateSaveButton error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ Calcula progresso de completion do formulário
+    /// ✅ Atualiza progresso do formulário
     /// </summary>
     private void UpdateFormCompletionProgress()
     {
         try
         {
-            var totalFields = 2; // Name (required) + Description (optional)
-            var completedFields = 0;
+            double progress = 0.0;
+            int totalFields = 3;
 
-            if (!string.IsNullOrWhiteSpace(Name))
-                completedFields++;
+            if (!string.IsNullOrWhiteSpace(Name)) progress += 1.0;
+            if (!string.IsNullOrWhiteSpace(Description)) progress += 1.0;
+            if (IsActive) progress += 1.0;
 
-            if (!string.IsNullOrWhiteSpace(Description))
-                completedFields++;
-
-            FormCompletionProgress = (double)completedFields / totalFields;
-
+            FormCompletionProgress = progress / totalFields;
             Debug.WriteLine($"📊 [FAMILY_EDIT_VM] Form completion: {FormCompletionProgress:P0}");
         }
         catch (Exception ex)
@@ -177,19 +314,47 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
     }
 
     /// <summary>
-    /// ✅ Verificação de mudanças não salvas
+    /// ✅ Atualiza estado do botão salvar
+    /// </summary>
+    private void UpdateSaveButton()
+    {
+        try
+        {
+            bool canSave = !string.IsNullOrWhiteSpace(Name) &&
+                          IsNameValid &&
+                          !IsValidatingName &&
+                          !IsBusy;
+
+            SaveButtonColor = canSave ? Colors.Green : Colors.Gray;
+
+            if (IsValidatingName)
+                SaveButtonText = IsEditMode ? "Validating..." : "Validating...";
+            else
+                SaveButtonText = IsEditMode ? "Update" : "Create";
+
+            Debug.WriteLine($"🔘 [FAMILY_EDIT_VM] Save button - Can save: {canSave}, Text: '{SaveButtonText}'");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] UpdateSaveButton error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// ✅ Verifica mudanças não salvas
     /// </summary>
     private void CheckForUnsavedChanges()
     {
         try
         {
-            // Usar detecção de mudanças básica para garantir que HasUnsavedChanges seja atualizado
-            var hasChanges = !string.IsNullOrWhiteSpace(Name) ||
-                           !string.IsNullOrWhiteSpace(Description) ||
-                           !IsActive ||
-                           IsFavorite;
+            // Implementar lógica de verificação de mudanças
+            bool hasChanges = !string.IsNullOrWhiteSpace(Name) ||
+                              !string.IsNullOrWhiteSpace(Description) ||
+                              !IsActive ||
+                              IsFavorite;
 
-            Debug.WriteLine($"🔄 [FAMILY_EDIT_VM] Checking for changes - Has data: {hasChanges}");
+            HasUnsavedChanges = hasChanges;
+            Debug.WriteLine($"🔄 [FAMILY_EDIT_VM] Has unsaved changes: {hasChanges}");
         }
         catch (Exception ex)
         {
@@ -198,244 +363,12 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
     }
 
     /// <summary>
-    /// ✅ NOVO: Método para carregar dados quando navegar para a página
-    /// </summary>
-    public async Task LoadDataAsync(IDictionary<string, object> query)
-    {
-        try
-        {
-            IsBusy = true;
-
-            // Verificar se tem FamilyId para edição
-            if (query.TryGetValue("FamilyId", out var familyIdObj) && familyIdObj is string familyIdStr)
-            {
-                if (Guid.TryParse(familyIdStr, out var familyId))
-                {
-                    IsEditMode = true;
-                    var family = await _repository.GetByIdAsync(familyId);
-                    if (family != null)
-                    {
-                        // Carregar dados do formulário
-                        CurrentId = family.Id;
-                        Name = family.Name;
-                        Description = family.Description;
-                        IsActive = family.IsActive;
-                        IsFavorite = family.IsFavorite;
-                        IsSystemDefault = family.IsSystemDefault;
-                        CreatedAt = family.CreatedAt;
-                        UpdatedAt = family.UpdatedAt;
-
-                        UpdateFormCompletionProgress();
-                        UpdateSaveButton();
-                        Debug.WriteLine($"✅ [FAMILY_EDIT_VM] Loaded family for editing: {family.Name}");
-                    }
-                }
-            }
-            else
-            {
-                // Novo item
-                IsEditMode = false;
-                IsFavorite = false;
-                IsActive = true;
-                Name = string.Empty;
-                Description = string.Empty;
-
-                UpdateSaveButton();
-                Debug.WriteLine($"✅ [FAMILY_EDIT_VM] Prepared for new family creation");
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] LoadDataAsync error: {ex.Message}");
-            await ShowErrorAsync("Load Error", ex.Message);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    /// <summary>
-    /// ✅ CORRIGIDO: Save command sem override
-    /// </summary>
-    [RelayCommand]
-    public async Task SaveFamilyAsync()
-    {
-        try
-        {
-            // Validação antes de salvar
-            ValidateName();
-
-            if (!IsNameValid)
-            {
-                await ShowErrorAsync("Validation Error", NameValidationMessage);
-                return;
-            }
-
-            IsBusy = true;
-
-            // Criar ou atualizar a família
-            var family = new Family
-            {
-                Id = IsEditMode ? CurrentId : Guid.NewGuid(),
-                Name = Name,
-                Description = Description,
-                IsActive = IsActive,
-                IsFavorite = IsFavorite,
-                UserId = Guid.NewGuid(), // TODO: Get from auth service
-                CreatedAt = IsEditMode ? CreatedAt : DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            if (IsEditMode)
-            {
-                await _repository.UpdateAsync(family);
-            }
-            else
-            {
-                await _familyRepository.CreateAsync(family);
-            }
-
-            // Mostrar mensagem de sucesso
-            var message = IsEditMode ? "Family updated successfully!" : "Family created successfully!";
-            await ShowSuccessMessageAsync(message);
-
-            // Navegar de volta
-            await _navigationService.NavigateToAsync("..");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] SaveFamilyAsync error: {ex.Message}");
-            await ShowErrorAsync("Save Error", ex.Message);
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    /// <summary>
-    /// ✅ NOVO: Toggle favorite command
-    /// </summary>
-    [RelayCommand]
-    public async Task ToggleFavoriteAsync()
-    {
-        try
-        {
-            IsFavorite = !IsFavorite;
-
-            var message = IsFavorite ? "Marked as favorite" : "Removed from favorites";
-            var toast = Toast.Make(message, ToastDuration.Short, 14);
-            await toast.Show();
-
-            Debug.WriteLine($"⭐ [FAMILY_EDIT_VM] Favorite toggled: {IsFavorite}");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] ToggleFavoriteAsync error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ CORRIGIDO: Quick save command (Ctrl+S) - nome único
-    /// </summary>
-    [RelayCommand]
-    public async Task QuickSaveFamilyAsync()
-    {
-        if (CanSave)
-        {
-            await SaveFamilyAsync();
-        }
-    }
-
-    /// <summary>
-    /// ✅ Método para mostrar mensagens de sucesso
-    /// </summary>
-    protected virtual async Task ShowSuccessMessageAsync(string message)
-    {
-        try
-        {
-            Debug.WriteLine($"✅ [FAMILY_EDIT_VM] Success: {message}");
-
-            var toast = Toast.Make(message, ToastDuration.Short, 16);
-            await toast.Show();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] ShowSuccessMessageAsync error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ Método para mostrar mensagens de erro
-    /// </summary>
-    protected virtual async Task ShowErrorAsync(string title, string message)
-    {
-        try
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Error: {title} - {message}");
-
-            var toast = Toast.Make($"{title}: {message}", ToastDuration.Long, 14);
-            await toast.Show();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] ShowErrorAsync error: {ex.Message}");
-        }
-    }
-
-    // ✅ FUNCIONALIDADES ESPECÍFICAS DE FAMILY:
-
-    /// <summary>
-    /// Validação adicional específica para famílias botânicas
-    /// </summary>
-    protected virtual bool IsValidBotanicalName(string name)
-    {
-        // Exemplo: nomes de família botânica geralmente terminam em "-aceae"
-        return name.EndsWith("aceae", StringComparison.OrdinalIgnoreCase) ||
-               name.EndsWith("ae", StringComparison.OrdinalIgnoreCase) ||
-               name.Contains("Orchid", StringComparison.OrdinalIgnoreCase);
-    }
-
-    /// <summary>
-    /// Propriedade específica: indica se é família de orquídeas
-    /// </summary>
-    public bool IsOrchidFamily => Name?.Contains("Orchidaceae", StringComparison.OrdinalIgnoreCase) == true;
-
-    /// <summary>
-    /// ✅ Sugestões de nomes de família para auto-complete (futuro)
-    /// </summary>
-    public List<string> GetFamilyNameSuggestions()
-    {
-        return new List<string>
-        {
-            "Orchidaceae",
-            "Bromeliaceae",
-            "Araceae",
-            "Cactaceae",
-            "Gesneriaceae",
-            "Rosaceae",
-            "Asteraceae",
-            "Fabaceae"
-        };
-    }
-
-    /// <summary>
-    /// ✅ Propriedade CanSave otimizada
-    /// </summary>
-    public new bool CanSave => IsNameValid &&
-                              !string.IsNullOrWhiteSpace(Name) &&
-                              Name.Length <= 255 &&
-                              (Description?.Length ?? 0) <= 2000 &&
-                              !IsBusy;
-
-    /// <summary>
     /// ✅ Page title dinâmico baseado no modo
     /// </summary>
-    public string PageTitle => IsEditMode ? $"Edit Family" : "New Family";
+    public string PageTitle => IsEditMode ? "Edit Family" : "New Family";
 
     /// <summary>
-    /// ✅ NOVO: Comando para limpar formulário
+    /// ✅ Comando para limpar formulário
     /// </summary>
     [RelayCommand]
     public void ClearForm()
@@ -447,6 +380,8 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
             IsActive = true;
             IsFavorite = false;
 
+            UpdateFormCompletionProgress();
+            UpdateSaveButton();
             Debug.WriteLine("🧹 [FAMILY_EDIT_VM] Form cleared");
         }
         catch (Exception ex)
@@ -455,9 +390,91 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
         }
     }
 
-    // ✅ TODA A FUNCIONALIDADE HERDADA DA BASE MANTIDA:
-    // ✅ SaveCommand, DeleteCommand, CancelCommand
-    // ✅ Navegação e lifecycle methods
-    // ✅ Conectividade e validação
-    // ✅ Loading states e error handling
+    #endregion
+
+    #region ✅ CORRIGIDO: Save Command
+
+    /// <summary>
+    /// ✅ CORRIGIDO: Save command específico para Family
+    /// </summary>
+    [RelayCommand]
+    public async Task SaveFamilyAsync()
+    {
+        try
+        {
+            // Validação final
+            if (string.IsNullOrWhiteSpace(Name))
+            {
+                await ShowErrorAsync("Validation Error", "Name is required");
+                return;
+            }
+
+            if (!IsNameValid)
+            {
+                await ShowErrorAsync("Validation Error", NameValidationMessage);
+                return;
+            }
+
+            IsBusy = true;
+            SaveButtonText = IsEditMode ? "Updating..." : "Creating...";
+
+            // Criar ou atualizar a família
+            var family = new Family
+            {
+                Id = IsEditMode ? (CurrentFamilyId ?? Guid.NewGuid()) : Guid.NewGuid(),
+                Name = Name.Trim(),
+                Description = Description?.Trim() ?? string.Empty,
+                IsActive = IsActive,
+                IsFavorite = IsFavorite
+            };
+
+            Family result;
+            if (IsEditMode)
+            {
+                result = await _familyRepository.UpdateAsync(family);
+                Debug.WriteLine($"✅ [FAMILY_EDIT_VM] Family updated: {result.Name}");
+
+                var toast = Toast.Make($"'{result.Name}' updated successfully", ToastDuration.Short, 14);
+                await toast.Show();
+            }
+            else
+            {
+                result = await _familyRepository.CreateAsync(family);
+                Debug.WriteLine($"✅ [FAMILY_EDIT_VM] Family created: {result.Name}");
+
+                var toast = Toast.Make($"'{result.Name}' created successfully", ToastDuration.Short, 14);
+                await toast.Show();
+            }
+
+            // Navegar de volta
+            await _navigationService.GoBackAsync();
+
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] Save error: {ex.Message}");
+            await ShowErrorAsync("Save Error", ex.Message);
+        }
+        finally
+        {
+            IsBusy = false;
+            UpdateSaveButton();
+        }
+    }
+
+    #endregion
+
+    #region Cleanup
+
+    /// <summary>
+    /// ✅ Cleanup resources
+    /// </summary>
+    public override async Task OnDisappearingAsync()
+    {
+        _validationTimer?.Dispose();
+        _validationTimer = null;
+        await base.OnDisappearingAsync();
+    }
+
+    #endregion
 }

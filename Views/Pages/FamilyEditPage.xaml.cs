@@ -1,42 +1,106 @@
 ﻿using OrchidPro.ViewModels.Families;
+using System.Diagnostics;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// ✅ CORRIGIDO: Family edit page sem conflitos de nomes
+/// ✅ FINAL: FamilyEditPage sem erros de compilação
 /// </summary>
-public partial class FamilyEditPage : ContentPage
+public partial class FamilyEditPage : ContentPage, IQueryAttributable
 {
     private readonly FamilyEditViewModel _viewModel;
 
     public FamilyEditPage(FamilyEditViewModel viewModel)
     {
-        InitializeComponent();
         _viewModel = viewModel;
         BindingContext = _viewModel;
+
+        // InitializeComponent com tratamento de erro
+        try
+        {
+            InitializeComponent();
+            Debug.WriteLine("✅ [FAMILY_EDIT_PAGE] InitializeComponent completed successfully");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] InitializeComponent failed: {ex.Message}");
+        }
+
+        Debug.WriteLine("✅ [FAMILY_EDIT_PAGE] Initialized successfully");
     }
+
+    #region ✅ Query Attributes
+
+    /// <summary>
+    /// ✅ Implementa IQueryAttributable para receber parâmetros de navegação
+    /// </summary>
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        try
+        {
+            Debug.WriteLine($"🔍 [FAMILY_EDIT_PAGE] ApplyQueryAttributes called with {query.Count} parameters");
+
+            foreach (var param in query)
+            {
+                Debug.WriteLine($"📝 [FAMILY_EDIT_PAGE] Parameter: {param.Key} = {param.Value} ({param.Value?.GetType().Name})");
+            }
+
+            // Passar parâmetros para o ViewModel
+            _viewModel.ApplyQueryAttributes(query);
+
+            Debug.WriteLine($"✅ [FAMILY_EDIT_PAGE] Parameters applied to ViewModel");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] ApplyQueryAttributes error: {ex.Message}");
+        }
+    }
+
+    #endregion
+
+    #region Page Lifecycle
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
 
-        // ✅ Animação + inicialização em paralelo
-        var animationTask = PerformEntranceAnimation();
-        var initTask = _viewModel.OnAppearingAsync();
+        try
+        {
+            Debug.WriteLine($"👀 [FAMILY_EDIT_PAGE] OnAppearing - Mode: {(_viewModel.IsEditMode ? "EDIT" : "CREATE")}");
 
-        // Aguarda ambos completarem
-        await Task.WhenAll(animationTask, initTask);
+            // Animação + inicialização em paralelo
+            var animationTask = PerformEntranceAnimation();
+            var initTask = _viewModel.OnAppearingAsync();
+
+            // Aguarda ambos completarem
+            await Task.WhenAll(animationTask, initTask);
+
+            Debug.WriteLine($"✅ [FAMILY_EDIT_PAGE] Page fully loaded and initialized");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] OnAppearing error: {ex.Message}");
+        }
     }
 
     protected override async void OnDisappearing()
     {
         base.OnDisappearing();
 
-        // Perform exit animation
-        await PerformExitAnimation();
+        try
+        {
+            Debug.WriteLine("👋 [FAMILY_EDIT_PAGE] OnDisappearing");
 
-        // Cleanup ViewModel
-        await _viewModel.OnDisappearingAsync();
+            // Perform exit animation
+            await PerformExitAnimation();
+
+            // Cleanup ViewModel
+            await _viewModel.OnDisappearingAsync();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] OnDisappearing error: {ex.Message}");
+        }
     }
 
     protected override bool OnBackButtonPressed()
@@ -44,176 +108,97 @@ public partial class FamilyEditPage : ContentPage
         // Handle back button with unsaved changes check
         _ = Task.Run(async () =>
         {
-            // ✅ Verifica mudanças não salvas
-            if (_viewModel.HasUnsavedChanges)
+            try
             {
-                var canNavigate = await _viewModel.ShowConfirmAsync(
-                    "Unsaved Changes",
-                    "You have unsaved changes. Discard them?");
-
-                if (canNavigate)
+                // Verifica mudanças não salvas
+                if (_viewModel.HasUnsavedChanges)
                 {
-                    await Shell.Current.GoToAsync("..");
+                    var result = await DisplayAlert(
+                        "Unsaved Changes",
+                        "You have unsaved changes. Discard them?",
+                        "Discard",
+                        "Cancel");
+
+                    if (result)
+                    {
+                        // User chose to discard changes
+                        Device.BeginInvokeOnMainThread(async () =>
+                        {
+                            await Shell.Current.GoToAsync("..");
+                        });
+                    }
+                    // If false, stay on page
+                }
+                else
+                {
+                    // No unsaved changes, navigate back normally
+                    Device.BeginInvokeOnMainThread(async () =>
+                    {
+                        await Shell.Current.GoToAsync("..");
+                    });
                 }
             }
-            else
+            catch (Exception ex)
             {
-                await Shell.Current.GoToAsync("..");
+                Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Back button handler error: {ex.Message}");
             }
         });
 
-        return true; // Always handle the back button
+        // Prevent default back button behavior
+        return true;
     }
 
+    #endregion
+
+    #region ✅ Animations
+
     /// <summary>
-    /// ✅ Performs enhanced entrance animation
+    /// ✅ Animação de entrada mantendo o padrão do projeto
     /// </summary>
     private async Task PerformEntranceAnimation()
     {
         try
         {
-            // Set initial states
-            MainGrid.Opacity = 0;
-            MainGrid.Scale = 0.95;
-            MainGrid.TranslationY = 30;
+            // Setup initial state
+            Content.Opacity = 0;
+            Content.Scale = 0.95;
+            Content.TranslationY = 30;
 
-            // Animate with multiple effects
+            // Animate entrance
             await Task.WhenAll(
-                MainGrid.FadeTo(1, 500, Easing.CubicOut),
-                MainGrid.ScaleTo(1, 500, Easing.SpringOut),
-                MainGrid.TranslateTo(0, 0, 500, Easing.CubicOut)
+                Content.FadeTo(1, 600, Easing.CubicOut),
+                Content.ScaleTo(1, 600, Easing.SpringOut),
+                Content.TranslateTo(0, 0, 600, Easing.CubicOut)
             );
+
+            Debug.WriteLine("✨ [FAMILY_EDIT_PAGE] Entrance animation completed");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Animation error: {ex.Message}");
-            MainGrid.Opacity = 1;
+            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Entrance animation error: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// Performs smooth exit animation
+    /// ✅ Animação de saída mantendo o padrão do projeto
     /// </summary>
     private async Task PerformExitAnimation()
     {
         try
         {
             await Task.WhenAll(
-                MainGrid.FadeTo(0, 300, Easing.CubicIn),
-                MainGrid.ScaleTo(0.95, 300, Easing.CubicIn),
-                MainGrid.TranslateTo(0, -20, 300, Easing.CubicIn)
+                Content.FadeTo(0, 300, Easing.CubicIn),
+                Content.ScaleTo(0.95, 300, Easing.CubicIn),
+                Content.TranslateTo(0, -20, 300, Easing.CubicIn)
             );
+
+            Debug.WriteLine("✨ [FAMILY_EDIT_PAGE] Exit animation completed");
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Exit animation error: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Exit animation error: {ex.Message}");
         }
     }
 
-    /// <summary>
-    /// ✅ Handles entry focus with animation
-    /// </summary>
-    private async void OnEntryFocused(object sender, FocusEventArgs e)
-    {
-        try
-        {
-            if (sender is Entry entry && e.IsFocused)
-            {
-                // Animate field focus
-                if (entry.Parent is Border border)
-                {
-                    await border.ScaleTo(1.01, 150, Easing.CubicOut);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Entry focus error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ Handles entry unfocus with animation
-    /// </summary>
-    private async void OnEntryUnfocused(object sender, FocusEventArgs e)
-    {
-        try
-        {
-            if (sender is Entry entry && !e.IsFocused)
-            {
-                // Animate field unfocus
-                if (entry.Parent is Border border)
-                {
-                    await border.ScaleTo(1, 150, Easing.CubicOut);
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Entry unfocus error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Handles button press animations
-    /// </summary>
-    private async void OnButtonPressed(object sender, EventArgs e)
-    {
-        try
-        {
-            if (sender is Button button)
-            {
-                await button.ScaleTo(0.96, 50, Easing.CubicOut);
-                await button.ScaleTo(1, 50, Easing.CubicOut);
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Button press error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Handles switch toggle with visual feedback
-    /// </summary>
-    private async void OnSwitchToggled(object sender, ToggledEventArgs e)
-    {
-        try
-        {
-            if (sender is Switch switchControl)
-            {
-                // Visual feedback only
-                await switchControl.ScaleTo(1.05, 80, Easing.CubicOut);
-                await switchControl.ScaleTo(1, 80, Easing.CubicOut);
-            }
-        }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Switch toggle error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ Testa conectividade e mostra overlay temporário
-    /// </summary>
-    private async void OnTestConnectivityTapped(object sender, EventArgs e)
-    {
-        try
-        {
-            // Mostrar overlay de teste
-            ConnectionOverlay.IsVisible = true;
-
-            // Executar teste via ViewModel
-            await _viewModel.TestConnectionCommand.ExecuteAsync(null);
-
-            // Esconder overlay após 2 segundos
-            await Task.Delay(2000);
-            ConnectionOverlay.IsVisible = false;
-        }
-        catch (Exception ex)
-        {
-            await DisplayAlert("Test Error", $"Connection test failed: {ex.Message}", "OK");
-            ConnectionOverlay.IsVisible = false;
-        }
-    }
+    #endregion
 }

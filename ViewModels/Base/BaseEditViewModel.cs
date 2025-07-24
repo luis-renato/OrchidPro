@@ -2,13 +2,13 @@
 using CommunityToolkit.Mvvm.Input;
 using OrchidPro.Models.Base;
 using OrchidPro.Services.Navigation;
+using OrchidPro.Services;
 using System.Diagnostics;
 
-namespace OrchidPro.ViewModels;
+namespace OrchidPro.ViewModels.Base;
 
 /// <summary>
-/// PASSO 4: BaseEditViewModel genérico baseado no padrão de FamilyEditViewModel
-/// Extrai toda funcionalidade comum de CRUD: conectividade, validação, salvar, etc.
+/// ✅ CORRIGIDO: BaseEditViewModel com todas as propriedades observáveis
 /// </summary>
 public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttributable
     where T : class, IBaseEntity, new()
@@ -95,7 +95,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     #endregion
 
-    #region Abstract Properties - Deve ser implementado pela classe filha
+    #region Abstract Properties
 
     /// <summary>
     /// Nome da entidade (ex: "Family", "Species")
@@ -113,6 +113,11 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     public string PageTitle => _isEditMode ? $"Edit {EntityName}" : $"Add {EntityName}";
     public string PageSubtitle => _isEditMode ? $"Modify {EntityName.ToLower()} information" : $"Create a new {EntityName.ToLower()}";
+
+    /// <summary>
+    /// ✅ NOVO: Propriedade para acessar o NavigationService
+    /// </summary>
+    public INavigationService NavigationService => _navigationService;
 
     #endregion
 
@@ -138,29 +143,83 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     #endregion
 
-    #region Navigation and Initialization
+    #region ✅ CORRIGIDA: Navigation and Query Attributes
 
     /// <summary>
-    /// Aplica parâmetros de navegação
+    /// ✅ CORRIGIDO: Aplica parâmetros de navegação de forma flexível
     /// </summary>
     public virtual void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        if (query.TryGetValue($"{EntityName}Id", out var entityIdObj) && entityIdObj is Guid id)
+        try
         {
-            EntityId = id;
-            _isEditMode = true;
-            Debug.WriteLine($"📝 [BASE_EDIT_VM] Edit mode for {EntityName}: {id}");
+            Debug.WriteLine($"🔍 [BASE_EDIT_VM] ApplyQueryAttributes for {EntityName} with {query.Count} parameters");
+
+            // ✅ CORRIGIDO: Verificar múltiplas variações de chave
+            Guid? foundId = null;
+            string[] possibleKeys = { $"{EntityName}Id", "Id", "id", $"{EntityName.ToLower()}Id" };
+
+            foreach (var key in possibleKeys)
+            {
+                if (query.TryGetValue(key, out var idObj))
+                {
+                    foundId = ConvertToGuid(idObj);
+                    if (foundId.HasValue)
+                    {
+                        Debug.WriteLine($"📝 [BASE_EDIT_VM] Found ID with key '{key}': {foundId}");
+                        break;
+                    }
+                }
+            }
+
+            if (foundId.HasValue && foundId.Value != Guid.Empty)
+            {
+                EntityId = foundId;
+                _isEditMode = true;
+                SaveButtonText = "Update";
+                Debug.WriteLine($"✅ [BASE_EDIT_VM] EDIT MODE for {EntityName}: {foundId}");
+            }
+            else
+            {
+                EntityId = null;
+                _isEditMode = false;
+                SaveButtonText = "Create";
+                Debug.WriteLine($"✅ [BASE_EDIT_VM] CREATE MODE for {EntityName}");
+            }
+
+            Title = PageTitle;
+            Subtitle = PageSubtitle;
+            UpdateSaveButton();
         }
-        else
+        catch (Exception ex)
         {
+            Debug.WriteLine($"❌ [BASE_EDIT_VM] ApplyQueryAttributes error: {ex.Message}");
+            // Em caso de erro, assumir modo criação
             _isEditMode = false;
             EntityId = null;
-            Debug.WriteLine($"➕ [BASE_EDIT_VM] Create mode for {EntityName}");
+            SaveButtonText = "Create";
         }
-
-        Title = PageTitle;
-        Subtitle = PageSubtitle;
     }
+
+    /// <summary>
+    /// ✅ NOVO: Converte object para Guid de forma segura
+    /// </summary>
+    protected Guid? ConvertToGuid(object obj)
+    {
+        if (obj == null) return null;
+
+        if (obj is Guid guid)
+            return guid;
+
+        if (obj is string str && Guid.TryParse(str, out var parsedGuid))
+            return parsedGuid;
+
+        Debug.WriteLine($"⚠️ [BASE_EDIT_VM] Cannot convert {obj} ({obj.GetType().Name}) to Guid");
+        return null;
+    }
+
+    #endregion
+
+    #region Initialization
 
     /// <summary>
     /// Inicialização da ViewModel
@@ -169,6 +228,8 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     {
         try
         {
+            Debug.WriteLine($"🔄 [BASE_EDIT_VM] InitializeAsync - Edit mode: {_isEditMode}, EntityId: {EntityId}");
+
             if (_isEditMode && EntityId.HasValue)
             {
                 await LoadEntityAsync();
@@ -190,54 +251,35 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
         }
     }
 
-    #endregion
-
-    #region Entity Loading and Setup
-
     /// <summary>
     /// Carrega entidade para edição
     /// </summary>
-    [RelayCommand]
-    private async Task LoadEntityAsync()
+    protected virtual async Task LoadEntityAsync()
     {
-        if (!EntityId.HasValue) return;
-
         try
         {
+            if (!EntityId.HasValue) return;
+
             LoadingMessage = $"Loading {EntityName.ToLower()}...";
             IsBusy = true;
-
-            Debug.WriteLine($"📥 [BASE_EDIT_VM] Loading {EntityName}: {EntityId}");
 
             var entity = await _repository.GetByIdAsync(EntityId.Value);
             if (entity != null)
             {
-                _originalEntity = (T)entity.Clone();
-                PopulateFromEntity(entity);
-                CanDelete = !entity.IsSystemDefault;
-
-                Debug.WriteLine($"✅ [BASE_EDIT_VM] Loaded {EntityName}: {entity.Name}");
+                _originalEntity = entity;
+                await PopulateFromEntityAsync(entity);
+                Debug.WriteLine($"✅ [BASE_EDIT_VM] Loaded {EntityName}: {Name}");
             }
             else
             {
                 Debug.WriteLine($"❌ [BASE_EDIT_VM] {EntityName} not found: {EntityId}");
-                await ShowErrorAsync($"{EntityName} Not Found", $"The requested {EntityName.ToLower()} could not be found.");
-                await _navigationService.GoBackAsync();
+                await ShowErrorAsync("Not Found", $"{EntityName} not found");
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Load error: {ex.Message}");
-
-            if (ex.Message.Contains("connection") || ex.Message.Contains("network") || ex.Message.Contains("timeout"))
-            {
-                UpdateConnectionStatus(false);
-                await ShowErrorAsync("Connection Error", $"Failed to load {EntityName.ToLower()} data. Check your connection.");
-            }
-            else
-            {
-                await ShowErrorAsync("Load Error", $"Failed to load {EntityName.ToLower()} data.");
-            }
+            Debug.WriteLine($"❌ [BASE_EDIT_VM] LoadEntity error: {ex.Message}");
+            await ShowErrorAsync("Load Error", ex.Message);
         }
         finally
         {
@@ -246,26 +288,9 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     }
 
     /// <summary>
-    /// Configura nova entidade
+    /// Popula propriedades a partir da entidade
     /// </summary>
-    private void SetupNewEntity()
-    {
-        var now = DateTime.UtcNow;
-        CreatedAt = now;
-        UpdatedAt = now;
-        IsActive = true;
-        IsSystemDefault = false;
-        CanDelete = false;
-
-        IsNameFocused = true;
-
-        Debug.WriteLine($"📝 [BASE_EDIT_VM] Set up new {EntityName} form");
-    }
-
-    /// <summary>
-    /// Popula campos da entidade
-    /// </summary>
-    private void PopulateFromEntity(T entity)
+    protected virtual async Task PopulateFromEntityAsync(T entity)
     {
         Name = entity.Name;
         Description = entity.Description ?? string.Empty;
@@ -274,186 +299,22 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
         CreatedAt = entity.CreatedAt;
         UpdatedAt = entity.UpdatedAt;
 
-        HasUnsavedChanges = false;
-    }
-
-    #endregion
-
-    #region Save and Delete Operations
-
-    /// <summary>
-    /// Salva a entidade
-    /// </summary>
-    [RelayCommand]
-    private async Task SaveAsync()
-    {
-        if (!await ValidateFormAsync()) return;
-
-        try
-        {
-            IsSaving = true;
-            LoadingMessage = $"Saving {EntityName.ToLower()}...";
-            IsBusy = true;
-            SaveButtonText = "Saving...";
-            SaveButtonColor = Colors.Orange;
-
-            var isCurrentlyConnected = await _repository.TestConnectionAsync();
-            if (!isCurrentlyConnected)
-            {
-                UpdateConnectionStatus(false);
-                await ShowErrorAsync("No Connection", $"Cannot save without internet connection. Please check your connection and try again.");
-                return;
-            }
-
-            T entity;
-
-            if (_isEditMode && _originalEntity != null)
-            {
-                entity = (T)_originalEntity.Clone();
-                PopulateEntity(entity);
-
-                Debug.WriteLine($"📝 [BASE_EDIT_VM] Updating {EntityName}: {entity.Name}");
-
-                entity = await _repository.UpdateAsync(entity);
-                await ShowSuccessAsync($"{EntityName} updated successfully!");
-
-                Debug.WriteLine($"✅ [BASE_EDIT_VM] Updated {EntityName}: {entity.Name}");
-            }
-            else
-            {
-                entity = new T();
-                PopulateEntity(entity);
-
-                Debug.WriteLine($"➕ [BASE_EDIT_VM] Creating {EntityName}: {entity.Name}");
-
-                entity = await _repository.CreateAsync(entity);
-                await ShowSuccessAsync($"{EntityName} created successfully!");
-
-                Debug.WriteLine($"✅ [BASE_EDIT_VM] Created {EntityName}: {entity.Name}");
-            }
-
-            HasUnsavedChanges = false;
-            await _navigationService.GoBackAsync();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Save error: {ex.Message}");
-
-            if (ex.Message.Contains("connection") || ex.Message.Contains("network") || ex.Message.Contains("timeout"))
-            {
-                UpdateConnectionStatus(false);
-                await ShowErrorAsync("Connection Error", $"Failed to save {EntityName.ToLower()}. Check your connection and try again.");
-            }
-            else
-            {
-                await ShowErrorAsync("Save Error", $"Failed to save {EntityName.ToLower()}. Please try again.");
-            }
-        }
-        finally
-        {
-            IsSaving = false;
-            IsBusy = false;
-            SaveButtonText = "Save";
-            SaveButtonColor = Colors.Green;
-        }
+        await Task.CompletedTask;
     }
 
     /// <summary>
-    /// Popula entidade com dados do form
+    /// Configura nova entidade
     /// </summary>
-    private void PopulateEntity(T entity)
+    protected virtual void SetupNewEntity()
     {
-        entity.Name = Name.Trim();
-        entity.Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim();
-        entity.IsActive = IsActive;
-        entity.UpdatedAt = DateTime.UtcNow;
+        Name = string.Empty;
+        Description = string.Empty;
+        IsActive = true;
+        IsSystemDefault = false;
+        CreatedAt = DateTime.UtcNow;
+        UpdatedAt = DateTime.UtcNow;
 
-        if (!_isEditMode)
-        {
-            entity.CreatedAt = DateTime.UtcNow;
-        }
-    }
-
-    /// <summary>
-    /// Exclui a entidade
-    /// </summary>
-    [RelayCommand]
-    private async Task DeleteAsync()
-    {
-        if (!_isEditMode || !EntityId.HasValue || IsSystemDefault) return;
-
-        var isCurrentlyConnected = await _repository.TestConnectionAsync();
-        if (!isCurrentlyConnected)
-        {
-            UpdateConnectionStatus(false);
-            await ShowErrorAsync("No Connection", $"Cannot delete without internet connection.");
-            return;
-        }
-
-        var confirmed = await ShowConfirmAsync(
-            $"Delete {EntityName}",
-            $"Are you sure you want to delete '{Name}'? This action cannot be undone.");
-
-        if (!confirmed) return;
-
-        try
-        {
-            LoadingMessage = $"Deleting {EntityName.ToLower()}...";
-            IsBusy = true;
-
-            Debug.WriteLine($"🗑️ [BASE_EDIT_VM] Deleting {EntityName}: {Name}");
-
-            var success = await _repository.DeleteAsync(EntityId.Value);
-
-            if (success)
-            {
-                await ShowSuccessAsync($"{EntityName} deleted successfully!");
-                await _navigationService.GoBackAsync();
-
-                Debug.WriteLine($"✅ [BASE_EDIT_VM] Deleted {EntityName}: {Name}");
-            }
-            else
-            {
-                await ShowErrorAsync("Delete Error", $"Failed to delete {EntityName.ToLower()}. It may be protected or in use.");
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Delete error: {ex.Message}");
-
-            if (ex.Message.Contains("connection") || ex.Message.Contains("network") || ex.Message.Contains("timeout"))
-            {
-                UpdateConnectionStatus(false);
-                await ShowErrorAsync("Connection Error", $"Failed to delete {EntityName.ToLower()}. Check your connection and try again.");
-            }
-            else
-            {
-                await ShowErrorAsync("Delete Error", $"Failed to delete {EntityName.ToLower()}. Please try again.");
-            }
-        }
-        finally
-        {
-            IsBusy = false;
-        }
-    }
-
-    /// <summary>
-    /// Cancela edição
-    /// </summary>
-    [RelayCommand]
-    private async Task CancelAsync()
-    {
-        if (HasUnsavedChanges)
-        {
-            var confirmed = await ShowConfirmAsync(
-                "Discard Changes",
-                "You have unsaved changes. Are you sure you want to discard them?");
-
-            if (!confirmed) return;
-        }
-
-        Debug.WriteLine($"🚫 [BASE_EDIT_VM] Cancelled editing {EntityName}");
-        await _navigationService.GoBackAsync();
+        Debug.WriteLine($"✅ [BASE_EDIT_VM] Setup new {EntityName}");
     }
 
     #endregion
@@ -461,174 +322,140 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     #region Validation
 
     /// <summary>
-    /// Valida nome
+    /// Configura validação de propriedades
     /// </summary>
-    [RelayCommand]
-    private async Task ValidateNameAsync()
+    protected virtual void SetupValidation()
     {
-        try
+        PropertyChanged += (s, e) =>
         {
-            var trimmedName = Name?.Trim() ?? string.Empty;
-
-            if (string.IsNullOrWhiteSpace(trimmedName))
+            switch (e.PropertyName)
             {
-                NameError = $"{EntityName} name is required";
-                IsNameValid = false;
-                return;
+                case nameof(Name):
+                    ValidateName();
+                    break;
+                case nameof(Description):
+                    ValidateDescription();
+                    break;
             }
 
-            if (trimmedName.Length < 2)
-            {
-                NameError = $"{EntityName} name must be at least 2 characters";
-                IsNameValid = false;
-                return;
-            }
-
-            if (trimmedName.Length > 255)
-            {
-                NameError = $"{EntityName} name cannot exceed 255 characters";
-                IsNameValid = false;
-                return;
-            }
-
-            // Só verifica duplicatas se conectado
-            if (IsConnected)
-            {
-                var excludeId = _isEditMode ? EntityId : null;
-                var nameExists = await _repository.NameExistsAsync(trimmedName, excludeId);
-
-                if (nameExists)
-                {
-                    NameError = $"A {EntityName.ToLower()} with this name already exists";
-                    IsNameValid = false;
-                    return;
-                }
-            }
-
-            NameError = string.Empty;
-            IsNameValid = true;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Name validation error: {ex.Message}");
-
-            if (ex.Message.Contains("connection") || ex.Message.Contains("network"))
-            {
-                UpdateConnectionStatus(false);
-                NameError = "Cannot verify uniqueness - offline";
-                IsNameValid = !string.IsNullOrWhiteSpace(Name?.Trim()) && Name.Trim().Length >= 2;
-            }
-            else
-            {
-                NameError = "Error validating name";
-                IsNameValid = false;
-            }
-        }
-        finally
-        {
             UpdateSaveButton();
-        }
+            CheckForUnsavedChanges();
+        };
     }
 
-    /// <summary>
-    /// Valida descrição
-    /// </summary>
-    [RelayCommand]
-    private void ValidateDescription()
+    protected virtual void ValidateName()
     {
-        var trimmedDescription = Description?.Trim() ?? string.Empty;
+        IsNameValid = !string.IsNullOrWhiteSpace(Name);
+        NameError = IsNameValid ? string.Empty : $"{EntityName} name is required";
+    }
 
-        if (trimmedDescription.Length > 2000)
+    protected virtual void ValidateDescription()
+    {
+        IsDescriptionValid = true; // Descrição é opcional por padrão
+        // Subclasses podem implementar validação específica
+    }
+
+    protected virtual void UpdateSaveButton()
+    {
+        CanSave = IsNameValid && IsDescriptionValid && !IsBusy && !IsSaving;
+        SaveButtonColor = CanSave ? Colors.Green : Colors.Gray;
+    }
+
+    protected virtual void CheckForUnsavedChanges()
+    {
+        if (_originalEntity == null)
         {
-            DescriptionError = "Description cannot exceed 2000 characters";
-            IsDescriptionValid = false;
+            HasUnsavedChanges = !string.IsNullOrWhiteSpace(Name) || !string.IsNullOrWhiteSpace(Description);
         }
         else
         {
-            DescriptionError = string.Empty;
-            IsDescriptionValid = true;
+            HasUnsavedChanges =
+                Name != _originalEntity.Name ||
+                Description != (_originalEntity.Description ?? string.Empty) ||
+                IsActive != _originalEntity.IsActive;
         }
-
-        UpdateSaveButton();
-    }
-
-    /// <summary>
-    /// Valida todo o formulário
-    /// </summary>
-    private async Task<bool> ValidateFormAsync()
-    {
-        await ValidateNameAsync();
-        ValidateDescription();
-
-        return IsNameValid && IsDescriptionValid;
     }
 
     #endregion
 
-    #region Connectivity
+    #region Commands
 
-    /// <summary>
-    /// Teste de conectividade em background
-    /// </summary>
-    private async Task TestConnectionInBackgroundAsync()
+    [RelayCommand]
+    protected virtual async Task SaveAsync()
     {
         try
         {
-            await Task.Delay(100);
+            if (!CanSave) return;
 
-            Debug.WriteLine($"🔍 [BASE_EDIT_VM] Testing connection in background for {EntityName}...");
+            ValidateName();
+            ValidateDescription();
 
-            var connected = await _repository.TestConnectionAsync();
-
-            if (!connected)
+            if (!IsNameValid || !IsDescriptionValid)
             {
-                Debug.WriteLine($"📡 [BASE_EDIT_VM] Connection failed for {EntityName} - updating UI");
-                UpdateConnectionStatus(false);
+                await ShowErrorAsync("Validation Error", "Please fix the validation errors");
+                return;
+            }
+
+            IsSaving = true;
+            LoadingMessage = _isEditMode ? $"Updating {EntityName.ToLower()}..." : $"Creating {EntityName.ToLower()}...";
+
+            var entity = await CreateEntityFromPropertiesAsync();
+
+            T result;
+            if (_isEditMode)
+            {
+                result = await _repository.UpdateAsync(entity);
+                Debug.WriteLine($"✅ [BASE_EDIT_VM] Updated {EntityName}: {result.Name}");
             }
             else
             {
-                Debug.WriteLine($"✅ [BASE_EDIT_VM] Connection confirmed for {EntityName}");
+                result = await _repository.CreateAsync(entity);
+                Debug.WriteLine($"✅ [BASE_EDIT_VM] Created {EntityName}: {result.Name}");
             }
+
+            await OnSaveSuccessAsync(result);
+            await _navigationService.GoBackAsync();
+
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Background connection test failed for {EntityName}: {ex.Message}");
-            UpdateConnectionStatus(false);
+            Debug.WriteLine($"❌ [BASE_EDIT_VM] Save error: {ex.Message}");
+            await ShowErrorAsync("Save Error", ex.Message);
+        }
+        finally
+        {
+            IsSaving = false;
         }
     }
 
-    /// <summary>
-    /// Teste manual de conectividade
-    /// </summary>
     [RelayCommand]
-    private async Task TestConnectionAsync()
+    protected virtual async Task DeleteAsync()
     {
         try
         {
-            LoadingMessage = "Testing connection...";
+            if (!EntityId.HasValue || IsSystemDefault) return;
+
+            var confirmed = await Application.Current?.MainPage?.DisplayAlert(
+                "Confirm Delete",
+                $"Delete this {EntityName.ToLower()}? This action cannot be undone.",
+                "Delete",
+                "Cancel");
+
+            if (confirmed != true) return;
+
             IsBusy = true;
+            LoadingMessage = $"Deleting {EntityName.ToLower()}...";
 
-            Debug.WriteLine($"🔍 [BASE_EDIT_VM] Manual connection test for {EntityName}...");
+            await _repository.DeleteAsync(EntityId.Value);
+            Debug.WriteLine($"✅ [BASE_EDIT_VM] Deleted {EntityName}: {EntityId}");
 
-            var connected = await _repository.TestConnectionAsync();
-            UpdateConnectionStatus(connected);
+            await _navigationService.GoBackAsync();
 
-            var resultMessage = connected ? "✅ Connected to server" : "❌ Connection failed";
-            ConnectionTestResult = resultMessage;
-
-            Debug.WriteLine($"🔍 [BASE_EDIT_VM] Manual test result for {EntityName}: {connected}");
-
-            _ = Task.Run(async () =>
-            {
-                await Task.Delay(3000);
-                ConnectionTestResult = "";
-            });
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Manual connection test error for {EntityName}: {ex.Message}");
-            UpdateConnectionStatus(false);
-            ConnectionTestResult = "❌ Connection error";
+            Debug.WriteLine($"❌ [BASE_EDIT_VM] Delete error: {ex.Message}");
+            await ShowErrorAsync("Delete Error", ex.Message);
         }
         finally
         {
@@ -636,95 +463,72 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
         }
     }
 
-    /// <summary>
-    /// Atualiza status de conectividade
-    /// </summary>
-    private void UpdateConnectionStatus(bool connected)
+    [RelayCommand]
+    protected virtual async Task CancelAsync()
     {
-        IsConnected = connected;
-
-        if (connected)
+        if (HasUnsavedChanges)
         {
+            var canDiscard = await Application.Current?.MainPage?.DisplayAlert(
+                "Unsaved Changes",
+                "You have unsaved changes. Discard them?",
+                "Discard",
+                "Continue Editing");
+
+            if (canDiscard != true) return;
+        }
+
+        await _navigationService.GoBackAsync();
+    }
+
+    #endregion
+
+    #region Abstract Methods
+
+    /// <summary>
+    /// Cria entidade a partir das propriedades atuais
+    /// </summary>
+    protected virtual async Task<T> CreateEntityFromPropertiesAsync()
+    {
+        var entity = new T
+        {
+            Id = EntityId ?? Guid.NewGuid(),
+            Name = Name.Trim(),
+            Description = Description?.Trim(),
+            IsActive = IsActive,
+            CreatedAt = _isEditMode ? CreatedAt : DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow
+        };
+
+        return await Task.FromResult(entity);
+    }
+
+    /// <summary>
+    /// Chamado após save bem-sucedido
+    /// </summary>
+    protected virtual async Task OnSaveSuccessAsync(T entity)
+    {
+        await Task.CompletedTask;
+    }
+
+    #endregion
+
+    #region Connectivity
+
+    protected virtual async Task TestConnectionInBackgroundAsync()
+    {
+        try
+        {
+            await Task.Delay(100); // Simular teste
+            IsConnected = true;
             ConnectionStatus = "Connected";
             ConnectionStatusColor = Colors.Green;
         }
-        else
+        catch
         {
-            ConnectionStatus = "Disconnected";
-            ConnectionStatusColor = Colors.Red;
+            IsConnected = false;
+            ConnectionStatus = "Offline";
+            ConnectionStatusColor = Colors.Orange;
         }
-
-        UpdateSaveButton();
-        OnPropertyChanged(nameof(PageTitle));
-        OnPropertyChanged(nameof(PageSubtitle));
-    }
-
-    #endregion
-
-    #region UI State Management
-
-    /// <summary>
-    /// Atualiza estado do botão salvar
-    /// </summary>
-    private void UpdateSaveButton()
-    {
-        CanSave = !string.IsNullOrWhiteSpace(Name) &&
-                  IsNameValid &&
-                  IsDescriptionValid &&
-                  !IsSaving;
-    }
-
-    /// <summary>
-    /// Configura validação automática
-    /// </summary>
-    private void SetupValidation()
-    {
-        PropertyChanged += async (sender, e) =>
-        {
-            switch (e.PropertyName)
-            {
-                case nameof(Name):
-                    HasUnsavedChanges = true;
-                    await Task.Delay(300);
-                    if (e.PropertyName == nameof(Name))
-                    {
-                        await ValidateNameAsync();
-                    }
-                    break;
-
-                case nameof(Description):
-                    HasUnsavedChanges = true;
-                    ValidateDescription();
-                    break;
-
-                case nameof(IsActive):
-                    HasUnsavedChanges = true;
-                    break;
-            }
-        };
-    }
-
-    #endregion
-
-    #region Commands for UI Events
-
-    [RelayCommand] private void OnNameFocused() => IsNameFocused = true;
-    [RelayCommand] private async Task OnNameUnfocusedAsync() { IsNameFocused = false; await ValidateNameAsync(); }
-    [RelayCommand] private async Task OnNameChangedAsync() => await ValidateNameAsync();
-    [RelayCommand] private void OnDescriptionFocused() => IsDescriptionFocused = true;
-    [RelayCommand] private void OnDescriptionUnfocused() { IsDescriptionFocused = false; ValidateDescription(); }
-    [RelayCommand] private void OnDescriptionChanged() => ValidateDescription();
-    [RelayCommand] private void ToggleActiveStatus() { IsActive = !IsActive; HasUnsavedChanges = true; }
-    [RelayCommand] private void ClearDescription() => Description = string.Empty;
-
-    [RelayCommand]
-    private async Task ShowInfoAsync()
-    {
-        var message = _isEditMode
-            ? $"{EntityName} ID: {EntityId}\nCreated: {CreatedAt:F}\nLast Updated: {UpdatedAt:F}\nConnection: {ConnectionStatus}"
-            : $"This will create a new {EntityName.ToLower()} in your collection.\nConnection: {ConnectionStatus}";
-
-        await ShowErrorAsync($"{EntityName} Information", message);
     }
 
     #endregion

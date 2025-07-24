@@ -1,32 +1,47 @@
-﻿using OrchidPro.Services.Data;
-using OrchidPro.Services.Navigation;
-using OrchidPro.Views.Pages;
+﻿using OrchidPro.Views.Pages;
 
 namespace OrchidPro;
 
 /// <summary>
-/// Main application shell that provides navigation structure
+/// ✅ FINAL CORRIGIDO: AppShell sem dependências no construtor
 /// </summary>
 public partial class AppShell : Shell
 {
-    private readonly SupabaseService _supabaseService;
-    private readonly INavigationService _navigationService;
-
-    public AppShell(SupabaseService supabaseService)
+    public AppShell()
     {
-        //Register Syncfusion<sup>®</sup> license
+        // Register Syncfusion license
         Syncfusion.Licensing.SyncfusionLicenseProvider.RegisterLicense("Mzk1ODIxMEAzMzMwMmUzMDJlMzAzYjMzMzAzYkRoeUFQTmxzYk00RkNhN0M0QTZtYzZPcWF5YnViT3Z0Y2tMZlcvWGh4R289");
 
         InitializeComponent();
-        _supabaseService = supabaseService;
 
-        // Get navigation service
-        var services = MauiProgram.CreateMauiApp().Services;
-        _navigationService = services.GetRequiredService<INavigationService>();
+        // Register all navigation routes
+        RegisterRoutes();
+
+        System.Diagnostics.Debug.WriteLine("✅ [APP_SHELL] Initialized without constructor dependencies");
     }
 
     /// <summary>
-    /// Handles logout button click
+    /// ✅ Registra todas as rotas para navegação
+    /// </summary>
+    private void RegisterRoutes()
+    {
+        // Family routes
+        Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
+        Routing.RegisterRoute("familieslist", typeof(FamiliesListSyncfusionPage));
+
+        // Debug routes
+        Routing.RegisterRoute("testsync", typeof(TestSyncPage));
+        Routing.RegisterRoute("login", typeof(LoginPage));
+
+        // Future routes
+        // Routing.RegisterRoute("genusedit", typeof(GenusEditPage));
+        // Routing.RegisterRoute("speciesedit", typeof(SpeciesEditPage));
+
+        System.Diagnostics.Debug.WriteLine("✅ [APP_SHELL] All navigation routes registered");
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Handler para logout (se houver botão de logout no Shell)
     /// </summary>
     private async void OnLogoutClicked(object sender, EventArgs e)
     {
@@ -41,14 +56,19 @@ public partial class AppShell : Shell
         {
             try
             {
-                // Show loading
-                await DisplayAlert("", "Signing out...", "OK");
+                // Get SupabaseService from DI
+                var services = IPlatformApplication.Current?.Services;
+                if (services != null)
+                {
+                    var supabaseService = services.GetRequiredService<OrchidPro.Services.Data.SupabaseService>();
+                    var navigationService = services.GetRequiredService<OrchidPro.Services.Navigation.INavigationService>();
 
-                // Perform logout
-                _supabaseService.Logout();
+                    // Perform logout
+                    supabaseService.Logout();
 
-                // Navigate to login with transition
-                await _navigationService.NavigateToLoginAsync();
+                    // Navigate to login
+                    await navigationService.NavigateToLoginAsync();
+                }
             }
             catch (Exception ex)
             {
