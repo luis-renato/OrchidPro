@@ -11,7 +11,7 @@ using System.Diagnostics;
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamiliesListSyncfusionViewModel com navegação para edição correta
+/// ✅ CORRIGIDO: FamiliesListSyncfusionViewModel com comandos manuais corrigidos
 /// </summary>
 public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 {
@@ -86,22 +86,27 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 
     #endregion
 
-    #region ✅ COMANDOS MANUAIS PARA COMPATIBILIDADE
+    #region ✅ COMANDOS MANUAIS CORRIGIDOS
 
     /// <summary>
     /// ✅ COMANDO MANUAL: ApplyFilterCommand 
     /// </summary>
-    public IAsyncRelayCommand ApplyFilterCommand { get; }
+    public IAsyncRelayCommand ApplyFilterCommand { get; private set; }
+
+    /// <summary>
+    /// ✅ COMANDO MANUAL: ClearFilterCommand
+    /// </summary>
+    public IRelayCommand ClearFilterCommand { get; private set; }
 
     /// <summary>
     /// ✅ COMANDO MANUAL: ClearSelectionCommand
     /// </summary>
-    public IRelayCommand ClearSelectionCommand { get; }
+    public IRelayCommand ClearSelectionCommand { get; private set; }
 
     /// <summary>
     /// ✅ COMANDO MANUAL: DeleteSingleItemCommand
     /// </summary>
-    public IAsyncRelayCommand<FamilyItemViewModel> DeleteSingleItemCommand { get; }
+    public IAsyncRelayCommand<FamilyItemViewModel> DeleteSingleItemCommand { get; private set; }
 
     #endregion
 
@@ -115,8 +120,9 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         Title = "Families";
         Debug.WriteLine("✅ [FAMILIES_LIST_SYNCFUSION_VM] Initialized with manual commands");
 
-        // ✅ INICIALIZAR COMANDOS MANUAIS
+        // ✅ INICIALIZAR COMANDOS MANUAIS CORRIGIDOS
         ApplyFilterCommand = new AsyncRelayCommand(ApplyFilterAsync);
+        ClearFilterCommand = new RelayCommand(ClearFilterAction);
         ClearSelectionCommand = new RelayCommand(ClearSelectionAction);
         DeleteSingleItemCommand = new AsyncRelayCommand<FamilyItemViewModel>(DeleteSingleItemAsync);
 
@@ -126,11 +132,24 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 
     #endregion
 
-    #region ✅ MÉTODOS PRIVADOS PARA OS COMANDOS
+    #region ✅ MÉTODOS PRIVADOS PARA OS COMANDOS CORRIGIDOS
 
     private async Task ApplyFilterAsync()
     {
-        await ToggleStatusFilterAsync();
+        await ApplyFiltersAndSortAsync();
+    }
+
+    private void ClearFilterAction()
+    {
+        // Limpar apenas filtros, não seleção
+        SearchText = string.Empty;
+        StatusFilter = "All";
+        SortOrder = "Name A→Z";
+
+        // Aplicar filtros resetados
+        _ = Task.Run(async () => await ApplyFiltersAndSortAsync());
+
+        Debug.WriteLine("✅ [FAMILIES_LIST_SYNCFUSION_VM] Filters cleared");
     }
 
     private void ClearSelectionAction()
@@ -229,7 +248,7 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
         {
             // ✅ SEMPRE REFRESH ao voltar para garantir dados atualizados
             Debug.WriteLine("🔄 [FAMILIES_LIST_SYNCFUSION_VM] Refreshing data on return to page");
-            await RefreshAsync(showLoading: false);
+            await RefreshInternalAsync(showLoading: false);
         }
     }
 
@@ -260,12 +279,7 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     {
         try
         {
-            var itemVMs = families.Select(f => new FamilyItemViewModel(f)
-            {
-                // Properties are read-only and set via constructor
-                // ✅ Commands can be set
-                // EditCommand and ToggleFavoriteCommand should be added to FamilyItemViewModel
-            }).ToList();
+            var itemVMs = families.Select(f => new FamilyItemViewModel(f)).ToList();
 
             Items.Clear();
             foreach (var item in itemVMs)
@@ -346,7 +360,35 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
     #region Refresh and Data Management
 
     [RelayCommand]
-    private async Task RefreshAsync(bool showLoading = true)
+    private async Task RefreshAsync()
+    {
+        try
+        {
+            IsRefreshing = true;
+
+            Debug.WriteLine("🔄 [FAMILIES_LIST_SYNCFUSION_VM] Refreshing data...");
+
+            // Force fresh data from repository
+            await _repository.RefreshAllDataAsync();
+            var families = await _repository.GetAllAsync(true);
+            await PopulateItemsAsync(families);
+
+            Debug.WriteLine($"✅ [FAMILIES_LIST_SYNCFUSION_VM] Refresh completed - {families.Count} families");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_LIST_SYNCFUSION_VM] Refresh failed: {ex.Message}");
+        }
+        finally
+        {
+            IsRefreshing = false;
+        }
+    }
+
+    /// <summary>
+    /// ✅ Método de refresh interno com parâmetro
+    /// </summary>
+    private async Task RefreshInternalAsync(bool showLoading = true)
     {
         try
         {
@@ -385,8 +427,6 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
             if (familyItem?.Id == null) return;
 
             Debug.WriteLine($"⭐ [FAMILIES_LIST_SYNCFUSION_VM] Toggling favorite for: {familyItem.Name}");
-
-            var originalStatus = familyItem.IsFavorite;
 
             try
             {

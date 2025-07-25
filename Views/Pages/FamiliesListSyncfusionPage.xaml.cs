@@ -7,10 +7,7 @@ using CommunityToolkit.Maui.Core;
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamiliesListSyncfusionPage sem propriedades inexistentes do SfButton
-/// - Removidas todas as referências a GradientStops, HasShadow, ShadowOffset, etc.
-/// - Usando BackgroundColor simples para mudanças visuais do FAB
-/// - Todas as funcionalidades mantidas com alternativas compatíveis
+/// ✅ CORRIGIDO: FamiliesListSyncfusionPage com todos os erros de compilação corrigidos
 /// </summary>
 public partial class FamiliesListSyncfusionPage : ContentPage
 {
@@ -43,7 +40,12 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             Debug.WriteLine("🔄 [FAMILIES_SYNCFUSION_PAGE] Pull-to-refresh triggered");
 
             ListRefresh.IsRefreshing = true;
-            await _viewModel.RefreshCommand.ExecuteAsync(null);
+
+            if (_viewModel.RefreshCommand?.CanExecute(null) == true)
+            {
+                await _viewModel.RefreshCommand.ExecuteAsync(null);
+            }
+
             ListRefresh.IsRefreshing = false;
 
             Debug.WriteLine("✅ [FAMILIES_SYNCFUSION_PAGE] Pull-to-refresh completed");
@@ -77,7 +79,11 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         // ✅ REFRESH SEMPRE QUE VOLTAR PARA A TELA
         Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_PAGE] Refreshing data on page appearing");
         await _viewModel.OnAppearingAsync();
-        await _viewModel.RefreshCommand.ExecuteAsync(null);
+
+        if (_viewModel.RefreshCommand?.CanExecute(null) == true)
+        {
+            await _viewModel.RefreshCommand.ExecuteAsync(null);
+        }
 
         // ✅ GARANTIR QUE FAB SEJA ATUALIZADO APÓS CARREGAMENTO
         UpdateFabVisual();
@@ -267,7 +273,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Clear All - limpar seleção E filtros usando comando do ViewModel
+    /// ✅ CORRIGIDO: Clear All - verificar se comando existe antes de usar
     /// </summary>
     private async void OnDeselectAllTapped(object sender, EventArgs e)
     {
@@ -275,8 +281,8 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         {
             Debug.WriteLine($"🧹 [FAMILIES_SYNCFUSION_PAGE] Clear All toolbar tapped - will clear selections AND filters");
 
-            // ✅ USAR COMANDO DO VIEWMODEL que limpa seleção + filtros
-            if (_viewModel?.ClearSelectionCommand?.CanExecute(null) == true)
+            // ✅ CORREÇÃO: Verificar se comando existe antes de usar
+            if (_viewModel?.ClearSelectionCommand != null && _viewModel.ClearSelectionCommand.CanExecute(null))
             {
                 _viewModel.ClearSelectionCommand.Execute(null);
                 Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] ClearSelectionCommand executed - filters and selection cleared");
@@ -287,36 +293,49 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                 Debug.WriteLine($"⚠️ [FAMILIES_SYNCFUSION_PAGE] ClearSelectionCommand not available - doing manual clear");
 
                 // Limpar seleções
-                foreach (var item in _viewModel.Items)
+                if (_viewModel?.Items != null)
                 {
-                    item.IsSelected = false;
+                    foreach (var item in _viewModel.Items)
+                    {
+                        item.IsSelected = false;
+                    }
                 }
-                _viewModel.SelectedItems.Clear();
+
+                if (_viewModel?.SelectedItems != null)
+                {
+                    _viewModel.SelectedItems.Clear();
+                }
+
                 FamilyListView.SelectedItems?.Clear();
 
                 // Limpar filtros
-                _viewModel.SearchText = string.Empty;
-                _viewModel.StatusFilter = "All";
-                _viewModel.SortOrder = "Name A→Z";
+                if (_viewModel != null)
+                {
+                    _viewModel.SearchText = string.Empty;
+                    _viewModel.StatusFilter = "All";
+                    _viewModel.SortOrder = "Name A→Z";
+                    _viewModel.IsMultiSelectMode = false;
+                }
 
-                // Sair do modo multisseleção
-                _viewModel.IsMultiSelectMode = false;
                 FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
             }
 
             // ✅ FORÇAR REFRESH VISUAL
             Device.BeginInvokeOnMainThread(() =>
             {
-                for (int i = 0; i < _viewModel.Items.Count; i++)
+                if (_viewModel?.Items != null)
                 {
-                    FamilyListView.RefreshItem(i);
+                    for (int i = 0; i < _viewModel.Items.Count; i++)
+                    {
+                        FamilyListView.RefreshItem(i);
+                    }
                 }
             });
 
-            _viewModel.UpdateFabForSelection();
+            _viewModel?.UpdateFabForSelection();
             UpdateFabVisual();
 
-            // ✅ TOAST DE FEEDBACK
+            // ✅ TOAST DE FEEDBACK - CORRIGIDO
             await ShowToast("🧹 Cleared selections and filters", CommunityToolkit.Maui.Core.ToastDuration.Short);
 
             Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] Clear All completed successfully");
@@ -387,133 +406,6 @@ public partial class FamiliesListSyncfusionPage : ContentPage
 
     #endregion
 
-    #region ✅ DIRECT COMMAND HANDLERS - NOVA ABORDAGEM
-
-    /// <summary>
-    /// ✅ NOVO: Handler direto via Command - mais confiável que events
-    /// </summary>
-    private void OnItemTappedDirect(FamilyItemViewModel item)
-    {
-        try
-        {
-            if (item == null) return;
-
-            Debug.WriteLine($"👆 [DIRECT_TAP] Item: {item.Name} - MultiSelect: {_viewModel.IsMultiSelectMode}");
-
-            if (_viewModel.IsMultiSelectMode)
-            {
-                Debug.WriteLine($"🔘 [DIRECT_TAP] Multi-select mode ACTIVE - toggling selection");
-
-                // Toggle selection
-                if (item.IsSelected)
-                {
-                    item.IsSelected = false;
-                    _viewModel.SelectedItems.Remove(item);
-                    Debug.WriteLine($"➖ [DIRECT_TAP] DESELECTED: {item.Name}");
-                }
-                else
-                {
-                    item.IsSelected = true;
-                    if (!_viewModel.SelectedItems.Contains(item))
-                        _viewModel.SelectedItems.Add(item);
-                    Debug.WriteLine($"➕ [DIRECT_TAP] SELECTED: {item.Name}");
-                }
-
-                // Force visual refresh
-                Device.BeginInvokeOnMainThread(() =>
-                {
-                    var index = _viewModel.Items.IndexOf(item);
-                    if (index >= 0)
-                    {
-                        FamilyListView.RefreshItem(index);
-                        Debug.WriteLine($"🔄 [DIRECT_TAP] Visual refresh for index: {index}");
-                    }
-                });
-
-                _viewModel.UpdateFabForSelection();
-
-                Debug.WriteLine($"📊 [DIRECT_TAP] Current selection count: {_viewModel.SelectedItems.Count}");
-                Debug.WriteLine($"🎯 [DIRECT_TAP] FAB Text: {_viewModel.FabText}");
-
-                // Exit multi-select if no items selected
-                if (_viewModel.SelectedItems.Count == 0)
-                {
-                    _viewModel.IsMultiSelectMode = false;
-                    FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
-                    Debug.WriteLine($"🔄 [DIRECT_TAP] Exited multi-select mode");
-                }
-            }
-            else
-            {
-                Debug.WriteLine($"🔄 [DIRECT_TAP] Normal mode - navigating to edit");
-                Device.BeginInvokeOnMainThread(async () =>
-                {
-                    await _viewModel.NavigateToEditCommand.ExecuteAsync(item);
-                });
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [DIRECT_TAP] Error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ NOVO: Long press direto via Command
-    /// </summary>
-    private void OnItemLongPressDirect(FamilyItemViewModel item)
-    {
-        try
-        {
-            if (item == null) return;
-
-            Debug.WriteLine($"🔘 [DIRECT_LONGPRESS] *** LONG PRESS ***: {item.Name}");
-            Debug.WriteLine($"Current MultiSelectMode: {_viewModel.IsMultiSelectMode}");
-
-            // Ativar modo multisseleção
-            if (!_viewModel.IsMultiSelectMode)
-            {
-                _viewModel.IsMultiSelectMode = true;
-                FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.Multiple;
-                Debug.WriteLine($"✅ [DIRECT_LONGPRESS] Multi-select mode ACTIVATED");
-            }
-
-            // Selecionar o item
-            if (!item.IsSelected)
-            {
-                item.IsSelected = true;
-                if (!_viewModel.SelectedItems.Contains(item))
-                {
-                    _viewModel.SelectedItems.Add(item);
-                }
-                Debug.WriteLine($"✅ [DIRECT_LONGPRESS] Item selected: {item.Name}");
-            }
-
-            // Force visual refresh
-            Device.BeginInvokeOnMainThread(() =>
-            {
-                var index = _viewModel.Items.IndexOf(item);
-                if (index >= 0)
-                {
-                    FamilyListView.RefreshItem(index);
-                    Debug.WriteLine($"🔄 [DIRECT_LONGPRESS] Visual refresh for index: {index}");
-                }
-            });
-
-            _viewModel.UpdateFabForSelection();
-
-            Debug.WriteLine($"🎉 [DIRECT_LONGPRESS] SUCCESS! MultiSelect: {_viewModel.IsMultiSelectMode}");
-            Debug.WriteLine($"📊 [DIRECT_LONGPRESS] Selected count: {_viewModel.SelectedItems.Count}");
-            Debug.WriteLine($"💡 [DIRECT_LONGPRESS] Now TAP other items to select them!");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [DIRECT_LONGPRESS] Error: {ex.Message}");
-        }
-    }
-
-    #endregion
-
     #region ✅ FAB HANDLER - SEM DUPLA CONFIRMAÇÃO
 
     /// <summary>
@@ -542,14 +434,17 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                     }
 
                     // ✅ LIMPAR SELEÇÕES
-                    _viewModel.SelectedItems.Clear();
+                    _viewModel?.SelectedItems.Clear();
                     FamilyListView.SelectedItems?.Clear();
-                    _viewModel.IsMultiSelectMode = false;
+                    if (_viewModel != null)
+                    {
+                        _viewModel.IsMultiSelectMode = false;
+                    }
                     FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
 
                     UpdateFabVisual();
 
-                    // ✅ GARANTIR TOAST DE SUCESSO (já que removemos o alert do ViewModel)
+                    // ✅ GARANTIR TOAST DE SUCESSO - CORRIGIDO
                     await ShowToast($"✅ {selectedCount} families deleted successfully", CommunityToolkit.Maui.Core.ToastDuration.Short);
                 }
                 catch (Exception deleteEx)
@@ -562,10 +457,13 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             {
                 Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] Canceling multi-select mode");
 
-                _viewModel.IsMultiSelectMode = false;
+                if (_viewModel != null)
+                {
+                    _viewModel.IsMultiSelectMode = false;
+                }
                 FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
                 FamilyListView.SelectedItems?.Clear();
-                _viewModel.SelectedItems?.Clear();
+                _viewModel?.SelectedItems?.Clear();
 
                 UpdateFabVisual();
             }
@@ -590,6 +488,33 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             await ShowToast($"❌ Action failed: {ex.Message}", CommunityToolkit.Maui.Core.ToastDuration.Short);
         }
     }
+
+    /// <summary>
+    /// ✅ Método local para toggle de multiseleção
+    /// </summary>
+    private void ToggleMultiSelect()
+    {
+        try
+        {
+            if (_viewModel?.ToggleMultiSelectCommand?.CanExecute(null) == true)
+            {
+                _viewModel.ToggleMultiSelectCommand.Execute(null);
+            }
+            else
+            {
+                // Fallback manual
+                if (_viewModel != null)
+                {
+                    _viewModel.IsMultiSelectMode = !_viewModel.IsMultiSelectMode;
+                    _viewModel.UpdateFabForSelection();
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] ToggleMultiSelect error: {ex.Message}");
+        }
+    }
     #endregion
 
     #region ✅ FILTER AND SORT HANDLERS - ATUALIZADO
@@ -610,14 +535,18 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             string[] options = { "All", "Active", "Inactive" };
             string result = await DisplayActionSheet("Filter by Status", "Cancel", null, options);
 
-            if (result != "Cancel" && result != null)
+            if (result != "Cancel" && result != null && _viewModel != null)
             {
                 _viewModel.StatusFilter = result;
                 Debug.WriteLine($"🏷️ [FAMILIES_SYNCFUSION_PAGE] Status filter changed to: {result}");
-                _viewModel.ApplyFilterCommand.Execute(null);
 
-                // Show feedback toast
-                var toast = Toast.Make($"Filter: {result}", ToastDuration.Short, 14);
+                if (_viewModel.ApplyFilterCommand?.CanExecute(null) == true)
+                {
+                    await _viewModel.ApplyFilterCommand.ExecuteAsync(null);
+                }
+
+                // Show feedback toast - CORRIGIDO
+                var toast = Toast.Make($"Filter: {result}", CommunityToolkit.Maui.Core.ToastDuration.Short, 14);
                 await toast.Show();
             }
         }
@@ -643,14 +572,18 @@ public partial class FamiliesListSyncfusionPage : ContentPage
             string[] options = { "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First" };
             string result = await DisplayActionSheet("Sort by", "Cancel", null, options);
 
-            if (result != "Cancel" && result != null)
+            if (result != "Cancel" && result != null && _viewModel != null)
             {
                 _viewModel.SortOrder = result;
                 Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_PAGE] Sort order changed to: {result}");
-                _viewModel.ToggleSortCommand.Execute(null);
 
-                // Show feedback toast
-                var toast = Toast.Make($"Sorted by: {result}", ToastDuration.Short, 14);
+                if (_viewModel.ToggleSortCommand?.CanExecute(null) == true)
+                {
+                    _viewModel.ToggleSortCommand.Execute(null);
+                }
+
+                // Show feedback toast - CORRIGIDO
+                var toast = Toast.Make($"Sorted by: {result}", CommunityToolkit.Maui.Core.ToastDuration.Short, 14);
                 await toast.Show();
             }
         }
@@ -670,15 +603,17 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         {
             if (e.DataItem is FamilyItemViewModel item)
             {
-                Debug.WriteLine($"👆 [FAMILIES_SYNCFUSION_PAGE] Item tapped: {item.Name} - MultiSelect: {_viewModel.IsMultiSelectMode}");
+                Debug.WriteLine($"👆 [FAMILIES_SYNCFUSION_PAGE] Item tapped: {item.Name} - MultiSelect: {_viewModel?.IsMultiSelectMode}");
 
-                if (!_viewModel.IsMultiSelectMode)
+                if (_viewModel?.IsMultiSelectMode != true)
                 {
                     Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_PAGE] Navigating to edit: {item.Name}");
-                    // Corrigir o erro de parâmetro
                     Device.BeginInvokeOnMainThread(async () =>
                     {
-                        await _viewModel.NavigateToEditCommand.ExecuteAsync(item);
+                        if (_viewModel?.NavigateToEditCommand?.CanExecute(item) == true)
+                        {
+                            await _viewModel.NavigateToEditCommand.ExecuteAsync(item);
+                        }
                     });
                 }
                 else
@@ -688,19 +623,19 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                     if (item.IsSelected)
                     {
                         item.IsSelected = false;
-                        _viewModel.SelectedItems.Remove(item);
+                        _viewModel?.SelectedItems?.Remove(item);
                         FamilyListView.SelectedItems?.Remove(item);
                     }
                     else
                     {
                         item.IsSelected = true;
-                        if (!_viewModel.SelectedItems.Contains(item))
+                        if (_viewModel?.SelectedItems != null && !_viewModel.SelectedItems.Contains(item))
                             _viewModel.SelectedItems.Add(item);
                         if (FamilyListView.SelectedItems != null && !FamilyListView.SelectedItems.Contains(item))
                             FamilyListView.SelectedItems.Add(item);
                     }
 
-                    _viewModel.UpdateFabForSelection();
+                    _viewModel?.UpdateFabForSelection();
 
                     // ✅ FORÇAR REFRESH VISUAL DO FAB
                     Device.BeginInvokeOnMainThread(() =>
@@ -709,9 +644,12 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                     });
 
                     // Se não há mais itens selecionados, sair do modo multisseleção
-                    if (_viewModel.SelectedItems.Count == 0)
+                    if (_viewModel?.SelectedItems?.Count == 0)
                     {
-                        _viewModel.IsMultiSelectMode = false;
+                        if (_viewModel != null)
+                        {
+                            _viewModel.IsMultiSelectMode = false;
+                        }
                         FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
                     }
                 }
@@ -724,7 +662,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     }
 
     /// <summary>
-    /// ✅ LongPress FALLBACK - delegar para handler direto
+    /// ✅ LongPress handler
     /// </summary>
     private void OnItemLongPress(object sender, Syncfusion.Maui.ListView.ItemLongPressEventArgs e)
     {
@@ -732,14 +670,48 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         {
             if (e.DataItem is FamilyItemViewModel item)
             {
-                Debug.WriteLine($"🔘 [EVENT_LONGPRESS] FALLBACK - Item: {item.Name}");
-                // Delegate to direct handler
-                OnItemLongPressDirect(item);
+                Debug.WriteLine($"🔘 [FAMILIES_SYNCFUSION_PAGE] Long press: {item.Name}");
+
+                // Ativar modo multisseleção
+                if (_viewModel?.IsMultiSelectMode != true)
+                {
+                    if (_viewModel != null)
+                    {
+                        _viewModel.IsMultiSelectMode = true;
+                    }
+                    FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.Multiple;
+                    Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] Multi-select mode ACTIVATED");
+                }
+
+                // Selecionar o item
+                if (!item.IsSelected)
+                {
+                    item.IsSelected = true;
+                    if (_viewModel?.SelectedItems != null && !_viewModel.SelectedItems.Contains(item))
+                    {
+                        _viewModel.SelectedItems.Add(item);
+                    }
+                    Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] Item selected: {item.Name}");
+                }
+
+                // Force visual refresh
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    var index = _viewModel?.Items?.IndexOf(item) ?? -1;
+                    if (index >= 0)
+                    {
+                        FamilyListView.RefreshItem(index);
+                        Debug.WriteLine($"🔄 [FAMILIES_SYNCFUSION_PAGE] Visual refresh for index: {index}");
+                    }
+                });
+
+                _viewModel?.UpdateFabForSelection();
+                UpdateFabVisual();
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [EVENT_LONGPRESS] FALLBACK Error: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILIES_SYNCFUSION_PAGE] ItemLongPress error: {ex.Message}");
         }
     }
 
@@ -920,61 +892,67 @@ public partial class FamiliesListSyncfusionPage : ContentPage
                 case "Right":
                     Debug.WriteLine($"⭐ [SWIPE_ENDED] FAVORITE action triggered");
 
-                    if (!_viewModel.IsConnected)
+                    if (_viewModel?.IsConnected != true)
                     {
-                        await ShowToast("Cannot favorite while offline", ToastDuration.Short);
+                        await ShowToast("Cannot favorite while offline", CommunityToolkit.Maui.Core.ToastDuration.Short);
                         break;
                     }
 
-                    // ✅ CORREÇÃO: Capturar status ANTES do toggle para mostrar mensagem correta
                     try
                     {
-                        var wasAlreadyFavorite = item.IsFavorite; // ✅ Status ANTES do toggle
+                        var wasAlreadyFavorite = item.IsFavorite;
 
                         Debug.WriteLine($"⭐ [SWIPE_ENDED] Calling ToggleFavoriteAsync for: {item.Name} (Currently: {wasAlreadyFavorite})");
-                        await _viewModel.ToggleFavoriteCommand.ExecuteAsync(item);
+
+                        if (_viewModel?.ToggleFavoriteCommand?.CanExecute(item) == true)
+                        {
+                            await _viewModel.ToggleFavoriteCommand.ExecuteAsync(item);
+                        }
+
                         Debug.WriteLine($"✅ [SWIPE_ENDED] ToggleFavorite completed for: {item.Name}");
 
-                        // ✅ CORREÇÃO: Mostrar mensagem baseada no status ANTES do toggle
                         var message = wasAlreadyFavorite ? "Removed from favorites" : "Added to favorites! ⭐";
-                        await ShowToast(message, ToastDuration.Short);
+                        await ShowToast(message, CommunityToolkit.Maui.Core.ToastDuration.Short);
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"❌ [SWIPE_ENDED] ToggleFavorite failed: {ex.Message}");
-                        await ShowToast("Failed to update favorite status", ToastDuration.Short);
+                        await ShowToast("Failed to update favorite status", CommunityToolkit.Maui.Core.ToastDuration.Short);
                     }
                     break;
 
                 case "Left":
                     Debug.WriteLine($"🗑️ [SWIPE_ENDED] DELETE action triggered");
 
-                    if (!_viewModel.IsConnected)
+                    if (_viewModel?.IsConnected != true)
                     {
-                        await ShowToast("Cannot delete while offline", ToastDuration.Short);
+                        await ShowToast("Cannot delete while offline", CommunityToolkit.Maui.Core.ToastDuration.Short);
                         break;
                     }
 
                     if (item.IsSystemDefault)
                     {
-                        await ShowToast("Cannot delete system default families", ToastDuration.Short);
+                        await ShowToast("Cannot delete system default families", CommunityToolkit.Maui.Core.ToastDuration.Short);
                         break;
                     }
 
-                    // ✅ CORREÇÃO: Usar comando do ViewModel para deletar + garantir toast
                     try
                     {
                         Debug.WriteLine($"🗑️ [SWIPE_ENDED] Calling DeleteSingleItemAsync for: {item.Name}");
-                        await _viewModel.DeleteSingleItemCommand.ExecuteAsync(item);
+
+                        if (_viewModel?.DeleteSingleItemCommand?.CanExecute(item) == true)
+                        {
+                            await _viewModel.DeleteSingleItemCommand.ExecuteAsync(item);
+                        }
+
                         Debug.WriteLine($"✅ [SWIPE_ENDED] Delete completed for: {item.Name}");
 
-                        // ✅ GARANTIR TOAST DE SUCESSO (já que removemos o alert do ViewModel)
-                        await ShowToast($"✅ '{item.Name}' deleted successfully", ToastDuration.Short);
+                        await ShowToast($"✅ '{item.Name}' deleted successfully", CommunityToolkit.Maui.Core.ToastDuration.Short);
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"❌ [SWIPE_ENDED] Delete failed: {ex.Message}");
-                        await ShowToast("❌ Failed to delete family", ToastDuration.Short);
+                        await ShowToast("❌ Failed to delete family", CommunityToolkit.Maui.Core.ToastDuration.Short);
                     }
                     break;
 
@@ -1001,9 +979,9 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     #region ✅ UTILITY METHODS
 
     /// <summary>
-    /// ✅ Show toast notification
+    /// ✅ Show toast notification - CORRIGIDO
     /// </summary>
-    private async Task ShowToast(string message, ToastDuration duration)
+    private async Task ShowToast(string message, CommunityToolkit.Maui.Core.ToastDuration duration)
     {
         try
         {
@@ -1022,7 +1000,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     {
         try
         {
-            if (item != null && _viewModel.Items.Contains(item))
+            if (item != null && _viewModel?.Items?.Contains(item) == true)
             {
                 int index = _viewModel.Items.IndexOf(item);
                 if (index >= 0)
@@ -1061,16 +1039,22 @@ public partial class FamiliesListSyncfusionPage : ContentPage
         try
         {
             FamilyListView.SelectedItems?.Clear();
-            _viewModel.SelectedItems.Clear();
+            _viewModel?.SelectedItems?.Clear();
 
-            foreach (var item in _viewModel.Items)
+            if (_viewModel?.Items != null)
             {
-                item.IsSelected = false;
+                foreach (var item in _viewModel.Items)
+                {
+                    item.IsSelected = false;
+                }
             }
 
-            _viewModel.IsMultiSelectMode = false;
+            if (_viewModel != null)
+            {
+                _viewModel.IsMultiSelectMode = false;
+            }
             FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
-            _viewModel.UpdateFabForSelection();
+            _viewModel?.UpdateFabForSelection();
 
             Debug.WriteLine($"✅ [FAMILIES_SYNCFUSION_PAGE] All selections cleared and SelectionMode = None");
         }
@@ -1123,7 +1107,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     {
         try
         {
-            if (_viewModel.Items.Any())
+            if (_viewModel?.Items?.Any() == true)
             {
                 ScrollToItem(_viewModel.Items.First());
             }
@@ -1138,7 +1122,7 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     {
         try
         {
-            if (_viewModel.Items.Any())
+            if (_viewModel?.Items?.Any() == true)
             {
                 ScrollToItem(_viewModel.Items.Last());
             }
@@ -1153,9 +1137,9 @@ public partial class FamiliesListSyncfusionPage : ContentPage
     {
         try
         {
-            var total = _viewModel.Items.Count;
+            var total = _viewModel?.Items?.Count ?? 0;
             var selected = FamilyListView.SelectedItems?.Count ?? 0;
-            var filtered = _viewModel.Items.Count; // Sem DataSource, usamos Items direto
+            var filtered = _viewModel?.Items?.Count ?? 0; // Sem DataSource, usamos Items direto
 
             return $"Total: {total}, Filtered: {filtered}, Selected: {selected}";
         }
