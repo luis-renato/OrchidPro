@@ -4,7 +4,7 @@ using System.Diagnostics;
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// ✅ FINAL: FamilyEditPage sem erros de compilação
+/// ✅ CORRIGIDO: FamilyEditPage com inicialização correta e sincronização de título
 /// </summary>
 public partial class FamilyEditPage : ContentPage, IQueryAttributable
 {
@@ -48,6 +48,9 @@ public partial class FamilyEditPage : ContentPage, IQueryAttributable
             // Passar parâmetros para o ViewModel
             _viewModel.ApplyQueryAttributes(query);
 
+            // ✅ CORREÇÃO CRÍTICA: Sincronizar título da página com o ViewModel
+            SynchronizePageTitle();
+
             Debug.WriteLine($"✅ [FAMILY_EDIT_PAGE] Parameters applied to ViewModel");
         }
         catch (Exception ex)
@@ -68,14 +71,19 @@ public partial class FamilyEditPage : ContentPage, IQueryAttributable
         {
             Debug.WriteLine($"👀 [FAMILY_EDIT_PAGE] OnAppearing - Mode: {(_viewModel.IsEditMode ? "EDIT" : "CREATE")}");
 
-            // Animação + inicialização em paralelo
-            var animationTask = PerformEntranceAnimation();
-            var initTask = _viewModel.OnAppearingAsync();
+            // ✅ CORREÇÃO CRÍTICA: Garantir que a inicialização aconteça
+            if (_viewModel.IsEditMode && _viewModel.CurrentFamilyId.HasValue)
+            {
+                Debug.WriteLine($"🔄 [FAMILY_EDIT_PAGE] Triggering initialization for edit mode - ID: {_viewModel.CurrentFamilyId}");
 
-            // Aguarda ambos completarem
-            await Task.WhenAll(animationTask, initTask);
+                // Força a inicialização se ainda não aconteceu
+                await _viewModel.OnAppearingAsync();
+            }
 
-            Debug.WriteLine($"✅ [FAMILY_EDIT_PAGE] Page fully loaded and initialized");
+            // ✅ CORREÇÃO CRÍTICA: Sincronizar título após possível carregamento de dados
+            SynchronizePageTitle();
+
+            Debug.WriteLine($"✅ [FAMILY_EDIT_PAGE] OnAppearing completed - Title: '{Title}', ViewModel Title: '{_viewModel.Title}'");
         }
         catch (Exception ex)
         {
@@ -85,118 +93,45 @@ public partial class FamilyEditPage : ContentPage, IQueryAttributable
 
     protected override async void OnDisappearing()
     {
-        base.OnDisappearing();
-
         try
         {
-            Debug.WriteLine("👋 [FAMILY_EDIT_PAGE] OnDisappearing");
+            Debug.WriteLine($"👋 [FAMILY_EDIT_PAGE] OnDisappearing - cleaning up resources");
 
-            // Perform exit animation
-            await PerformExitAnimation();
-
-            // Cleanup ViewModel
             await _viewModel.OnDisappearingAsync();
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] OnDisappearing error: {ex.Message}");
         }
-    }
-
-    protected override bool OnBackButtonPressed()
-    {
-        // Handle back button with unsaved changes check
-        _ = Task.Run(async () =>
+        finally
         {
-            try
-            {
-                // Verifica mudanças não salvas
-                if (_viewModel.HasUnsavedChanges)
-                {
-                    var result = await DisplayAlert(
-                        "Unsaved Changes",
-                        "You have unsaved changes. Discard them?",
-                        "Discard",
-                        "Cancel");
-
-                    if (result)
-                    {
-                        // User chose to discard changes
-                        Device.BeginInvokeOnMainThread(async () =>
-                        {
-                            await Shell.Current.GoToAsync("..");
-                        });
-                    }
-                    // If false, stay on page
-                }
-                else
-                {
-                    // No unsaved changes, navigate back normally
-                    Device.BeginInvokeOnMainThread(async () =>
-                    {
-                        await Shell.Current.GoToAsync("..");
-                    });
-                }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Back button handler error: {ex.Message}");
-            }
-        });
-
-        // Prevent default back button behavior
-        return true;
+            base.OnDisappearing();
+        }
     }
 
     #endregion
 
-    #region ✅ Animations
+    #region ✅ NOVO: Sincronização de Título
 
     /// <summary>
-    /// ✅ Animação de entrada mantendo o padrão do projeto
+    /// ✅ CORRIGIDO: Sincroniza o título da página com o ViewModel
     /// </summary>
-    private async Task PerformEntranceAnimation()
+    private void SynchronizePageTitle()
     {
         try
         {
-            // Setup initial state
-            Content.Opacity = 0;
-            Content.Scale = 0.95;
-            Content.TranslationY = 30;
+            // ✅ CORREÇÃO CRÍTICA: Usar o título correto baseado no modo
+            var newTitle = _viewModel.IsEditMode ? "Edit Family" : "New Family";
 
-            // Animate entrance
-            await Task.WhenAll(
-                Content.FadeTo(1, 600, Easing.CubicOut),
-                Content.ScaleTo(1, 600, Easing.SpringOut),
-                Content.TranslateTo(0, 0, 600, Easing.CubicOut)
-            );
-
-            Debug.WriteLine("✨ [FAMILY_EDIT_PAGE] Entrance animation completed");
+            if (Title != newTitle)
+            {
+                Title = newTitle;
+                Debug.WriteLine($"🔄 [FAMILY_EDIT_PAGE] Title synchronized: '{Title}'");
+            }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Entrance animation error: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ Animação de saída mantendo o padrão do projeto
-    /// </summary>
-    private async Task PerformExitAnimation()
-    {
-        try
-        {
-            await Task.WhenAll(
-                Content.FadeTo(0, 300, Easing.CubicIn),
-                Content.ScaleTo(0.95, 300, Easing.CubicIn),
-                Content.TranslateTo(0, -20, 300, Easing.CubicIn)
-            );
-
-            Debug.WriteLine("✨ [FAMILY_EDIT_PAGE] Exit animation completed");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Exit animation error: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] SynchronizePageTitle error: {ex.Message}");
         }
     }
 

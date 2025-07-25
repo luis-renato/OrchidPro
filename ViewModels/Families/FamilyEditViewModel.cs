@@ -11,7 +11,7 @@ using CommunityToolkit.Mvvm.Input;
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamilyEditViewModel com navegação e validação em tempo real
+/// ✅ CORRIGIDO: FamilyEditViewModel com navegação e carregamento correto de dados
 /// </summary>
 public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttributable
 {
@@ -165,6 +165,41 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
 
         Debug.WriteLine($"⚠️ [FAMILY_EDIT_VM] Cannot convert {obj} to Guid");
         return null;
+    }
+
+    #endregion
+
+    #region ✅ CORRIGIDA: Override do PopulateFromEntityAsync
+
+    /// <summary>
+    /// ✅ CORRIGIDO: Sobrescreve método para carregar propriedades específicas da Family
+    /// </summary>
+    protected override async Task PopulateFromEntityAsync(Family entity)
+    {
+        try
+        {
+            // Chamar o método base primeiro
+            await base.PopulateFromEntityAsync(entity);
+
+            // ✅ CORREÇÃO CRÍTICA: Configurar propriedades específicas da Family
+            IsFavorite = entity.IsFavorite;
+
+            // ✅ CORREÇÃO CRÍTICA: Atualizar título para modo de edição
+            IsEditMode = true;
+            Title = "Edit Family";
+            SaveButtonText = "Update";
+
+            // Atualizar UI
+            UpdateFormCompletionProgress();
+            UpdateSaveButton();
+
+            Debug.WriteLine($"✅ [FAMILY_EDIT_VM] PopulateFromEntityAsync completed - Name: '{Name}', Favorite: {IsFavorite}, Active: {IsActive}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_VM] PopulateFromEntityAsync error: {ex.Message}");
+            throw; // Re-throw para que a UI possa lidar com o erro
+        }
     }
 
     #endregion
