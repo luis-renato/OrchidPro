@@ -3,8 +3,9 @@
              xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:OrchidPro.ViewModels.Families"
+             xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              x:DataType="vm:FamilyEditViewModel"
-             Title="{Binding PageTitle}"
+             Title="Families"
              BackgroundColor="White">
 
     <Grid>
@@ -26,8 +27,8 @@
                            Opacity="0.8" />
 
                     <ProgressBar Progress="{Binding FormCompletionProgress}"
-                                ProgressColor="Blue"
-                                BackgroundColor="LightGray"
+                                ProgressColor="{StaticResource Primary}"
+                                BackgroundColor="{StaticResource Gray200}"
                                 HeightRequest="4"
                                 Margin="0,8,0,0" />
                 </StackLayout>
@@ -42,7 +43,7 @@
                         <Label Text="Name *"
                                FontSize="12"
                                FontAttributes="Bold"
-                               TextColor="Blue" />
+                               TextColor="{StaticResource Primary}" />
 
                         <Entry Text="{Binding Name}"
                                Placeholder="Enter family name"
@@ -67,7 +68,7 @@
                         <Label Text="Description"
                                FontSize="12"
                                FontAttributes="Bold"
-                               TextColor="Blue" />
+                               TextColor="{StaticResource Primary}" />
 
                         <Editor Text="{Binding Description}"
                                 Placeholder="Optional description..."
@@ -88,7 +89,7 @@
                         <Label Text="Settings"
                                FontSize="12"
                                FontAttributes="Bold"
-                               TextColor="Blue" />
+                               TextColor="{StaticResource Primary}" />
 
                         <!-- Active Toggle -->
                         <Grid ColumnDefinitions="Auto,*,Auto">
@@ -106,13 +107,12 @@
                                        TextColor="Black" />
                                 <Label Text="Family is available for use"
                                        FontSize="12"
-                                       TextColor="Gray"
-                                       Opacity="0.8" />
+                                       TextColor="Gray" />
                             </StackLayout>
 
                             <Switch Grid.Column="2"
                                     IsToggled="{Binding IsActive}"
-                                    OnColor="Green"
+                                    OnColor="{StaticResource SuccessColor}"
                                     ThumbColor="White"
                                     VerticalOptions="Center" />
                         </Grid>
@@ -133,16 +133,16 @@
                                        TextColor="Black" />
                                 <Label Text="Mark as important family"
                                        FontSize="12"
-                                       TextColor="Gray"
-                                       Opacity="0.8" />
+                                       TextColor="Gray" />
                             </StackLayout>
 
                             <Switch Grid.Column="2"
                                     IsToggled="{Binding IsFavorite}"
-                                    OnColor="Orange"
+                                    OnColor="{StaticResource WarningColor}"
                                     ThumbColor="White"
                                     VerticalOptions="Center" />
                         </Grid>
+
                     </StackLayout>
                 </Frame>
 
@@ -177,10 +177,11 @@
             </StackLayout>
         </ScrollView>
 
-        <!-- Loading Overlay -->
+        <!-- ✅ SYNCFUSION SfBusyIndicator em Frame (melhor das duas opções) -->
         <Grid IsVisible="{Binding IsBusy}" 
               BackgroundColor="#80000000">
-            <Frame BackgroundColor="White"
+            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                   BorderColor="{StaticResource BorderColor}"
                    CornerRadius="16"
                    Padding="32"
                    HorizontalOptions="Center"
@@ -188,19 +189,31 @@
                    HasShadow="True">
 
                 <StackLayout Spacing="16" HorizontalOptions="Center">
-                    <ActivityIndicator IsRunning="{Binding IsBusy}"
-                                     Color="Blue"
-                                     WidthRequest="32"
-                                     HeightRequest="32" />
+                    <!-- SfBusyIndicator sem overlay próprio -->
+                    <sfbusy:SfBusyIndicator IsVisible="True"
+                                            IsRunning="True"
+                                            AnimationType="HorizontalPulsingBox"
+                                            IndicatorColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                                            OverlayFill="Transparent"
+                                            WidthRequest="50"
+                                            HeightRequest="50" />
 
-                    <Label Text="{Binding LoadingMessage}"
+                    <!-- Mensagem customizada -->
+                    <Label Text="Saving..."
                            FontSize="16"
-                           TextColor="Black"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
+                           HorizontalOptions="Center" />
+
+                    <!-- Ícone opcional para operações de save -->
+                    <Label Text="💾"
+                           FontSize="24"
                            HorizontalOptions="Center" />
                 </StackLayout>
 
             </Frame>
         </Grid>
+
     </Grid>
 
 </ContentPage>

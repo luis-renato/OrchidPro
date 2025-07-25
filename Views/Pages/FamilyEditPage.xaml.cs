@@ -4,18 +4,19 @@ using System.Diagnostics;
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamilyEditPage com inicialização correta e sincronização de título
+/// ✅ CORRIGIDO: FamilyEditPage com interceptação inteligente de navegação
 /// </summary>
 public partial class FamilyEditPage : ContentPage, IQueryAttributable
 {
     private readonly FamilyEditViewModel _viewModel;
+    private bool _isNavigating = false;
+    private bool _isNavigationHandlerAttached = false;
 
     public FamilyEditPage(FamilyEditViewModel viewModel)
     {
         _viewModel = viewModel;
         BindingContext = _viewModel;
 
-        // InitializeComponent com tratamento de erro
         try
         {
             InitializeComponent();
@@ -27,6 +28,62 @@ public partial class FamilyEditPage : ContentPage, IQueryAttributable
         }
 
         Debug.WriteLine("✅ [FAMILY_EDIT_PAGE] Initialized successfully");
+    }
+
+    /// <summary>
+    /// ✅ SIMPLIFICADO: Intercepta navegação SEMPRE, decide se mostra dialog baseado no HasUnsavedChanges
+    /// </summary>
+    private async void OnShellNavigating(object? sender, ShellNavigatingEventArgs e)
+    {
+        // ✅ Só interceptar navegação de volta da toolbar
+        if (_isNavigating || (e.Source != ShellNavigationSource.Pop && e.Source != ShellNavigationSource.PopToRoot))
+            return;
+
+        Debug.WriteLine($"⬅️ [FAMILY_EDIT_PAGE] Toolbar navigation detected - HasUnsavedChanges: {_viewModel.HasUnsavedChanges}");
+
+        // ✅ SÓ interceptar se há mudanças não salvas
+        if (_viewModel.HasUnsavedChanges)
+        {
+            // ✅ Cancelar navegação para interceptar
+            e.Cancel();
+            _isNavigating = true;
+
+            try
+            {
+                // ✅ IMPORTANTE: Remover handler ANTES de chamar CancelCommand para evitar interferência
+                DetachNavigationHandler();
+
+                Debug.WriteLine("🔄 [FAMILY_EDIT_PAGE] Handler removed, delegating to CancelCommand");
+
+                if (_viewModel.CancelCommand.CanExecute(null))
+                {
+                    await _viewModel.CancelCommand.ExecuteAsync(null);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Navigation handler error: {ex.Message}");
+            }
+            finally
+            {
+                _isNavigating = false;
+                // ✅ NÃO reativar handler aqui - deixar que seja gerenciado naturalmente
+            }
+        }
+        // Se não há mudanças, deixa navegar normalmente (não cancela)
+    }
+
+    /// <summary>
+    /// ✅ SIMPLIFICADO: Remove handler de navegação
+    /// </summary>
+    private void DetachNavigationHandler()
+    {
+        if (_isNavigationHandlerAttached)
+        {
+            Shell.Current.Navigating -= OnShellNavigating;
+            _isNavigationHandlerAttached = false;
+            Debug.WriteLine("🔗 [FAMILY_EDIT_PAGE] Navigation handler detached");
+        }
     }
 
     #region ✅ Query Attributes
@@ -48,9 +105,6 @@ public partial class FamilyEditPage : ContentPage, IQueryAttributable
             // Passar parâmetros para o ViewModel
             _viewModel.ApplyQueryAttributes(query);
 
-            // ✅ CORREÇÃO CRÍTICA: Sincronizar título da página com o ViewModel
-            SynchronizePageTitle();
-
             Debug.WriteLine($"✅ [FAMILY_EDIT_PAGE] Parameters applied to ViewModel");
         }
         catch (Exception ex)
@@ -71,19 +125,22 @@ public partial class FamilyEditPage : ContentPage, IQueryAttributable
         {
             Debug.WriteLine($"👀 [FAMILY_EDIT_PAGE] OnAppearing - Mode: {(_viewModel.IsEditMode ? "EDIT" : "CREATE")}");
 
-            // ✅ CORREÇÃO CRÍTICA: Garantir que a inicialização aconteça
-            if (_viewModel.IsEditMode && _viewModel.CurrentFamilyId.HasValue)
+            // ✅ SEMPRE interceptar navegação da toolbar - mais simples
+            if (!_isNavigationHandlerAttached)
             {
-                Debug.WriteLine($"🔄 [FAMILY_EDIT_PAGE] Triggering initialization for edit mode - ID: {_viewModel.CurrentFamilyId}");
-
-                // Força a inicialização se ainda não aconteceu
-                await _viewModel.OnAppearingAsync();
+                Shell.Current.Navigating += OnShellNavigating;
+                _isNavigationHandlerAttached = true;
+                Debug.WriteLine("🔗 [FAMILY_EDIT_PAGE] Navigation handler attached (always active)");
             }
 
-            // ✅ CORREÇÃO CRÍTICA: Sincronizar título após possível carregamento de dados
-            SynchronizePageTitle();
+            // Animação + inicialização em paralelo
+            var animationTask = PerformEntranceAnimation();
+            var initTask = _viewModel.OnAppearingAsync();
 
-            Debug.WriteLine($"✅ [FAMILY_EDIT_PAGE] OnAppearing completed - Title: '{Title}', ViewModel Title: '{_viewModel.Title}'");
+            // Aguarda ambos completarem
+            await Task.WhenAll(animationTask, initTask);
+
+            Debug.WriteLine($"✅ [FAMILY_EDIT_PAGE] Page fully loaded and initialized");
         }
         catch (Exception ex)
         {
@@ -93,45 +150,127 @@ public partial class FamilyEditPage : ContentPage, IQueryAttributable
 
     protected override async void OnDisappearing()
     {
+        base.OnDisappearing();
+
         try
         {
-            Debug.WriteLine($"👋 [FAMILY_EDIT_PAGE] OnDisappearing - cleaning up resources");
+            Debug.WriteLine("👋 [FAMILY_EDIT_PAGE] OnDisappearing");
 
+            // ✅ SEMPRE remover handler
+            DetachNavigationHandler();
+
+            // Perform exit animation
+            await PerformExitAnimation();
+
+            // Cleanup ViewModel
             await _viewModel.OnDisappearingAsync();
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] OnDisappearing error: {ex.Message}");
         }
-        finally
+    }
+
+    /// <summary>
+    /// ✅ REMOVIDO: Não precisa mais monitorar PropertyChanged - handler sempre ativo
+    /// </summary>
+    // private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    // {
+    //     if (e.PropertyName == nameof(_viewModel.HasUnsavedChanges))
+    //     {
+    //         AttachNavigationHandlerIfNeeded();
+    //     }
+    // }
+
+    /// <summary>
+    /// ✅ CORRIGIDO: Handle apenas back button físico do Android - delega para CancelCommand
+    /// </summary>
+    protected override bool OnBackButtonPressed()
+    {
+        // ✅ Verificar se já está navegando para evitar múltiplos dialogs
+        if (_isNavigating)
+            return true;
+
+        // ✅ Para botão físico, redirecionar para o comando Cancel da classe base
+        _ = Task.Run(async () =>
         {
-            base.OnDisappearing();
-        }
+            try
+            {
+                Debug.WriteLine($"⬅️ [FAMILY_EDIT_PAGE] Physical back button pressed - calling CancelCommand");
+                _isNavigating = true;
+
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    // ✅ Usar o comando Cancel da classe base que já tem toda a lógica
+                    if (_viewModel.CancelCommand.CanExecute(null))
+                    {
+                        await _viewModel.CancelCommand.ExecuteAsync(null);
+                    }
+                });
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Back button handler error: {ex.Message}");
+            }
+            finally
+            {
+                _isNavigating = false;
+            }
+        });
+
+        // Prevent default back button behavior
+        return true;
     }
 
     #endregion
 
-    #region ✅ NOVO: Sincronização de Título
+    #region ✅ Animations
 
     /// <summary>
-    /// ✅ CORRIGIDO: Sincroniza o título da página com o ViewModel
+    /// ✅ Animação de entrada mantendo o padrão do projeto
     /// </summary>
-    private void SynchronizePageTitle()
+    private async Task PerformEntranceAnimation()
     {
         try
         {
-            // ✅ CORREÇÃO CRÍTICA: Usar o título correto baseado no modo
-            var newTitle = _viewModel.IsEditMode ? "Edit Family" : "New Family";
+            // Setup initial state
+            Content.Opacity = 0;
+            Content.Scale = 0.95;
+            Content.TranslationY = 30;
 
-            if (Title != newTitle)
-            {
-                Title = newTitle;
-                Debug.WriteLine($"🔄 [FAMILY_EDIT_PAGE] Title synchronized: '{Title}'");
-            }
+            // Animate entrance
+            await Task.WhenAll(
+                Content.FadeTo(1, 600, Easing.CubicOut),
+                Content.ScaleTo(1, 600, Easing.SpringOut),
+                Content.TranslateTo(0, 0, 600, Easing.CubicOut)
+            );
+
+            Debug.WriteLine("✨ [FAMILY_EDIT_PAGE] Entrance animation completed");
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] SynchronizePageTitle error: {ex.Message}");
+            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Entrance animation error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// ✅ Animação de saída mantendo o padrão do projeto
+    /// </summary>
+    private async Task PerformExitAnimation()
+    {
+        try
+        {
+            await Task.WhenAll(
+                Content.FadeTo(0, 300, Easing.CubicIn),
+                Content.ScaleTo(0.95, 300, Easing.CubicIn),
+                Content.TranslateTo(0, -20, 300, Easing.CubicIn)
+            );
+
+            Debug.WriteLine("✨ [FAMILY_EDIT_PAGE] Exit animation completed");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Exit animation error: {ex.Message}");
         }
     }
 
