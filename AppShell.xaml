@@ -37,11 +37,11 @@
     <!-- Botanical Management Section -->
     <FlyoutItem Title="Botanical Data" Icon="plant.png">
         <Tab Title="Families">
-            <!-- ✅ CORRIGIDO: Usar FamiliesListSyncfusionPage como padrão -->
+            <!-- ✅ CORRIGIDO: Usar FamiliesListPage como padrão -->
             <ShellContent Title="Families" 
                          Icon="family.png" 
                          Route="families" 
-                         ContentTemplate="{DataTemplate pages:FamiliesListSyncfusionPage}" />
+                         ContentTemplate="{DataTemplate pages:FamiliesListPage}" />
         </Tab>
 
         <!-- Future: Genera -->

@@ -83,22 +83,19 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Compile Update="Views\Pages\FamiliesListSyncfusionPage.xaml.cs">
-	    <DependentUpon>FamiliesListSyncfusionPage.xaml</DependentUpon>
+	  <Compile Update="Views\Pages\FamiliesListPage.xaml.cs">
+	    <DependentUpon>FamiliesListPage.xaml</DependentUpon>
 	  </Compile>
 	</ItemGroup>
 
 	<ItemGroup>
-		<MauiXaml Update="Views\Pages\FamiliesListSyncfusionPage.xaml">
+		<MauiXaml Update="Views\Pages\FamiliesListPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Views\Pages\LoginPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Views\Pages\SplashPage.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</MauiXaml>
-		<MauiXaml Update="Views\Pages\FamiliesListPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Views\Pages\FamilyEditPage.xaml">

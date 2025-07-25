@@ -80,7 +80,7 @@ public static class MauiProgram
         services.AddTransient<FamiliesListPage>();
         services.AddTransient<FamilyEditPage>();
         services.AddTransient<TestSyncPage>();
-        services.AddTransient<FamiliesListSyncfusionPage>();
+        services.AddTransient<FamiliesListPage>();
 
         // ✅ SHELL - SINGLETON (app navigation structure)
         services.AddSingleton<AppShell>();
@@ -101,7 +101,7 @@ public static class MauiProgram
         Routing.RegisterRoute("testsync", typeof(TestSyncPage));
 
         // ✅ Main families route
-        Routing.RegisterRoute("families-syncfusion", typeof(FamiliesListSyncfusionPage));
+        Routing.RegisterRoute("families-syncfusion", typeof(FamiliesListPage));
 
         // Future routes for other modules
         Routing.RegisterRoute("genera", typeof(MainPage)); // Placeholder

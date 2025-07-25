@@ -27,7 +27,7 @@ public partial class AppShell : Shell
     {
         // Family routes
         Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
-        Routing.RegisterRoute("familieslist", typeof(FamiliesListSyncfusionPage));
+        Routing.RegisterRoute("familieslist", typeof(FamiliesListPage));
 
         // Debug routes
         Routing.RegisterRoute("testsync", typeof(TestSyncPage));
