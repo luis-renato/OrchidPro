@@ -11,9 +11,9 @@ namespace OrchidPro.Views.Pages;
 /// </summary>
 public partial class FamiliesListPage : ContentPage
 {
-    private readonly FamiliesListSyncfusionViewModel _viewModel;
+    private readonly FamiliesListViewModel _viewModel;
 
-    public FamiliesListPage(FamiliesListSyncfusionViewModel viewModel)
+    public FamiliesListPage(FamiliesListViewModel viewModel)
     {
         InitializeComponent();
         _viewModel = viewModel;

@@ -5,6 +5,7 @@ namespace OrchidPro.ViewModels;
 
 /// <summary>
 /// Base ViewModel with common functionality for all ViewModels
+/// ✅ CORRIGIDO: Device e Application.MainPage obsoletos
 /// </summary>
 public abstract partial class BaseViewModel : ObservableObject
 {
@@ -49,15 +50,17 @@ public abstract partial class BaseViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Shows an error message to the user
+    /// ✅ CORRIGIDO: Shows an error message to the user
     /// </summary>
     protected virtual async Task ShowErrorAsync(string title, string message = "")
     {
         try
         {
-            if (Application.Current?.MainPage != null)
+            // ✅ CORRIGIDO: Usar Windows[0].Page ao invés de MainPage obsoleto
+            var mainPage = GetCurrentPage();
+            if (mainPage != null)
             {
-                await Application.Current.MainPage.DisplayAlert(title, message, "OK");
+                await mainPage.DisplayAlert(title, message, "OK");
             }
         }
         catch (Exception ex)
@@ -67,15 +70,17 @@ public abstract partial class BaseViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Shows a success message to the user
+    /// ✅ CORRIGIDO: Shows a success message to the user
     /// </summary>
     protected virtual async Task ShowSuccessAsync(string message)
     {
         try
         {
-            if (Application.Current?.MainPage != null)
+            // ✅ CORRIGIDO: Usar Windows[0].Page ao invés de MainPage obsoleto
+            var mainPage = GetCurrentPage();
+            if (mainPage != null)
             {
-                await Application.Current.MainPage.DisplayAlert("Success", message, "OK");
+                await mainPage.DisplayAlert("Success", message, "OK");
             }
         }
         catch (Exception ex)
@@ -85,68 +90,77 @@ public abstract partial class BaseViewModel : ObservableObject
     }
 
     /// <summary>
-    /// Shows a confirmation dialog
+    /// ✅ CORRIGIDO: Shows a confirmation dialog
     /// </summary>
     public virtual async Task<bool> ShowConfirmAsync(string title, string message)
     {
         try
         {
-            if (Application.Current?.MainPage != null)
+            // ✅ CORRIGIDO: Usar Windows[0].Page ao invés de MainPage obsoleto
+            var mainPage = GetCurrentPage();
+            if (mainPage != null)
             {
-                return await Application.Current.MainPage.DisplayAlert(title, message, "Yes", "No");
+                return await mainPage.DisplayAlert(title, message, "Yes", "No");
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error showing confirm alert: {ex.Message}");
+            Debug.WriteLine($"Error showing confirmation: {ex.Message}");
         }
         return false;
     }
 
     /// <summary>
-    /// Executes an action with busy state management
+    /// ✅ NOVO: Helper method para obter a página atual sem usar MainPage obsoleto
     /// </summary>
-    protected async Task ExecuteWithBusyAsync(Func<Task> action)
+    private static Page? GetCurrentPage()
     {
-        if (IsBusy) return;
-
         try
         {
-            IsBusy = true;
-            await action();
+            // ✅ CORRIGIDO: Usar Windows[0].Page ao invés de MainPage obsoleto
+            return Application.Current?.Windows?.FirstOrDefault()?.Page;
         }
-        catch (Exception ex)
+        catch
         {
-            Debug.WriteLine($"Error in ExecuteWithBusyAsync: {ex.Message}");
-            await ShowErrorAsync("Error", "An unexpected error occurred");
-        }
-        finally
-        {
-            IsBusy = false;
+            return null;
         }
     }
 
     /// <summary>
-    /// Executes a function with busy state management and returns result
+    /// ✅ NOVO: Helper method para executar ações na UI thread
     /// </summary>
-    protected async Task<T?> ExecuteWithBusyAsync<T>(Func<Task<T>> func)
+    protected void DispatchOnMainThread(Action action)
     {
-        if (IsBusy) return default;
-
         try
         {
-            IsBusy = true;
-            return await func();
+            // ✅ CORRIGIDO: Usar Dispatcher.Dispatch ao invés de Device.BeginInvokeOnMainThread obsoleto
+            if (Application.Current != null)
+            {
+                Application.Current.Dispatcher.Dispatch(action);
+            }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error in ExecuteWithBusyAsync<T>: {ex.Message}");
-            await ShowErrorAsync("Error", "An unexpected error occurred");
-            return default;
+            Debug.WriteLine($"Error dispatching to main thread: {ex.Message}");
         }
-        finally
+    }
+
+    /// <summary>
+    /// ✅ NOVO: Helper method async para executar ações na UI thread
+    /// </summary>
+    protected async Task DispatchOnMainThreadAsync(Func<Task> action)
+    {
+        try
         {
-            IsBusy = false;
+            // ✅ CORRIGIDO: Usar Dispatcher.DispatchAsync ao invés de Device.BeginInvokeOnMainThread obsoleto
+            if (Application.Current != null)
+            {
+                await Application.Current.Dispatcher.DispatchAsync(action);
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Error dispatching async to main thread: {ex.Message}");
         }
     }
 }

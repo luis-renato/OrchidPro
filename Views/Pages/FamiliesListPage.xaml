@@ -8,7 +8,7 @@
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              xmlns:sfbutton="clr-namespace:Syncfusion.Maui.Buttons;assembly=Syncfusion.Maui.Buttons"
              x:Class="OrchidPro.Views.Pages.FamiliesListPage"
-             x:DataType="vm:FamiliesListSyncfusionViewModel"
+             x:DataType="vm:FamiliesListViewModel"
              x:Name="ParentPage"
              Title="Families"
              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"

@@ -69,7 +69,7 @@ public static class MauiProgram
         services.AddTransient<FamiliesListViewModel>();
         services.AddTransient<FamilyEditViewModel>();
         // ✅ NOVA: Versão Syncfusion(SfListView)
-        services.AddTransient<FamiliesListSyncfusionViewModel>();
+        services.AddTransient<FamiliesListViewModel >();
 
 
         // ✅ PAGES - TRANSIENT (new instance per navigation)

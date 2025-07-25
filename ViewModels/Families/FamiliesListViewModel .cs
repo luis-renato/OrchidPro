@@ -11,9 +11,9 @@ using System.Diagnostics;
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamiliesListSyncfusionViewModel com comandos manuais corrigidos
+/// ✅ CORRIGIDO: FamiliesListViewModel com comandos manuais corrigidos
 /// </summary>
-public partial class FamiliesListSyncfusionViewModel : BaseViewModel
+public partial class FamiliesListViewModel : BaseViewModel
 {
     private readonly IFamilyRepository _repository;
     private readonly INavigationService _navigationService;
@@ -112,7 +112,7 @@ public partial class FamiliesListSyncfusionViewModel : BaseViewModel
 
     #region Constructor
 
-    public FamiliesListSyncfusionViewModel(IFamilyRepository repository, INavigationService navigationService)
+    public FamiliesListViewModel (IFamilyRepository repository, INavigationService navigationService)
     {
         _repository = repository;
         _navigationService = navigationService;
