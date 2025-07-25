@@ -5,6 +5,7 @@
              xmlns:mct="clr-namespace:CommunityToolkit.Maui.Behaviors;assembly=CommunityToolkit.Maui"
              xmlns:sflistview="clr-namespace:Syncfusion.Maui.ListView;assembly=Syncfusion.Maui.ListView"
              xmlns:sfpulltorefresh="clr-namespace:Syncfusion.Maui.PullToRefresh;assembly=Syncfusion.Maui.PullToRefresh"
+             xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              xmlns:sfbutton="clr-namespace:Syncfusion.Maui.Buttons;assembly=Syncfusion.Maui.Buttons"
              x:Class="OrchidPro.Views.Pages.FamiliesListSyncfusionPage"
              x:DataType="vm:FamiliesListSyncfusionViewModel"
@@ -344,22 +345,41 @@
             </Grid>
         </Border>
 
-        <!-- Loading overlay -->
-        <Grid IsVisible="{Binding IsLoading}"
+        <!-- ✅ LOADING OVERLAY ATUALIZADO - IGUAL AO FamilyEditPage -->
+        <Grid IsVisible="{Binding IsLoading}" 
               BackgroundColor="#80000000">
-            <VerticalStackLayout Spacing="15"
-                                 HorizontalOptions="Center"
-                                 VerticalOptions="Center">
-                <ActivityIndicator IsRunning="{Binding IsLoading}"
-                                   Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
-                                   WidthRequest="40"
-                                   HeightRequest="40" />
-                <Label Text="Loading families..."
-                       TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
-                       FontSize="14"
-                       FontAttributes="Bold"
-                       HorizontalOptions="Center" />
-            </VerticalStackLayout>
+            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                   BorderColor="{StaticResource BorderColor}"
+                   CornerRadius="16"
+                   Padding="32"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   HasShadow="True">
+
+                <StackLayout Spacing="16" HorizontalOptions="Center">
+                    <!-- SfBusyIndicator sem overlay próprio -->
+                    <sfbusy:SfBusyIndicator IsVisible="True"
+                                            IsRunning="True"
+                                            AnimationType="HorizontalPulsingBox"
+                                            IndicatorColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                                            OverlayFill="Transparent"
+                                            WidthRequest="50"
+                                            HeightRequest="50" />
+
+                    <!-- Mensagem customizada -->
+                    <Label Text="Loading families..."
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
+                           HorizontalOptions="Center" />
+
+                    <!-- Ícone opcional para operações de loading -->
+                    <Label Text="🌿"
+                           FontSize="24"
+                           HorizontalOptions="Center" />
+                </StackLayout>
+
+            </Frame>
         </Grid>
 
         <!-- ✅ FAB COM BUTTON NORMAL USANDO CORES DO RESOURCE -->
