@@ -29,6 +29,78 @@
         </Grid>
     </Shell.FlyoutHeader>
 
+    <!-- ✅ NOVO: Footer com Sair e Versão -->
+    <Shell.FlyoutFooter>
+        <VerticalStackLayout BackgroundColor="{StaticResource Surface}" 
+                             Padding="0" 
+                             Spacing="0">
+
+            <!-- Separador -->
+            <BoxView HeightRequest="1" 
+                     BackgroundColor="{StaticResource Gray200}"
+                     Opacity="0.3" />
+
+            <!-- Item Sair (estilo menu) -->
+            <Grid BackgroundColor="Transparent"
+                  Padding="20,16"
+                  ColumnDefinitions="Auto,*"
+                  ColumnSpacing="16">
+
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnLogoutClicked" />
+                </Grid.GestureRecognizers>
+
+                <!-- Ícone -->
+                <Label Grid.Column="0"
+                       Text="🚪"
+                       FontSize="18"
+                       VerticalOptions="Center" />
+
+                <!-- Texto -->
+                <Label Grid.Column="1"
+                       Text="Sair"
+                       FontSize="16"
+                       FontFamily="OpenSansRegular"
+                       TextColor="{StaticResource ErrorColor}"
+                       VerticalOptions="Center" />
+
+            </Grid>
+
+            <!-- Separador inferior -->
+            <BoxView HeightRequest="1" 
+                     BackgroundColor="{StaticResource Gray200}"
+                     Opacity="0.2" />
+
+            <!-- Informações da versão -->
+            <VerticalStackLayout Spacing="4"
+                                 HorizontalOptions="Center"
+                                 Padding="20,12,20,16">
+
+                <Label Text="OrchidPro v1.0.0"
+                       FontSize="11"
+                       FontFamily="OpenSansRegular"
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource Gray600}"
+                       HorizontalOptions="Center" />
+
+                <Label Text="Build 2025.01.25"
+                       FontSize="10"
+                       FontFamily="OpenSansRegular"
+                       TextColor="{StaticResource Gray500}"
+                       HorizontalOptions="Center" />
+
+                <Label Text="🌺 Made with ♥ for orchid lovers"
+                       FontSize="9"
+                       FontFamily="OpenSansRegular"
+                       TextColor="{StaticResource Gray400}"
+                       HorizontalOptions="Center"
+                       Margin="0,4,0,0" />
+
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </Shell.FlyoutFooter>
+
     <!-- Main Navigation Items -->
     <FlyoutItem Title="Dashboard" Icon="home.png">
         <ShellContent Route="MainPage" ContentTemplate="{DataTemplate local:MainPage}" />
