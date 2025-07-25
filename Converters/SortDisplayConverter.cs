@@ -3,11 +3,11 @@
 namespace OrchidPro.Converters;
 
 /// <summary>
-/// ✅ NOVO: Converter para exibir texto de ordenação compacto
+/// Converter para exibir texto de ordenação compacto
 /// </summary>
 public class SortDisplayConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is string sortOrder)
         {
@@ -23,7 +23,7 @@ public class SortDisplayConverter : IValueConverter
         return "A→Z";
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }
