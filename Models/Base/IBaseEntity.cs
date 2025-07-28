@@ -3,7 +3,7 @@
 namespace OrchidPro.Models.Base;
 
 /// <summary>
-/// ✅ ATUALIZADO: Interface base sem IsSystemDefault
+/// ✅ ENHANCED: Interface base com IsFavorite genérico
 /// </summary>
 public interface IBaseEntity
 {
@@ -31,6 +31,11 @@ public interface IBaseEntity
     /// Indica se a entidade está ativa
     /// </summary>
     bool IsActive { get; set; }
+
+    /// <summary>
+    /// ✅ NOVO: Indica se a entidade é favorita do usuário
+    /// </summary>
+    bool IsFavorite { get; set; }
 
     /// <summary>
     /// ✅ ATUALIZADO: IsSystemDefault como computed property
@@ -92,7 +97,6 @@ public interface IBaseRepository<T> where T : class, IBaseEntity
     // Validações e utilitários
     Task<bool> NameExistsAsync(string name, Guid? excludeId = null);
     Task<BaseStatistics> GetStatisticsAsync();
-    Task<OperationResult> RefreshAllDataAsync();
     Task RefreshCacheAsync();
     Task<bool> TestConnectionAsync();
     string GetCacheInfo();

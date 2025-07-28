@@ -5,7 +5,7 @@
              xmlns:vm="clr-namespace:OrchidPro.ViewModels.Families"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              x:DataType="vm:FamilyEditViewModel"
-             Title="Families"
+             Title="{Binding PageTitle}"
              BackgroundColor="White">
 
     <Grid>
@@ -169,7 +169,7 @@
                             FontSize="16"
                             FontAttributes="Bold"
                             HeightRequest="48"
-                            Command="{Binding SaveFamilyCommand}"
+                            Command="{Binding SaveCommand}"
                             IsEnabled="{Binding IsNameValid}" />
 
                 </Grid>

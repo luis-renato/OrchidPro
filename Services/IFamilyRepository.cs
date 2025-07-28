@@ -4,7 +4,7 @@ using OrchidPro.Models.Base;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// ✅ CORRIGIDO: IFamilyRepository com método ToggleFavoriteAsync
+/// ✅ CORRIGIDO: IFamilyRepository com TODOS os métodos necessários
 /// </summary>
 public interface IFamilyRepository : IBaseRepository<Family>
 {
@@ -14,17 +14,19 @@ public interface IFamilyRepository : IBaseRepository<Family>
     Task<FamilyStatistics> GetFamilyStatisticsAsync();
 
     /// <summary>
-    /// ✅ NOVO: Toggle favorite status for a family
+    /// ✅ Toggle favorite status for a family
     /// </summary>
     Task<Family> ToggleFavoriteAsync(Guid familyId);
 
     /// <summary>
-    /// ✅ NOVO: Check if family name already exists
+    /// ✅ ADICIONADO: Refresh all data with operation result
     /// </summary>
-    Task<bool> NameExistsAsync(string name, Guid? excludeId = null);
+    Task<OperationResult> RefreshAllDataAsync();
 
-    // ✅ TODOS os outros métodos são herdados da IBaseRepository<Family>
-    // Não precisamos redeclará-los com 'new' porque não há conflito
+    /// <summary>
+    /// ✅ Check if family name already exists (já herdado da base, mas explícito aqui)
+    /// </summary>
+    new Task<bool> NameExistsAsync(string name, Guid? excludeId = null);
 }
 
 /// <summary>
