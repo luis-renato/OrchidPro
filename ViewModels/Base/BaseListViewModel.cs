@@ -4,11 +4,13 @@ using OrchidPro.Models.Base;
 using OrchidPro.Services.Navigation;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using CommunityToolkit.Maui.Alerts;
+using CommunityToolkit.Maui.Core;
 
 namespace OrchidPro.ViewModels.Base;
 
 /// <summary>
-/// ✅ ENHANCED: BaseListViewModel with ALL functionalities extracted from FamiliesListViewModel
+/// ✅ FIXED: BaseListViewModel with UNIFIED DELETE FLOW - No duplicate confirmations
 /// </summary>
 public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewModel
     where T : class, IBaseEntity, new()
@@ -17,7 +19,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     protected readonly IBaseRepository<T> _repository;
     protected readonly INavigationService _navigationService;
 
-    #region ✅ EXTRACTED: Observable Properties from Family
+    #region ✅ Observable Properties
 
     [ObservableProperty]
     private ObservableCollection<TItemViewModel> items = new();
@@ -52,7 +54,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     [ObservableProperty]
     private int activeCount;
 
-    // ✅ EXTRACTED: Favorite support from Family
     [ObservableProperty]
     private int favoriteCount;
 
@@ -71,13 +72,12 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     [ObservableProperty]
     private bool isConnected = true;
 
-    // ✅ EXTRACTED: Sort support from Family
     [ObservableProperty]
     private string sortOrder = "Name A→Z";
 
     #endregion
 
-    #region ✅ EXTRACTED: Filter and Sort Options from Family
+    #region Filter and Sort Options
 
     public List<string> StatusFilterOptions { get; } = new() { "All", "Active", "Inactive" };
     public List<string> SortOptions { get; } = new()
@@ -87,26 +87,11 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ EXTRACTED: Manual Commands from Family
+    #region Manual Commands
 
-    /// <summary>
-    /// ✅ EXTRACTED: ApplyFilterCommand from Family
-    /// </summary>
     public IAsyncRelayCommand ApplyFilterCommand { get; private set; }
-
-    /// <summary>
-    /// ✅ EXTRACTED: ClearFilterCommand from Family
-    /// </summary>
     public IRelayCommand ClearFilterCommand { get; private set; }
-
-    /// <summary>
-    /// ✅ EXTRACTED: ClearSelectionCommand from Family
-    /// </summary>
     public IRelayCommand ClearSelectionCommand { get; private set; }
-
-    /// <summary>
-    /// ✅ EXTRACTED: DeleteSingleItemCommand from Family
-    /// </summary>
     public IAsyncRelayCommand<TItemViewModel> DeleteSingleItemCommand { get; private set; }
 
     #endregion
@@ -131,13 +116,13 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         ConnectionStatusColor = Colors.Green;
         FabText = $"Add {EntityName}";
 
-        // ✅ EXTRACTED: Initialize manual commands from Family
+        // Initialize manual commands
         ApplyFilterCommand = new AsyncRelayCommand(ApplyFilterAsync);
         ClearFilterCommand = new RelayCommand(ClearFilterAction);
         ClearSelectionCommand = new RelayCommand(ClearSelectionAction);
         DeleteSingleItemCommand = new AsyncRelayCommand<TItemViewModel>(DeleteSingleItemAsync);
 
-        // ✅ EXTRACTED: Setup change monitoring from Family
+        // Setup change monitoring
         PropertyChanged += OnPropertyChanged;
 
         Debug.WriteLine($"✅ [BASE_LIST_VM] Enhanced initialized for {EntityNamePlural}");
@@ -145,7 +130,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ EXTRACTED: Manual Command Methods from Family
+    #region Manual Command Methods
 
     private async Task ApplyFilterAsync()
     {
@@ -188,33 +173,54 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         Debug.WriteLine($"✅ [BASE_LIST_VM] Selection and filters cleared for {EntityNamePlural}");
     }
 
+    /// <summary>
+    /// ✅ FIXED: UNIFIED DELETE FLOW - Single confirmation, single success message
+    /// Used by: Swipe delete, manual delete commands
+    /// </summary>
     private async Task DeleteSingleItemAsync(TItemViewModel? item)
     {
         if (item == null) return;
 
-        var confirmed = await Application.Current?.MainPage?.DisplayAlert(
-            "Confirm Delete",
-            $"Delete '{item.Name}'?",
-            "Delete",
-            "Cancel");
-
-        if (confirmed != true) return;
-
         try
         {
+            Debug.WriteLine($"🗑️ [BASE_LIST_VM] UNIFIED Delete flow for: {item.Name}");
+
+            // ✅ SINGLE CONFIRMATION DIALOG
+            var confirmed = await ShowConfirmAsync(
+                $"Delete {EntityName}",
+                $"Are you sure you want to delete '{item.Name}'?");
+
+            if (!confirmed)
+            {
+                Debug.WriteLine($"❌ [BASE_LIST_VM] Delete cancelled by user");
+                return;
+            }
+
+            // ✅ PERFORM DELETE
             IsBusy = true;
-            // Remove from list first
-            Items.Remove(item);
-            // Delete from database
-            await _repository.DeleteAsync(item.Id);
-            UpdateCounters();
-            Debug.WriteLine($"✅ [BASE_LIST_VM] Deleted {EntityName}: {item.Name}");
+            var success = await _repository.DeleteAsync(item.Id);
+
+            if (success)
+            {
+                // ✅ REMOVE FROM UI IMMEDIATELY
+                Items.Remove(item);
+                UpdateCounters();
+
+                // ✅ SINGLE SUCCESS MESSAGE (Toast only)
+                await ShowSuccessToastAsync($"'{item.Name}' deleted successfully");
+
+                Debug.WriteLine($"✅ [BASE_LIST_VM] UNIFIED Delete completed: {item.Name}");
+            }
+            else
+            {
+                await ShowErrorToastAsync($"Failed to delete '{item.Name}'");
+                Debug.WriteLine($"❌ [BASE_LIST_VM] Delete failed: {item.Name}");
+            }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ [BASE_LIST_VM] Delete failed: {ex.Message}");
-            // Reload on error
-            await LoadDataAsync();
+            Debug.WriteLine($"❌ [BASE_LIST_VM] Delete error: {ex.Message}");
+            await ShowErrorToastAsync($"Delete failed: {ex.Message}");
         }
         finally
         {
@@ -224,7 +230,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ EXTRACTED: Property Change Handlers from Family
+    #region Property Change Handlers
 
     private void OnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -253,7 +259,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ EXTRACTED: Data Loading from Family
+    #region Data Loading
 
     public override async Task OnAppearingAsync()
     {
@@ -265,7 +271,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
         else
         {
-            // ✅ EXTRACTED: Always refresh when returning to ensure updated data
             Debug.WriteLine($"🔄 [BASE_LIST_VM] Refreshing data on return to {EntityNamePlural} page");
             await RefreshInternalAsync(showLoading: false);
         }
@@ -320,7 +325,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ EXTRACTED: Navigation Commands from Family
+    #region Navigation Commands
 
     [RelayCommand]
     private async Task NavigateToAddAsync()
@@ -349,10 +354,9 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
             Debug.WriteLine($"📝 [BASE_LIST_VM] Navigating to EDIT {EntityName}: {item.Name} (ID: {item.Id})");
 
-            // ✅ EXTRACTED: Use Dictionary with string keys for compatibility
             var parameters = new Dictionary<string, object>
             {
-                [$"{EntityName}Id"] = item.Id.ToString() // ✅ Convert to string
+                [$"{EntityName}Id"] = item.Id.ToString()
             };
 
             await _navigationService.NavigateToAsync(EditRoute, parameters);
@@ -365,9 +369,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
     }
 
-    /// <summary>
-    /// ✅ EXTRACTED: Command for adding (used by FAB)
-    /// </summary>
     [RelayCommand]
     private async Task AddNewAsync()
     {
@@ -376,7 +377,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ EXTRACTED: Refresh and Data Management from Family
+    #region Refresh and Data Management
 
     [RelayCommand]
     private async Task RefreshAsync()
@@ -387,7 +388,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
             Debug.WriteLine($"🔄 [BASE_LIST_VM] Refreshing {EntityNamePlural} data...");
 
-            // ✅ FIXED: Use RefreshCacheAsync instead of RefreshAllDataAsync
             await _repository.RefreshCacheAsync();
             var entities = await _repository.GetAllAsync(true);
             await PopulateItemsAsync(entities);
@@ -404,9 +404,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
     }
 
-    /// <summary>
-    /// ✅ EXTRACTED: Internal refresh method with parameter
-    /// </summary>
     private async Task RefreshInternalAsync(bool showLoading = true)
     {
         try
@@ -416,7 +413,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
             Debug.WriteLine($"🔄 [BASE_LIST_VM] Refreshing {EntityNamePlural} data...");
 
-            // ✅ FIXED: Use RefreshCacheAsync instead of RefreshAllDataAsync
             await _repository.RefreshCacheAsync();
             var entities = await _repository.GetAllAsync(true);
             await PopulateItemsAsync(entities);
@@ -436,11 +432,8 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ EXTRACTED: Favorites Management (Virtual - can be overridden)
+    #region Favorites Management (Virtual)
 
-    /// <summary>
-    /// ✅ VIRTUAL: Default favorite toggle - override in specific ViewModels for entities that support favorites
-    /// </summary>
     [RelayCommand]
     protected virtual async Task ToggleFavoriteAsync(TItemViewModel item)
     {
@@ -451,7 +444,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             Debug.WriteLine($"⭐ [BASE_LIST_VM] Base ToggleFavorite called for: {item.Name}");
             Debug.WriteLine($"⚠️ [BASE_LIST_VM] Override this method in specific ViewModel if entity supports favorites");
 
-            // Default implementation - just log
             await Task.CompletedTask;
         }
         catch (Exception ex)
@@ -462,7 +454,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ EXTRACTED: Multi-Selection from Family
+    #region Multi-Selection
 
     [RelayCommand]
     private void ToggleMultiSelect()
@@ -471,7 +463,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
         if (!IsMultiSelectMode)
         {
-            // Clear selections when exiting multi-select mode
             foreach (var item in SelectedItems)
             {
                 item.IsSelected = false;
@@ -483,6 +474,9 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         Debug.WriteLine($"🔘 [BASE_LIST_VM] Multi-select mode: {IsMultiSelectMode}");
     }
 
+    /// <summary>
+    /// ✅ FIXED: UNIFIED DELETE FLOW for multiple items
+    /// </summary>
     [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
@@ -497,13 +491,12 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             var count = SelectedItems.Count;
             Debug.WriteLine($"🗑️ [BASE_LIST_VM] DeleteSelected starting with {count} items");
 
-            var confirmed = await Application.Current?.MainPage?.DisplayAlert(
+            // ✅ SINGLE CONFIRMATION DIALOG
+            var confirmed = await ShowConfirmAsync(
                 "Confirm Delete",
-                $"Delete {count} selected {(count == 1 ? EntityName.ToLower() : EntityNamePlural.ToLower())}?",
-                "Delete",
-                "Cancel");
+                $"Delete {count} selected {(count == 1 ? EntityName.ToLower() : EntityNamePlural.ToLower())}?");
 
-            if (confirmed != true)
+            if (!confirmed)
             {
                 Debug.WriteLine($"❌ [BASE_LIST_VM] Delete cancelled by user");
                 return;
@@ -526,10 +519,9 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 }
             }
 
-            // ✅ CRITICAL: Complete cleanup sequence
+            // Complete cleanup sequence
             Debug.WriteLine($"🧹 [BASE_LIST_VM] Starting complete cleanup after delete...");
 
-            // 1. Clear selections completely
             foreach (var item in Items)
             {
                 if (item.IsSelected)
@@ -542,109 +534,34 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             SelectedItems.Clear();
             Debug.WriteLine($"🧹 [BASE_LIST_VM] Cleared SelectedItems collection");
 
-            // 2. Exit multi-select mode COMPLETELY
             IsMultiSelectMode = false;
             Debug.WriteLine($"🔘 [BASE_LIST_VM] FORCED IsMultiSelectMode = FALSE");
 
-            // 3. Update counters
             UpdateCounters();
-            Debug.WriteLine($"📊 [BASE_LIST_VM] Updated counters after delete");
-
-            // 4. Update FAB to normal state
             UpdateFabForSelection();
-            Debug.WriteLine($"🎯 [BASE_LIST_VM] Updated FAB after delete - Text: {FabText}");
 
-            Debug.WriteLine($"✅ [BASE_LIST_VM] DeleteSelected completed:");
-            Debug.WriteLine($"    - Deleted: {deletedCount} {EntityNamePlural}");
-            Debug.WriteLine($"    - Remaining Items: {Items.Count}");
-            Debug.WriteLine($"    - IsMultiSelectMode: {IsMultiSelectMode}");
-            Debug.WriteLine($"    - SelectedItems.Count: {SelectedItems.Count}");
-            Debug.WriteLine($"    - FAB Text: {FabText}");
+            // ✅ SINGLE SUCCESS MESSAGE (Toast only)
+            await ShowSuccessToastAsync($"{deletedCount} {EntityNamePlural.ToLower()} deleted successfully");
+
+            Debug.WriteLine($"✅ [BASE_LIST_VM] DeleteSelected completed successfully");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [BASE_LIST_VM] Delete selected failed: {ex.Message}");
-            Debug.WriteLine($"❌ [BASE_LIST_VM] Delete selected stack trace: {ex.StackTrace}");
 
             // Ensure cleanup even on error
             SelectedItems.Clear();
             IsMultiSelectMode = false;
             UpdateFabForSelection();
+
+            await ShowErrorToastAsync($"Failed to delete {EntityNamePlural.ToLower()}: {ex.Message}");
         }
     }
 
     /// <summary>
-    /// ✅ FIXED: Safe delete single item with proper UI cleanup
+    /// ✅ PUBLIC: Safe delete single command for external use (swipe, etc)
     /// </summary>
-    [RelayCommand]
-    private async Task DeleteSingleItemSafeAsync(TItemViewModel item)
-    {
-        if (item == null) return;
-
-        if (!IsConnected)
-        {
-            await ShowErrorAsync("No Connection", $"Cannot delete {EntityName.ToLower()} without internet connection.");
-            return;
-        }
-
-        // ✅ REMOVED: No longer blocking system defaults since you don't use this feature
-        // if (item.IsSystemDefault)
-        // {
-        //     await ShowErrorAsync("Cannot Delete", $"This is a system default {EntityName.ToLower()} and cannot be deleted.");
-        //     return;
-        // }
-
-        try
-        {
-            Debug.WriteLine($"🗑️ [BASE_LIST_VM] Attempting to delete single {EntityName}: {item.Name}");
-
-            var confirmed = await ShowConfirmAsync(
-                $"Delete {EntityName}",
-                $"Are you sure you want to delete '{item.Name}'?");
-
-            if (!confirmed) return;
-
-            IsLoading = true;
-
-            var success = await _repository.DeleteAsync(item.Id);
-
-            if (success)
-            {
-                await ShowSuccessAsync($"Successfully deleted {EntityName.ToLower()} '{item.Name}'");
-
-                Debug.WriteLine($"🔄 [BASE_LIST_VM] === REFRESHING AFTER SINGLE DELETE ===");
-
-                // ✅ FIXED: Proper cache invalidation and refresh
-                _repository.InvalidateCacheExternal();
-                await _repository.RefreshCacheAsync();
-                await LoadItemsDataAsync();
-
-                Debug.WriteLine($"✅ [BASE_LIST_VM] === REFRESH COMPLETE ===");
-            }
-            else
-            {
-                await ShowErrorAsync("Delete Failed", $"Failed to delete {EntityName.ToLower()} '{item.Name}'");
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_LIST_VM] Single delete error: {ex.Message}");
-
-            if (ex.Message.Contains("connection") || ex.Message.Contains("internet"))
-            {
-                UpdateConnectionStatus(false);
-                await ShowErrorAsync("Connection Error", $"Failed to delete {EntityName.ToLower()}. Check your internet connection.");
-            }
-            else
-            {
-                await ShowErrorAsync("Delete Error", $"Failed to delete {EntityName.ToLower()}. Please try again.");
-            }
-        }
-        finally
-        {
-            IsLoading = false;
-        }
-    }
+    public IAsyncRelayCommand<TItemViewModel> DeleteSingleItemSafeCommand => DeleteSingleItemCommand;
 
     public virtual void UpdateFabForSelection()
     {
@@ -669,7 +586,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ EXTRACTED: Filtering and Sorting from Family
+    #region Filtering and Sorting
 
     [RelayCommand]
     private async Task ToggleStatusFilterAsync()
@@ -719,7 +636,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                     filtered = filtered.Where(item => item.IsActive == activeFilter);
                 }
 
-                // ✅ EXTRACTED: Generic sorting logic
                 filtered = ApplyEntitySpecificSort(filtered);
 
                 var result = filtered.ToList();
@@ -747,9 +663,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         });
     }
 
-    /// <summary>
-    /// ✅ VIRTUAL: Can be overridden for entity-specific sorting
-    /// </summary>
     protected virtual IOrderedEnumerable<TItemViewModel> ApplyEntitySpecificSort(IEnumerable<TItemViewModel> filtered)
     {
         return SortOrder switch
@@ -763,14 +676,10 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         };
     }
 
-    /// <summary>
-    /// ✅ HELPER: Safely get IsFavorite property
-    /// </summary>
     private bool GetIsFavorite(TItemViewModel item)
     {
         try
         {
-            // Use reflection to check if IsFavorite exists
             var property = typeof(TItemViewModel).GetProperty("IsFavorite");
             if (property != null && property.PropertyType == typeof(bool))
             {
@@ -786,7 +695,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ EXTRACTED: Counters and Status from Family
+    #region Counters and Status
 
     protected virtual void UpdateCounters()
     {
@@ -802,7 +711,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     {
         try
         {
-            // Simple connectivity test
             IsConnected = true;
             ConnectionStatus = "Connected";
             ConnectionStatusColor = Colors.Green;
@@ -815,9 +723,20 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
     }
 
+    private void UpdateConnectionStatus(bool connected)
+    {
+        IsConnected = connected;
+        ConnectionStatus = connected ? "Connected" : "Offline";
+        ConnectionStatusColor = connected ? Colors.Green : Colors.Orange;
+
+        UpdateFabForSelection();
+
+        Debug.WriteLine($"📡 [BASE_LIST_VM] Connection status updated: {ConnectionStatus}");
+    }
+
     #endregion
 
-    #region ✅ EXTRACTED: FAB Command from Family
+    #region FAB Command
 
     [RelayCommand]
     private async Task FabActionAsync()
@@ -841,7 +760,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ Data Loading Commands
+    #region Data Loading Commands
 
     [RelayCommand]
     private async Task LoadItemsAsync()
@@ -855,7 +774,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
             await LoadItemsDataAsync();
 
-            // Test connectivity in background
             _ = Task.Run(async () =>
             {
                 await Task.Delay(500);
@@ -867,7 +785,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [BASE_LIST_VM] Load error: {ex.Message}");
-            await ShowErrorAsync($"Failed to load {EntityNamePlural}", "Check your connection and try again.");
+            await ShowErrorToastAsync($"Failed to load {EntityNamePlural}. Check your connection and try again.");
             UpdateConnectionStatus(false);
         }
         finally
@@ -1006,18 +924,15 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             Debug.WriteLine($"✅ [BASE_LIST_VM] SelectAll called - Current IsMultiSelectMode: {IsMultiSelectMode}");
             Debug.WriteLine($"✅ [BASE_LIST_VM] Current SelectedItems count: {SelectedItems.Count}");
 
-            // ✅ CRITICAL: Ensure we're in multi-select mode FIRST
             if (!IsMultiSelectMode)
             {
                 IsMultiSelectMode = true;
                 Debug.WriteLine($"🔘 [BASE_LIST_VM] FORCED multi-select mode ON for SelectAll");
             }
 
-            // Clear current selections first
             SelectedItems.Clear();
             Debug.WriteLine($"🧹 [BASE_LIST_VM] Cleared existing selections");
 
-            // Select all items
             foreach (var item in Items)
             {
                 if (!item.IsSelected)
@@ -1033,14 +948,9 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 }
             }
 
-            // Update FAB AFTER selecting all
             UpdateFabForSelection();
 
-            Debug.WriteLine($"✅ [BASE_LIST_VM] SelectAll completed:");
-            Debug.WriteLine($"    - IsMultiSelectMode: {IsMultiSelectMode}");
-            Debug.WriteLine($"    - SelectedItems.Count: {SelectedItems.Count}");
-            Debug.WriteLine($"    - Items.Count: {Items.Count}");
-            Debug.WriteLine($"    - FAB Text: {FabText}");
+            Debug.WriteLine($"✅ [BASE_LIST_VM] SelectAll completed - Selected: {SelectedItems.Count}/{Items.Count}");
         }
         catch (Exception ex)
         {
@@ -1057,7 +967,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             Debug.WriteLine($"✅ [BASE_LIST_VM] DeselectAll called");
             Debug.WriteLine($"✅ [BASE_LIST_VM] Current SelectedItems count: {SelectedItems.Count}");
 
-            // Clear all selections
             foreach (var item in Items)
             {
                 if (item.IsSelected)
@@ -1070,20 +979,15 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             SelectedItems.Clear();
             Debug.WriteLine($"🧹 [BASE_LIST_VM] Cleared SelectedItems collection");
 
-            // ✅ CRITICAL: Exit multi-select mode
             if (IsMultiSelectMode)
             {
                 IsMultiSelectMode = false;
                 Debug.WriteLine($"🔘 [BASE_LIST_VM] FORCED multi-select mode OFF after DeselectAll");
             }
 
-            // Update FAB
             UpdateFabForSelection();
 
-            Debug.WriteLine($"✅ [BASE_LIST_VM] DeselectAll completed:");
-            Debug.WriteLine($"    - IsMultiSelectMode: {IsMultiSelectMode}");
-            Debug.WriteLine($"    - SelectedItems.Count: {SelectedItems.Count}");
-            Debug.WriteLine($"    - FAB Text: {FabText}");
+            Debug.WriteLine($"✅ [BASE_LIST_VM] DeselectAll completed - IsMultiSelectMode: {IsMultiSelectMode}");
         }
         catch (Exception ex)
         {
@@ -1116,7 +1020,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
         Debug.WriteLine($"🔘 [BASE_LIST_VM] LongPress on: {item.Name}");
 
-        // Enter multi-selection mode if not already
         if (!IsMultiSelectMode)
         {
             IsMultiSelectMode = true;
@@ -1124,7 +1027,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             Debug.WriteLine($"✅ [BASE_LIST_VM] Entered multi-select mode for {EntityNamePlural}");
         }
 
-        // Select the item that was pressed
         if (!item.IsSelected)
         {
             item.IsSelected = true;
@@ -1139,7 +1041,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region ✅ EXTRACTED: Connectivity from Family
+    #region Connectivity
 
     [RelayCommand]
     private async Task TestConnectionAsync()
@@ -1153,19 +1055,19 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
             if (isConnected)
             {
-                await ShowSuccessAsync("Connection restored! Data is now synchronized.");
+                await ShowSuccessToastAsync("Connection restored! Data is now synchronized.");
                 await RefreshAsync();
             }
             else
             {
-                await ShowErrorAsync("Still offline", "Check your internet connection and try again.");
+                await ShowErrorToastAsync("Still offline. Check your internet connection and try again.");
             }
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [BASE_LIST_VM] Connection test error: {ex.Message}");
             UpdateConnectionStatus(false);
-            await ShowErrorAsync("Connection test failed", ex.Message);
+            await ShowErrorToastAsync($"Connection test failed: {ex.Message}");
         }
     }
 
@@ -1187,81 +1089,66 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
     }
 
-    private void UpdateConnectionStatus(bool connected)
-    {
-        IsConnected = connected;
-        ConnectionStatus = connected ? "Connected" : "Offline";
-        ConnectionStatusColor = connected ? Colors.Green : Colors.Orange;
-
-        UpdateFabForSelection();
-
-        Debug.WriteLine($"📡 [BASE_LIST_VM] Connection status updated: {ConnectionStatus}");
-    }
-
     #endregion
 
-    #region ✅ EXTRACTED: Helper Methods from Family
+    #region ✅ UNIFIED MESSAGE SYSTEM - Toast-based, no dialogs
 
     /// <summary>
-    /// ✅ EXTRACTED: Shows an error message to the user
+    /// ✅ UNIFIED: Shows confirmation dialog (DisplayAlert)
     /// </summary>
-    protected virtual async Task ShowErrorAsync(string title, string message = "")
+    protected virtual async Task<bool> ShowConfirmAsync(string title, string message)
     {
         try
         {
             var mainPage = GetCurrentPage();
             if (mainPage != null)
             {
-                await mainPage.DisplayAlert(title, message, "OK");
+                return await mainPage.DisplayAlert(title, message, "Delete", "Cancel");
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"Error showing alert: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ EXTRACTED: Shows a success message to the user
-    /// </summary>
-    protected virtual async Task ShowSuccessAsync(string message)
-    {
-        try
-        {
-            var mainPage = GetCurrentPage();
-            if (mainPage != null)
-            {
-                await mainPage.DisplayAlert("Success", message, "OK");
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error showing success alert: {ex.Message}");
-        }
-    }
-
-    /// <summary>
-    /// ✅ EXTRACTED: Shows a confirmation dialog
-    /// </summary>
-    public virtual async Task<bool> ShowConfirmAsync(string title, string message)
-    {
-        try
-        {
-            var mainPage = GetCurrentPage();
-            if (mainPage != null)
-            {
-                return await mainPage.DisplayAlert(title, message, "Yes", "No");
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error showing confirmation: {ex.Message}");
+            Debug.WriteLine($"❌ [BASE_LIST_VM] Confirmation dialog error: {ex.Message}");
         }
         return false;
     }
 
     /// <summary>
-    /// ✅ EXTRACTED: Helper method to get current page
+    /// ✅ UNIFIED: Shows success message via Toast (consistent UX)
+    /// </summary>
+    protected virtual async Task ShowSuccessToastAsync(string message)
+    {
+        try
+        {
+            var toast = Toast.Make($"✅ {message}", ToastDuration.Short, 16);
+            await toast.Show();
+            Debug.WriteLine($"✅ [BASE_LIST_VM] Success toast: {message}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [BASE_LIST_VM] Success toast error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// ✅ UNIFIED: Shows error message via Toast (consistent UX)
+    /// </summary>
+    protected virtual async Task ShowErrorToastAsync(string message)
+    {
+        try
+        {
+            var toast = Toast.Make($"❌ {message}", ToastDuration.Short, 16);
+            await toast.Show();
+            Debug.WriteLine($"❌ [BASE_LIST_VM] Error toast: {message}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [BASE_LIST_VM] Error toast error: {ex.Message}");
+        }
+    }
+
+    /// <summary>
+    /// ✅ Helper method to get current page
     /// </summary>
     private static Page? GetCurrentPage()
     {

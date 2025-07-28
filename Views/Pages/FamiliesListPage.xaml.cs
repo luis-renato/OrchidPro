@@ -7,7 +7,7 @@ using CommunityToolkit.Maui.Core;
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// ✅ FIXED: FamiliesListPage with corrected SelectionMode synchronization
+/// ✅ FIXED: FamiliesListPage with UNIFIED DELETE FLOW - No duplicate confirmations/messages
 /// </summary>
 public partial class FamiliesListPage : ContentPage
 {
@@ -19,12 +19,12 @@ public partial class FamiliesListPage : ContentPage
         _viewModel = viewModel;
         BindingContext = _viewModel;
 
-        Debug.WriteLine("✅ [FAMILIES_LIST_PAGE] Initialized with corrected synchronization");
+        Debug.WriteLine("✅ [FAMILIES_LIST_PAGE] Initialized with UNIFIED delete flow");
 
         // Hook up events
         ListRefresh.Refreshing += PullToRefresh_Refreshing;
 
-        // ✅ CRITICAL: Monitor ViewModel changes to sync SelectionMode
+        // Monitor ViewModel changes to sync SelectionMode
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
 
         if (_viewModel?.SelectedItems == null)
@@ -34,7 +34,7 @@ public partial class FamiliesListPage : ContentPage
     }
 
     /// <summary>
-    /// ✅ CRITICAL: Sync ListView SelectionMode with ViewModel state
+    /// ✅ Sync ListView SelectionMode with ViewModel state
     /// </summary>
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
@@ -46,7 +46,7 @@ public partial class FamiliesListPage : ContentPage
     }
 
     /// <summary>
-    /// ✅ CRITICAL: Ensure ListView SelectionMode matches ViewModel state
+    /// ✅ Ensure ListView SelectionMode matches ViewModel state
     /// </summary>
     private void SyncSelectionMode()
     {
@@ -63,7 +63,6 @@ public partial class FamiliesListPage : ContentPage
                 Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] SelectionMode synced to: {FamilyListView.SelectionMode}");
             }
 
-            // If we're exiting multi-select, clear ListView selections
             if (!_viewModel.IsMultiSelectMode && FamilyListView.SelectedItems?.Count > 0)
             {
                 Debug.WriteLine($"🧹 [FAMILIES_LIST_PAGE] Clearing ListView selections on multi-select exit");
@@ -130,7 +129,6 @@ public partial class FamiliesListPage : ContentPage
             await _viewModel.RefreshCommand.ExecuteAsync(null);
         }
 
-        // ✅ CRITICAL: Ensure SelectionMode is synced on appearing
         SyncSelectionMode();
         UpdateFabVisual();
 
@@ -197,10 +195,10 @@ public partial class FamiliesListPage : ContentPage
 
     #endregion
 
-    #region ✅ FAB VISUAL UPDATES - CORRIGIDO PARA BUTTON
+    #region ✅ FAB VISUAL UPDATES
 
     /// <summary>
-    /// ✅ CORRIGIDO: Atualizar visual do FAB usando cores do ResourceDictionary
+    /// ✅ Atualizar visual do FAB usando cores do ResourceDictionary
     /// </summary>
     private void UpdateFabVisual()
     {
@@ -265,10 +263,10 @@ public partial class FamiliesListPage : ContentPage
     }
     #endregion
 
-    #region ✅ TOOLBAR ITEMS HANDLERS - FIXED
+    #region ✅ TOOLBAR ITEMS HANDLERS
 
     /// <summary>
-    /// ✅ FIXED: Select All toolbar with proper SelectionMode sync
+    /// ✅ Select All toolbar with proper SelectionMode sync
     /// </summary>
     private void OnSelectAllTapped(object sender, EventArgs e)
     {
@@ -276,21 +274,18 @@ public partial class FamiliesListPage : ContentPage
         {
             Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Select All toolbar tapped");
 
-            // ✅ CRITICAL: Ensure ListView is in Multiple mode FIRST
             if (FamilyListView.SelectionMode != Syncfusion.Maui.ListView.SelectionMode.Multiple)
             {
                 Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Setting ListView to Multiple mode for Select All");
                 FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.Multiple;
             }
 
-            // Execute ViewModel command
             if (_viewModel?.SelectAllCommand?.CanExecute(null) == true)
             {
                 _viewModel.SelectAllCommand.Execute(null);
                 Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] SelectAllCommand executed");
             }
 
-            // ✅ CRITICAL: Sync ListView selections manually
             Device.BeginInvokeOnMainThread(() =>
             {
                 try
@@ -306,7 +301,6 @@ public partial class FamiliesListPage : ContentPage
                         }
                     }
 
-                    // Force refresh visuals
                     for (int i = 0; i < _viewModel.Items.Count; i++)
                     {
                         FamilyListView.RefreshItem(i);
@@ -327,7 +321,7 @@ public partial class FamiliesListPage : ContentPage
     }
 
     /// <summary>
-    /// ✅ FIXED: Clear All with proper cleanup
+    /// ✅ Clear All with proper cleanup
     /// </summary>
     private async void OnDeselectAllTapped(object sender, EventArgs e)
     {
@@ -335,25 +329,19 @@ public partial class FamiliesListPage : ContentPage
         {
             Debug.WriteLine($"🧹 [FAMILIES_LIST_PAGE] Clear All toolbar tapped");
 
-            // Execute ViewModel command
             if (_viewModel?.ClearSelectionCommand != null && _viewModel.ClearSelectionCommand.CanExecute(null))
             {
                 _viewModel.ClearSelectionCommand.Execute(null);
                 Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] ClearSelectionCommand executed");
             }
 
-            // ✅ CRITICAL: Ensure ListView is properly cleared
             Device.BeginInvokeOnMainThread(() =>
             {
                 try
                 {
-                    // Clear ListView selections
                     FamilyListView.SelectedItems?.Clear();
-
-                    // Set SelectionMode to None
                     FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
 
-                    // Force refresh all items
                     if (_viewModel?.Items != null)
                     {
                         for (int i = 0; i < _viewModel.Items.Count; i++)
@@ -382,7 +370,7 @@ public partial class FamiliesListPage : ContentPage
     }
     #endregion
 
-    #region ✅ SEARCH BAR EVENTS - ATUALIZADO
+    #region ✅ SEARCH BAR EVENTS
 
     private async void OnSearchFocused(object sender, FocusEventArgs e)
     {
@@ -430,10 +418,10 @@ public partial class FamiliesListPage : ContentPage
 
     #endregion
 
-    #region ✅ FAB HANDLER - FIXED
+    #region ✅ FAB HANDLER - UNIFIED FLOW
 
     /// <summary>
-    /// ✅ FIXED: FAB handler with proper state management
+    /// ✅ FIXED: FAB handler with UNIFIED delete flow via ViewModel only
     /// </summary>
     private async void OnFabPressed(object sender, EventArgs e)
     {
@@ -447,27 +435,25 @@ public partial class FamiliesListPage : ContentPage
 
             if (selectedCount > 0)
             {
-                Debug.WriteLine($"🗑️ [FAMILIES_LIST_PAGE] Executing delete for {selectedCount} items");
+                Debug.WriteLine($"🗑️ [FAMILIES_LIST_PAGE] Executing UNIFIED delete for {selectedCount} items");
 
                 try
                 {
+                    // ✅ UNIFIED: Call ViewModel command only - it handles confirmation + success message
                     if (_viewModel?.DeleteSelectedCommand?.CanExecute(null) == true)
                     {
                         await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
+                        Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] UNIFIED delete completed via ViewModel");
                     }
 
-                    // ✅ CRITICAL: Force complete UI cleanup after delete
+                    // ✅ UI cleanup after ViewModel handles the delete
                     Device.BeginInvokeOnMainThread(() =>
                     {
                         try
                         {
-                            // Clear ListView selections
                             FamilyListView.SelectedItems?.Clear();
-
-                            // Set SelectionMode to None
                             FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
 
-                            // Refresh all remaining items
                             if (_viewModel?.Items != null)
                             {
                                 for (int i = 0; i < _viewModel.Items.Count; i++)
@@ -483,13 +469,10 @@ public partial class FamiliesListPage : ContentPage
                             Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] UI cleanup error: {uiEx.Message}");
                         }
                     });
-
-                    await ShowToast($"✅ {selectedCount} families deleted successfully", CommunityToolkit.Maui.Core.ToastDuration.Short);
                 }
                 catch (Exception deleteEx)
                 {
-                    Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Delete failed: {deleteEx.Message}");
-                    await ShowToast($"❌ Failed to delete families: {deleteEx.Message}", CommunityToolkit.Maui.Core.ToastDuration.Long);
+                    Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] UNIFIED delete failed: {deleteEx.Message}");
                 }
             }
             else if (_viewModel?.IsMultiSelectMode == true)
@@ -501,7 +484,6 @@ public partial class FamiliesListPage : ContentPage
                     _viewModel.IsMultiSelectMode = false;
                 }
 
-                // UI will be synced via OnViewModelPropertyChanged
                 UpdateFabVisual();
             }
             else
@@ -527,7 +509,7 @@ public partial class FamiliesListPage : ContentPage
 
     #endregion
 
-    #region ✅ FILTER AND SORT HANDLERS - ATUALIZADO
+    #region ✅ FILTER AND SORT HANDLERS
 
     private async void OnFilterTapped(object sender, EventArgs e)
     {
@@ -597,7 +579,7 @@ public partial class FamiliesListPage : ContentPage
 
     #endregion
 
-    #region ✅ SYNCFUSION LISTVIEW EVENT HANDLERS - FIXED
+    #region ✅ SYNCFUSION LISTVIEW EVENT HANDLERS
 
     private void OnItemTapped(object sender, Syncfusion.Maui.ListView.ItemTappedEventArgs e)
     {
@@ -613,7 +595,6 @@ public partial class FamiliesListPage : ContentPage
                 {
                     Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] Multi-select mode - toggling selection");
 
-                    // Toggle selection
                     if (item.IsSelected)
                     {
                         item.IsSelected = false;
@@ -633,14 +614,12 @@ public partial class FamiliesListPage : ContentPage
 
                     UpdateFabVisual();
 
-                    // If no more items selected, exit multi-select mode
                     if (_viewModel?.SelectedItems?.Count == 0)
                     {
                         if (_viewModel != null)
                         {
                             _viewModel.IsMultiSelectMode = false;
                         }
-                        // SelectionMode will be synced via OnViewModelPropertyChanged
                     }
                 }
                 else
@@ -670,18 +649,15 @@ public partial class FamiliesListPage : ContentPage
             {
                 Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] Long press: {item.Name}");
 
-                // Activate multi-select mode
                 if (_viewModel?.IsMultiSelectMode != true)
                 {
                     if (_viewModel != null)
                     {
                         _viewModel.IsMultiSelectMode = true;
                     }
-                    // SelectionMode will be synced via OnViewModelPropertyChanged
                     Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Multi-select mode ACTIVATED");
                 }
 
-                // Select the item
                 if (!item.IsSelected)
                 {
                     item.IsSelected = true;
@@ -692,7 +668,6 @@ public partial class FamiliesListPage : ContentPage
                     Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Item selected: {item.Name}");
                 }
 
-                // Force visual refresh
                 Device.BeginInvokeOnMainThread(() =>
                 {
                     var index = _viewModel?.Items?.IndexOf(item) ?? -1;
@@ -740,7 +715,6 @@ public partial class FamiliesListPage : ContentPage
                 {
                     Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Auto-exiting multi-select mode");
                     _viewModel.IsMultiSelectMode = false;
-                    // SelectionMode will be synced via OnViewModelPropertyChanged
                 }
                 else if (vmSelectedCount > 0 && !_viewModel.IsMultiSelectMode)
                 {
@@ -777,7 +751,7 @@ public partial class FamiliesListPage : ContentPage
 
     #endregion
 
-    #region ✅ SYNCFUSION SWIPE HANDLERS - OTIMIZADO
+    #region ✅ SYNCFUSION SWIPE HANDLERS - UNIFIED DELETE FLOW
 
     private const double SWIPE_THRESHOLD = 0.8;
 
@@ -789,16 +763,6 @@ public partial class FamiliesListPage : ContentPage
             {
                 Debug.WriteLine($"🚀 [SWIPE_STARTING] Item: {item.Name}");
                 Debug.WriteLine($"🚀 [SWIPE_STARTING] Direction: {e.Direction}");
-                Debug.WriteLine($"🚀 [SWIPE_STARTING] IsSystemDefault: {item.IsSystemDefault}");
-
-                // ✅ REMOVED: No longer blocking system defaults since you don't use this feature
-                // if (item.IsSystemDefault && e.Direction.ToString() == "Left")
-                // {
-                //     e.Cancel = true;
-                //     Debug.WriteLine($"❌ [SWIPE_STARTING] Cancelled left swipe for system default: {item.Name}");
-                //     return;
-                // }
-
                 Debug.WriteLine($"✅ [SWIPE_STARTING] Swipe allowed for {item.Name} - direction: {e.Direction}");
             }
         }
@@ -830,6 +794,9 @@ public partial class FamiliesListPage : ContentPage
         }
     }
 
+    /// <summary>
+    /// ✅ FIXED: UNIFIED SWIPE DELETE FLOW - Uses ViewModel command only
+    /// </summary>
     private async void OnSwipeEnded(object sender, Syncfusion.Maui.ListView.SwipeEndedEventArgs e)
     {
         try
@@ -886,7 +853,7 @@ public partial class FamiliesListPage : ContentPage
                     break;
 
                 case "Left":
-                    Debug.WriteLine($"🗑️ [SWIPE_ENDED] DELETE action triggered");
+                    Debug.WriteLine($"🗑️ [SWIPE_ENDED] UNIFIED DELETE action triggered");
 
                     if (_viewModel?.IsConnected != true)
                     {
@@ -894,29 +861,23 @@ public partial class FamiliesListPage : ContentPage
                         break;
                     }
 
-                    // ✅ REMOVED: No longer blocking system defaults since you don't use this feature
-                    // if (item.IsSystemDefault)
-                    // {
-                    //     await ShowToast("Cannot delete system default families", CommunityToolkit.Maui.Core.ToastDuration.Short);
-                    //     break;
-                    // }
-
                     try
                     {
-                        Debug.WriteLine($"🗑️ [SWIPE_ENDED] Calling DeleteSingleCommand for: {item.Name}");
+                        Debug.WriteLine($"🗑️ [SWIPE_ENDED] Calling UNIFIED DeleteSingleCommand for: {item.Name}");
 
-                        // ✅ FIXED: Use the correct command
+                        // ✅ UNIFIED: Use ViewModel command only - it handles confirmation + success message
                         if (_viewModel?.DeleteSingleCommand?.CanExecute(item) == true)
                         {
                             await _viewModel.DeleteSingleCommand.ExecuteAsync(item);
+                            Debug.WriteLine($"✅ [SWIPE_ENDED] UNIFIED delete completed via ViewModel");
                         }
 
-                        await ShowToast($"✅ '{item.Name}' deleted successfully", CommunityToolkit.Maui.Core.ToastDuration.Short);
+                        // ✅ NO additional messages here - ViewModel already showed success toast
                     }
                     catch (Exception ex)
                     {
-                        Debug.WriteLine($"❌ [SWIPE_ENDED] Delete failed: {ex.Message}");
-                        await ShowToast("❌ Failed to delete family", CommunityToolkit.Maui.Core.ToastDuration.Short);
+                        Debug.WriteLine($"❌ [SWIPE_ENDED] UNIFIED Delete failed: {ex.Message}");
+                        // ViewModel already showed error message
                     }
                     break;
 
