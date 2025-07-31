@@ -91,91 +91,46 @@
                 <!-- Main content with search and list -->
                 <Grid Grid.Row="1" RowDefinitions="Auto,*">
 
-                    <!-- Search bar -->
-                    <Border Grid.Row="0"
-                            BackgroundColor="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}"
-                            Padding="20,15">
+                    <!-- ✅ TEMPLATE 5: Search bar usando templates -->
+                    <Border Grid.Row="0" Style="{StaticResource SearchBarContainerStyle}">
 
-                        <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="10" Padding="2,0,0,0">
 
                             <!-- Search field -->
-                            <Border Grid.Column="0"
-                                    BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SurfaceDark}}"
-                                    Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
-                                    StrokeThickness="1"
-                                    HeightRequest="44">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="22" />
-                                </Border.StrokeShape>
-
-                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="15,0">
-                                    <Label Grid.Column="0" 
-                                           Text="🔍"
-                                           FontSize="16"
-                                           VerticalOptions="Center" />
+                            <Border Grid.Column="0" Style="{StaticResource SearchFieldBorderStyle}" >
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="10,0">
+                                    <Label Grid.Column="0" Style="{StaticResource SearchIconStyle}" />
 
                                     <Entry Grid.Column="1"
                                            Text="{Binding SearchText}"
                                            Placeholder="Search families..."
-                                           FontSize="14"
-                                           BackgroundColor="Transparent"
+                                           Style="{StaticResource SearchEntryStyle}"
                                            ReturnCommand="{Binding ApplyFilterCommand}"
-                                           VerticalOptions="Center"
                                            Focused="OnSearchFocused"
                                            Unfocused="OnSearchUnfocused"
                                            TextChanged="OnSearchTextChanged" />
 
                                     <Button Grid.Column="2"
-                                            Text="✕"
-                                            FontSize="12"
-                                            WidthRequest="24"
-                                            HeightRequest="24"
-                                            Padding="0"
-                                            BackgroundColor="Transparent"
-                                            TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                                            Style="{StaticResource SearchClearButtonStyle}"
                                             Command="{Binding ClearFilterCommand}"
                                             IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}" />
                                 </Grid>
                             </Border>
 
                             <!-- Filter button -->
-                            <Border Grid.Column="1"
-                                    BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource Primary}}"
-                                    Stroke="Transparent"
-                                    Padding="12,0"
-                                    HeightRequest="44"
-                                    WidthRequest="44">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="22" />
-                                </Border.StrokeShape>
+                            <Border Grid.Column="1" Style="{StaticResource SearchActionButtonStyle}">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnFilterTapped" />
                                 </Border.GestureRecognizers>
-
-                                <Label Text="📊"
-                                       FontSize="16"
-                                       VerticalOptions="Center"
-                                       HorizontalOptions="Center" />
+                                <Label Text="📊" Style="{StaticResource SearchActionIconStyle}" />
                             </Border>
 
                             <!-- Sort button -->
-                            <Border Grid.Column="2"
-                                    BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource Primary}}"
-                                    Stroke="Transparent"
-                                    Padding="12,0"
-                                    HeightRequest="44"
-                                    WidthRequest="44">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="22" />
-                                </Border.StrokeShape>
+                            <Border Grid.Column="2" Style="{StaticResource SearchActionButtonStyle}">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnSortTapped" />
                                 </Border.GestureRecognizers>
-
-                                <Label Text="🔄"
-                                       FontSize="16"
-                                       VerticalOptions="Center"
-                                       HorizontalOptions="Center" />
+                                <Label Text="🔄" Style="{StaticResource SearchActionIconStyle}" />
                             </Border>
                         </Grid>
                     </Border>
@@ -321,23 +276,13 @@
         <!-- ✅ TEMPLATE 1: LOADING OVERLAY USANDO TEMPLATE -->
         <ContentView Style="{StaticResource LoadingOverlayStyle}" />
 
-        <!-- ✅ FAB COM BUTTON NORMAL USANDO CORES DO RESOURCE -->
+        <!-- ✅ TEMPLATE 4: FAB usando template -->
         <Button x:Name="FabButton"
                 Text="{Binding FabText, FallbackValue='Add Family'}"
-                FontSize="14"
-                FontAttributes="Bold"
-                CornerRadius="28"
-                WidthRequest="160"
-                HeightRequest="56"
-                HorizontalOptions="End"
-                VerticalOptions="End"
-                Margin="20,20,30,30"
+                Style="{StaticResource FabButtonStyle}"
                 IsVisible="True"
                 IsEnabled="{Binding IsConnected, FallbackValue=True}"
-                Scale="0.9"
-                Clicked="OnFabPressed"
-                BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}" />
+                Clicked="OnFabPressed" />
 
     </Grid>
 

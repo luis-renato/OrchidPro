@@ -33,17 +33,10 @@
                                 Margin="0,8,0,0" />
                 </StackLayout>
 
-                <!-- Name Field -->
-                <Frame HasShadow="False" 
-                       BorderColor="LightGray" 
-                       CornerRadius="12" 
-                       Padding="16"
-                       BackgroundColor="WhiteSmoke">
-                    <StackLayout Spacing="8">
-                        <Label Text="Name *"
-                               FontSize="12"
-                               FontAttributes="Bold"
-                               TextColor="{StaticResource Primary}" />
+                <!-- ✅ TEMPLATE 3: Name Field usando template -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Name *" Style="{StaticResource FormFieldLabelStyle}" />
 
                         <Entry Text="{Binding Name}"
                                Placeholder="Enter family name"
@@ -56,19 +49,12 @@
                                TextColor="Red"
                                IsVisible="{Binding IsNameValid, Converter={StaticResource InvertedBoolConverter}}" />
                     </StackLayout>
-                </Frame>
+                </ContentView>
 
-                <!-- Description Field -->
-                <Frame HasShadow="False" 
-                       BorderColor="LightGray" 
-                       CornerRadius="12" 
-                       Padding="16"
-                       BackgroundColor="WhiteSmoke">
-                    <StackLayout Spacing="8">
-                        <Label Text="Description"
-                               FontSize="12"
-                               FontAttributes="Bold"
-                               TextColor="{StaticResource Primary}" />
+                <!-- ✅ TEMPLATE 3: Description Field usando template -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Description" Style="{StaticResource FormFieldLabelStyle}" />
 
                         <Editor Text="{Binding Description}"
                                 Placeholder="Optional description..."
@@ -77,19 +63,12 @@
                                 BackgroundColor="Transparent"
                                 HeightRequest="80" />
                     </StackLayout>
-                </Frame>
+                </ContentView>
 
-                <!-- Settings -->
-                <Frame HasShadow="False" 
-                       BorderColor="LightGray" 
-                       CornerRadius="12" 
-                       Padding="16"
-                       BackgroundColor="WhiteSmoke">
-                    <StackLayout Spacing="16">
-                        <Label Text="Settings"
-                               FontSize="12"
-                               FontAttributes="Bold"
-                               TextColor="{StaticResource Primary}" />
+                <!-- ✅ TEMPLATE 3: Settings usando template -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormSettingsStackStyle}">
+                        <Label Text="Settings" Style="{StaticResource FormFieldLabelStyle}" />
 
                         <!-- Active Toggle -->
                         <Grid ColumnDefinitions="Auto,*,Auto">
@@ -144,31 +123,22 @@
                         </Grid>
 
                     </StackLayout>
-                </Frame>
+                </ContentView>
 
-                <!-- Bottom Buttons -->
+                <!-- ✅ TEMPLATE 4: Bottom Buttons usando templates -->
                 <Grid ColumnDefinitions="*,*" 
                       ColumnSpacing="16"
                       Margin="0,24,0,0">
 
                     <Button Grid.Column="0"
                             Text="Cancel"
-                            BackgroundColor="LightGray"
-                            TextColor="Black"
-                            CornerRadius="24"
-                            FontSize="16"
-                            FontAttributes="Bold"
-                            HeightRequest="48"
+                            Style="{StaticResource SecondaryButtonStyle}"
                             Command="{Binding CancelCommand}" />
 
                     <Button Grid.Column="1"
                             Text="{Binding SaveButtonText}"
+                            Style="{StaticResource DynamicPrimaryButtonStyle}"
                             BackgroundColor="{Binding SaveButtonColor}"
-                            TextColor="White"
-                            CornerRadius="24"
-                            FontSize="16"
-                            FontAttributes="Bold"
-                            HeightRequest="48"
                             Command="{Binding SaveCommand}"
                             IsEnabled="{Binding IsNameValid}" />
 

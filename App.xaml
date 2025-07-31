@@ -13,6 +13,14 @@
                 <ResourceDictionary Source="Resources/Templates/LoadingOverlayTemplate.xaml" />
                 <!-- ✅ TEMPLATE 2: Empty State -->
                 <ResourceDictionary Source="Resources/Templates/EmptyStateTemplate.xaml" />
+                <!-- ✅ TEMPLATE 3: Form Field Frame -->
+                <ResourceDictionary Source="Resources/Templates/FormFieldTemplate.xaml" />
+                <!-- ✅ TEMPLATE 4: Button Styles -->
+                <ResourceDictionary Source="Resources/Templates/ButtonStylesTemplate.xaml" />
+                <!-- ✅ TEMPLATE 5: Search Bar -->
+                <ResourceDictionary Source="Resources/Templates/SearchBarTemplate.xaml" />
+                <!-- ✅ TEMPLATE 6: Connection Status -->
+                <ResourceDictionary Source="Resources/Templates/ConnectionStatusTemplate.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Value Converters -->

@@ -89,7 +89,19 @@
 	</ItemGroup>
 
 	<ItemGroup>
+		<MauiXaml Update="Resources\Templates\ConnectionStatusTemplate.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Resources\Templates\SearchBarTemplate.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Resources\Templates\FormFieldTemplate.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
 		<MauiXaml Update="Resources\Templates\EmptyStateTemplate.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Resources\Templates\ButtonStylesTemplate.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Views\Pages\FamiliesListPage.xaml">

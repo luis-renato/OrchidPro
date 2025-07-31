@@ -10,7 +10,7 @@ using CommunityToolkit.Maui.Core;
 namespace OrchidPro.ViewModels.Base;
 
 /// <summary>
-/// ✅ FIXED: BaseListViewModel with UNIFIED DELETE FLOW - No duplicate confirmations
+/// ✅ FIXED: BaseListViewModel with UNIFIED DELETE FLOW and FIXED FILTER BUG
 /// </summary>
 public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewModel
     where T : class, IBaseEntity, new()
@@ -134,23 +134,32 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     private async Task ApplyFilterAsync()
     {
-        await ApplyFiltersAndSortAsync();
+        await LoadItemsDataAsync();
     }
 
-    private void ClearFilterAction()
+    /// <summary>
+    /// ✅ FIXED: Clear filter que recarrega dados do repositório
+    /// </summary>
+    private async void ClearFilterAction()
     {
         // Clear only filters, not selection
         SearchText = string.Empty;
         StatusFilter = "All";
         SortOrder = "Name A→Z";
 
-        // Apply reset filters
-        _ = Task.Run(async () => await ApplyFiltersAndSortAsync());
-
-        Debug.WriteLine($"✅ [BASE_LIST_VM] Filters cleared for {EntityNamePlural}");
+        // ✅ CORREÇÃO: Recarregar do repositório em vez de aplicar filtros vazios
+        try
+        {
+            await LoadItemsDataAsync();
+            Debug.WriteLine($"✅ [BASE_LIST_VM] Filters cleared and data reloaded for {EntityNamePlural}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [BASE_LIST_VM] Clear filter failed: {ex.Message}");
+        }
     }
 
-    private void ClearSelectionAction()
+    private async void ClearSelectionAction()
     {
         // Clear selection AND applied filters
         SelectedItems.Clear();
@@ -167,10 +176,16 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         IsMultiSelectMode = false;
         UpdateFabForSelection();
 
-        // Apply reset filters
-        _ = Task.Run(async () => await ApplyFiltersAndSortAsync());
-
-        Debug.WriteLine($"✅ [BASE_LIST_VM] Selection and filters cleared for {EntityNamePlural}");
+        // ✅ CORREÇÃO: Recarregar do repositório
+        try
+        {
+            await LoadItemsDataAsync();
+            Debug.WriteLine($"✅ [BASE_LIST_VM] Selection and filters cleared for {EntityNamePlural}");
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"❌ [BASE_LIST_VM] Clear selection failed: {ex.Message}");
+        }
     }
 
     /// <summary>
@@ -230,19 +245,25 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region Property Change Handlers
+    #region ✅ FIXED: Property Change Handlers
 
-    private void OnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    /// <summary>
+    /// ✅ CORRIGIDO: Property change handler que recarrega dados do repositório
+    /// </summary>
+    private async void OnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         switch (e.PropertyName)
         {
             case nameof(SearchText):
-                _ = ApplyFiltersAndSortAsync();
+                // ✅ CORREÇÃO: Recarregar do repositório em vez de filtrar itens já carregados
+                _ = LoadItemsDataAsync();
                 break;
             case nameof(StatusFilter):
-                _ = ApplyFiltersAndSortAsync();
+                // ✅ CORREÇÃO: Recarregar do repositório
+                _ = LoadItemsDataAsync();
                 break;
             case nameof(SortOrder):
+                // ✅ MANTER: Sort pode ser aplicado nos itens atuais
                 _ = ApplyFiltersAndSortAsync();
                 break;
             case nameof(SelectedItems):
@@ -596,7 +617,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         StatusFilter = StatusFilterOptions[nextIndex];
 
         Debug.WriteLine($"🔍 [BASE_LIST_VM] Status filter changed to: {StatusFilter}");
-        await ApplyFiltersAndSortAsync();
+        await LoadItemsDataAsync();
     }
 
     [RelayCommand]
@@ -610,6 +631,10 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         _ = ApplyFiltersAndSortAsync();
     }
 
+    /// <summary>
+    /// ✅ MANTER: Aplicar apenas sort nos itens já carregados (não filtros)
+    /// Usado apenas para mudanças de SortOrder
+    /// </summary>
     private async Task ApplyFiltersAndSortAsync()
     {
         await Task.Run(() =>
@@ -617,28 +642,8 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             try
             {
                 var allItems = Items.ToList();
-                var filtered = allItems.AsEnumerable();
-
-                // Apply search filter
-                if (!string.IsNullOrWhiteSpace(SearchText))
-                {
-                    var searchLower = SearchText.ToLowerInvariant();
-                    filtered = filtered.Where(item =>
-                        item.Name.ToLowerInvariant().Contains(searchLower) ||
-                        (!string.IsNullOrEmpty(item.Description) && item.Description.ToLowerInvariant().Contains(searchLower))
-                    );
-                }
-
-                // Apply status filter
-                if (StatusFilter != "All")
-                {
-                    bool activeFilter = StatusFilter == "Active";
-                    filtered = filtered.Where(item => item.IsActive == activeFilter);
-                }
-
-                filtered = ApplyEntitySpecificSort(filtered);
-
-                var result = filtered.ToList();
+                var sorted = ApplyEntitySpecificSort(allItems.AsEnumerable());
+                var result = sorted.ToList();
 
                 Device.BeginInvokeOnMainThread(() =>
                 {
@@ -654,6 +659,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                         : $"No {EntityNamePlural.ToLower()} found. Tap + to add one";
 
                     UpdateCounters();
+                    Debug.WriteLine($"🔄 [BASE_LIST_VM] Applied sort: {SortOrder} - {Items.Count} items");
                 });
             }
             catch (Exception ex)
@@ -794,6 +800,10 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
     }
 
+    /// <summary>
+    /// ✅ CORE METHOD: Loads data from repository with filters applied
+    /// This is the method that should be called when filters change
+    /// </summary>
     private async Task LoadItemsDataAsync()
     {
         try
