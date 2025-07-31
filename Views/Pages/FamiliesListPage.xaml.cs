@@ -1,4 +1,6 @@
 ﻿using OrchidPro.ViewModels.Families;
+using OrchidPro.Constants;
+using OrchidPro.Extensions;
 using System.Diagnostics;
 using Microsoft.Maui.Controls;
 using CommunityToolkit.Maui.Alerts;
@@ -147,26 +149,8 @@ public partial class FamiliesListPage : ContentPage
     {
         try
         {
-            RootGrid.Opacity = 0;
-            RootGrid.Scale = 0.95;
-            RootGrid.TranslationY = 30;
-
-            FabButton.Opacity = 0;
-            FabButton.Scale = 0.8;
-            FabButton.TranslationY = 50;
-
-            await Task.WhenAll(
-                RootGrid.FadeTo(1, 600, Easing.CubicOut),
-                RootGrid.ScaleTo(1, 600, Easing.SpringOut),
-                RootGrid.TranslateTo(0, 0, 600, Easing.CubicOut)
-            );
-
-            await Task.Delay(200);
-            await Task.WhenAll(
-                FabButton.FadeTo(1, 400, Easing.CubicOut),
-                FabButton.ScaleTo(1, 400, Easing.SpringOut),
-                FabButton.TranslateTo(0, 0, 400, Easing.CubicOut)
-            );
+            // ✅ USANDO EXTENSÃO: Animação completa de página + FAB com delay
+            await RootGrid.PerformCompletePageEntranceAsync(FabButton);
         }
         catch (Exception ex)
         {
@@ -180,12 +164,8 @@ public partial class FamiliesListPage : ContentPage
     {
         try
         {
-            await Task.WhenAll(
-                RootGrid.FadeTo(0.8, 300, Easing.CubicIn),
-                RootGrid.ScaleTo(0.98, 300, Easing.CubicIn),
-                FabButton.FadeTo(0, 200, Easing.CubicIn),
-                FabButton.ScaleTo(0.9, 200, Easing.CubicIn)
-            );
+            // ✅ USANDO EXTENSÃO: Animação completa de saída
+            await RootGrid.PerformCompletePageExitAsync(FabButton);
         }
         catch (Exception ex)
         {
@@ -215,30 +195,30 @@ public partial class FamiliesListPage : ContentPage
                 {
                     var errorColor = Application.Current?.Resources.TryGetValue("ErrorColor", out var error) == true
                         ? (Color)error
-                        : Color.FromArgb("#D32F2F");
+                        : Color.FromArgb(ColorConstants.ERROR_COLOR); // ✅ USANDO CONSTANTE: era "#D32F2F"
 
                     FabButton.BackgroundColor = errorColor;
-                    FabButton.Text = $"Delete ({selectedCount})";
-                    Debug.WriteLine($"🔴 [FAB_VISUAL] Set to DELETE mode: Delete ({selectedCount})");
+                    FabButton.Text = $"{TextConstants.DELETE_ITEM} ({selectedCount})"; // ✅ USANDO CONSTANTE: era "Delete ({selectedCount})"
+                    Debug.WriteLine($"🔴 [FAB_VISUAL] Set to DELETE mode: {TextConstants.DELETE_ITEM} ({selectedCount})");
                 }
                 else if (_viewModel?.IsMultiSelectMode == true)
                 {
                     var grayColor = Application.Current?.Resources.TryGetValue("Gray500", out var gray) == true
                         ? (Color)gray
-                        : Color.FromArgb("#757575");
+                        : Color.FromArgb(ColorConstants.GRAY_500); // ✅ USANDO CONSTANTE: era "#757575"
 
                     FabButton.BackgroundColor = grayColor;
-                    FabButton.Text = "Cancel";
+                    FabButton.Text = TextConstants.CANCEL_CHANGES; // ✅ USANDO CONSTANTE: era "Cancel"
                     Debug.WriteLine($"⚫ [FAB_VISUAL] Set to CANCEL mode");
                 }
                 else
                 {
                     var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
                         ? (Color)primary
-                        : Color.FromArgb("#A47764");
+                        : Color.FromArgb(ColorConstants.PRIMARY_COLOR); // ✅ USANDO CONSTANTE: era "#A47764"
 
                     FabButton.BackgroundColor = primaryColor;
-                    FabButton.Text = "Add Family";
+                    FabButton.Text = TextConstants.ADD_FAMILY; // ✅ USANDO CONSTANTE: era "Add Family"
                     Debug.WriteLine($"🟢 [FAB_VISUAL] Set to ADD mode");
                 }
 
@@ -252,11 +232,11 @@ public partial class FamiliesListPage : ContentPage
             Device.BeginInvokeOnMainThread(() =>
             {
                 FabButton.IsVisible = true;
-                FabButton.Text = "Add Family";
+                FabButton.Text = TextConstants.ADD_FAMILY; // ✅ USANDO CONSTANTE: era "Add Family"
 
                 var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
                     ? (Color)primary
-                    : Color.FromArgb("#A47764");
+                    : Color.FromArgb(ColorConstants.PRIMARY_COLOR); // ✅ USANDO CONSTANTE: era "#A47764"
                 FabButton.BackgroundColor = primaryColor;
             });
         }
@@ -358,14 +338,15 @@ public partial class FamiliesListPage : ContentPage
                 }
             });
 
-            await ShowToast("🧹 Cleared selections and filters", CommunityToolkit.Maui.Core.ToastDuration.Short);
+            await this.ShowSuccessToast("🧹 Cleared selections and filters");
 
             Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Clear All completed successfully");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Clear All error: {ex.Message}");
-            await ShowToast($"❌ Failed to clear: {ex.Message}", CommunityToolkit.Maui.Core.ToastDuration.Short);
+            // ✅ USANDO EXTENSÃO: Toast de erro padronizado
+            await this.ShowErrorToast($"Failed to clear: {ex.Message}");
         }
     }
     #endregion
@@ -378,7 +359,7 @@ public partial class FamiliesListPage : ContentPage
         {
             if (sender is Entry entry && entry.Parent?.Parent is Border border)
             {
-                await border.ScaleTo(1.02, 150, Easing.CubicOut);
+                await border.ScaleTo(AnimationConstants.BORDER_FOCUS_SCALE, AnimationConstants.BORDER_FOCUS_DURATION, AnimationConstants.FEEDBACK_EASING); // ✅ USANDO CONSTANTE: era 1.02, 150, Easing.CubicOut
                 border.Stroke = Application.Current?.Resources["Primary"] as Color ?? Colors.Blue;
             }
         }
@@ -394,7 +375,7 @@ public partial class FamiliesListPage : ContentPage
         {
             if (sender is Entry entry && entry.Parent?.Parent is Border border)
             {
-                await border.ScaleTo(1, 150, Easing.CubicOut);
+                await border.ScaleTo(AnimationConstants.FEEDBACK_SCALE_NORMAL, AnimationConstants.BORDER_FOCUS_DURATION, AnimationConstants.FEEDBACK_EASING); // ✅ USANDO CONSTANTE: era 1, 150, Easing.CubicOut
                 border.Stroke = Application.Current?.Resources["Gray300"] as Color ?? Colors.Gray;
             }
         }
@@ -427,8 +408,8 @@ public partial class FamiliesListPage : ContentPage
     {
         try
         {
-            await FabButton.ScaleTo(0.9, 100, Easing.CubicIn);
-            await FabButton.ScaleTo(1, 100, Easing.CubicOut);
+            // ✅ USANDO EXTENSÃO: Tap feedback padronizado
+            await FabButton.PerformTapFeedbackAsync();
 
             var selectedCount = _viewModel?.SelectedItems?.Count ?? 0;
             Debug.WriteLine($"🎯 [FAMILIES_LIST_PAGE] FAB pressed - Selected: {selectedCount}, MultiSelect: {_viewModel?.IsMultiSelectMode}");
@@ -503,7 +484,8 @@ public partial class FamiliesListPage : ContentPage
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] FAB action error: {ex.Message}");
-            await ShowToast($"❌ Action failed: {ex.Message}", CommunityToolkit.Maui.Core.ToastDuration.Short);
+            // ✅ USANDO EXTENSÃO: Toast padronizado
+            await this.ShowErrorToast("Action failed. Please try again.");
         }
     }
 
@@ -517,8 +499,8 @@ public partial class FamiliesListPage : ContentPage
         {
             if (sender is Border border)
             {
-                await border.ScaleTo(0.9, 100, Easing.CubicOut);
-                await border.ScaleTo(1, 100, Easing.CubicOut);
+                // ✅ USANDO EXTENSÃO: Tap feedback padronizado
+                await border.PerformTapFeedbackAsync();
             }
 
             string[] options = { "All", "Active", "Inactive" };
@@ -534,8 +516,8 @@ public partial class FamiliesListPage : ContentPage
                     await _viewModel.ApplyFilterCommand.ExecuteAsync(null);
                 }
 
-                var toast = Toast.Make($"Filter: {result}", CommunityToolkit.Maui.Core.ToastDuration.Short, 14);
-                await toast.Show();
+                // ✅ USANDO EXTENSÃO: Toast de informação padronizado
+                await this.ShowInfoToast($"Filter: {result}");
             }
         }
         catch (Exception ex)
@@ -550,8 +532,8 @@ public partial class FamiliesListPage : ContentPage
         {
             if (sender is Border border)
             {
-                await border.ScaleTo(0.9, 100, Easing.CubicOut);
-                await border.ScaleTo(1, 100, Easing.CubicOut);
+                // ✅ USANDO EXTENSÃO: Tap feedback padronizado
+                await border.PerformTapFeedbackAsync();
             }
 
             string[] options = { "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First" };
@@ -567,8 +549,8 @@ public partial class FamiliesListPage : ContentPage
                     _viewModel.ToggleSortCommand.Execute(null);
                 }
 
-                var toast = Toast.Make($"Sorted by: {result}", CommunityToolkit.Maui.Core.ToastDuration.Short, 14);
-                await toast.Show();
+                // ✅ USANDO EXTENSÃO: Toast de informação padronizado
+                await this.ShowInfoToast($"Sorted by: {result}");
             }
         }
         catch (Exception ex)
@@ -829,7 +811,8 @@ public partial class FamiliesListPage : ContentPage
 
                     if (_viewModel?.IsConnected != true)
                     {
-                        await ShowToast("Cannot favorite while offline", CommunityToolkit.Maui.Core.ToastDuration.Short);
+                        // ✅ USANDO EXTENSÃO: Toast de aviso padronizado
+                        await this.ShowWarningToast("Cannot favorite while offline");
                         break;
                     }
 
@@ -843,12 +826,14 @@ public partial class FamiliesListPage : ContentPage
                         }
 
                         var message = wasAlreadyFavorite ? "Removed from favorites" : "Added to favorites! ⭐";
-                        await ShowToast(message, CommunityToolkit.Maui.Core.ToastDuration.Short);
+                        // ✅ USANDO EXTENSÃO: Toast de sucesso padronizado
+                        await this.ShowSuccessToast(message);
                     }
                     catch (Exception ex)
                     {
                         Debug.WriteLine($"❌ [SWIPE_ENDED] ToggleFavorite failed: {ex.Message}");
-                        await ShowToast("Failed to update favorite status", CommunityToolkit.Maui.Core.ToastDuration.Short);
+                        // ✅ USANDO EXTENSÃO: Toast de erro padronizado
+                        await this.ShowErrorToast("Failed to update favorite status");
                     }
                     break;
 
@@ -857,7 +842,8 @@ public partial class FamiliesListPage : ContentPage
 
                     if (_viewModel?.IsConnected != true)
                     {
-                        await ShowToast("Cannot delete while offline", CommunityToolkit.Maui.Core.ToastDuration.Short);
+                        // ✅ USANDO EXTENSÃO: Toast de aviso padronizado
+                        await this.ShowWarningToast("Cannot delete while offline");
                         break;
                     }
 
@@ -898,21 +884,5 @@ public partial class FamiliesListPage : ContentPage
     }
     #endregion
 
-    #region ✅ UTILITY METHODS
-
-    private async Task ShowToast(string message, CommunityToolkit.Maui.Core.ToastDuration duration)
-    {
-        try
-        {
-            var toast = Toast.Make(message, duration);
-            await toast.Show();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Toast error: {ex.Message}");
-            await DisplayAlert("Info", message, "OK");
-        }
-    }
-
-    #endregion
+    // ✅ REMOVIDO: Método ShowToast antigo - agora usando ToastExtensions padronizado
 }

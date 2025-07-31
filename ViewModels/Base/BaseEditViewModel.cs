@@ -3,6 +3,8 @@ using CommunityToolkit.Mvvm.Input;
 using OrchidPro.Models.Base;
 using OrchidPro.Services.Navigation;
 using OrchidPro.Services;
+using OrchidPro.Constants;
+using OrchidPro.Extensions;
 using System.Diagnostics;
 using CommunityToolkit.Maui.Alerts;
 using CommunityToolkit.Maui.Core;
@@ -21,7 +23,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     private T? _originalEntity;
     protected bool _isEditMode; // ✅ CORRIGIDO: protected para classes filhas acessarem
     private Timer? _validationTimer;
-    private readonly int _validationDelay = 800; // 800ms debounce padrão
+    private readonly int _validationDelay = ValidationConstants.NAME_VALIDATION_DEBOUNCE_DELAY; // ✅ USANDO CONSTANTE: era 800
     /// <summary>
     /// ✅ NOVO: Lista genérica para validação de nomes únicos
     /// </summary>
@@ -88,17 +90,17 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     private bool isSaving;
 
     [ObservableProperty]
-    private string saveButtonText = "Save";
+    private string saveButtonText = TextConstants.SAVE_CHANGES; // ✅ USANDO CONSTANTE: era "Save"
 
     [ObservableProperty]
     private Color saveButtonColor = Colors.Green;
 
     // ✅ NOVO: Connection testing framework
     [ObservableProperty]
-    private string connectionStatus = "Connected";
+    private string connectionStatus = TextConstants.STATUS_CONNECTED; // ✅ USANDO CONSTANTE: era "Connected"
 
     [ObservableProperty]
-    private Color connectionStatusColor = Colors.Green;
+    private Color connectionStatusColor = ColorConstants.CONNECTED_COLOR; // ✅ USANDO CONSTANTE: era Colors.Green
 
     [ObservableProperty]
     private bool isConnected = true;
@@ -108,7 +110,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     // ✅ NOVO: Loading framework
     [ObservableProperty]
-    private string loadingMessage = "Loading...";
+    private string loadingMessage = TextConstants.LOADING_DEFAULT; // ✅ USANDO CONSTANTE: era "Loading..."
 
     [ObservableProperty]
     private bool isNameFocused;
@@ -250,18 +252,18 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
         {
             ConnectionTestResult = "Testing...";
             IsConnected = false;
-            ConnectionStatus = "Testing...";
-            ConnectionStatusColor = Colors.Orange;
+            ConnectionStatus = TextConstants.STATUS_CONNECTING; // ✅ USANDO CONSTANTE: era "Testing..."
+            ConnectionStatusColor = ColorConstants.CONNECTING_COLOR; // ✅ USANDO CONSTANTE: era Colors.Orange
 
             // Simular teste de conexão
-            await Task.Delay(1000);
+            await Task.Delay(PerformanceConstants.MIN_LOADING_DISPLAY_TIME); // ✅ USANDO CONSTANTE: era 1000
 
             // Testar com repository
             var testResult = await _repository.GetAllAsync();
 
             IsConnected = true;
-            ConnectionStatus = "Connected";
-            ConnectionStatusColor = Colors.Green;
+            ConnectionStatus = TextConstants.STATUS_CONNECTED; // ✅ USANDO CONSTANTE: era "Connected"
+            ConnectionStatusColor = ColorConstants.CONNECTED_COLOR; // ✅ USANDO CONSTANTE: era Colors.Green
             ConnectionTestResult = "Connection successful";
 
             await ShowSuccessAsync("Connection", "Connection test successful");
@@ -269,8 +271,8 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
         catch (Exception ex)
         {
             IsConnected = false;
-            ConnectionStatus = "Disconnected";
-            ConnectionStatusColor = Colors.Red;
+            ConnectionStatus = TextConstants.STATUS_DISCONNECTED; // ✅ USANDO CONSTANTE: era "Disconnected"
+            ConnectionStatusColor = ColorConstants.DISCONNECTED_COLOR; // ✅ USANDO CONSTANTE: era Colors.Red
             ConnectionTestResult = $"Connection failed: {ex.Message}";
 
             await ShowErrorAsync("Connection Error", ex.Message);
@@ -350,7 +352,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
             {
                 IsValidatingName = false;
                 IsNameValid = false;
-                NameValidationMessage = "Validation error";
+                NameValidationMessage = ValidationConstants.VALIDATION_ERROR_GENERIC; // ✅ USANDO CONSTANTE: era "Validation error"
                 UpdateSaveButton(); // ✅ Atualizar botão em caso de erro
             });
         }
@@ -364,15 +366,15 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
         if (string.IsNullOrWhiteSpace(Name))
         {
             IsNameValid = false;
-            NameValidationMessage = $"{EntityName} name is required";
+            NameValidationMessage = string.Format(ValidationConstants.NAME_REQUIRED_TEMPLATE, EntityName); // ✅ USANDO CONSTANTE
             UpdateSaveButton();
             return;
         }
 
-        if (Name.Length < 2)
+        if (Name.Length < ValidationConstants.NAME_OPTIMAL_MIN_LENGTH) // ✅ USANDO CONSTANTE: era 2
         {
             IsNameValid = false;
-            NameValidationMessage = $"{EntityName} name must be at least 2 characters";
+            NameValidationMessage = string.Format(ValidationConstants.NAME_TOO_SHORT_TEMPLATE, EntityName, ValidationConstants.NAME_OPTIMAL_MIN_LENGTH); // ✅ USANDO CONSTANTE
             UpdateSaveButton();
             return;
         }
@@ -385,7 +387,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
         if (existingEntity != null)
         {
             IsNameValid = false;
-            NameValidationMessage = $"A {EntityName.ToLower()} with this name already exists";
+            NameValidationMessage = string.Format(ValidationConstants.NAME_DUPLICATE_TEMPLATE, EntityName.ToLower()); // ✅ USANDO CONSTANTE
             UpdateSaveButton();
             return;
         }
@@ -531,8 +533,8 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
         // Assume conectado inicialmente
         IsConnected = true;
-        ConnectionStatus = "Connected";
-        ConnectionStatusColor = Colors.Green;
+        ConnectionStatus = TextConstants.STATUS_CONNECTED; // ✅ USANDO CONSTANTE: era "Connected"
+        ConnectionStatusColor = ColorConstants.CONNECTED_COLOR; // ✅ USANDO CONSTANTE: era Colors.Green
 
         // ✅ GENÉRICO: Carregar todas entidades para validação
         _ = LoadAllEntitiesForValidationAsync();
@@ -753,54 +755,29 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     #region ✅ NOVO: Toast and Alert Framework
 
     /// <summary>
-    /// ✅ NOVO: Mostra toast de sucesso
+    /// ✅ USANDO EXTENSÃO: Mostra toast de sucesso padronizado
     /// </summary>
     protected virtual async Task ShowSuccessAsync(string title, string message)
     {
-        try
-        {
-            var toast = Toast.Make(message, ToastDuration.Short, 16);
-            await toast.Show();
-            Debug.WriteLine($"✅ [BASE_EDIT_VM] Success toast: {message}");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Toast error: {ex.Message}");
-        }
+        await this.ShowSuccessToast(message);
+        Debug.WriteLine($"✅ [BASE_EDIT_VM] Success: {message}");
     }
 
     /// <summary>
-    /// ✅ NOVO: Mostra toast de erro
+    /// ✅ USANDO EXTENSÃO: Mostra toast de erro padronizado
     /// </summary>
     protected virtual async Task ShowErrorAsync(string title, string message)
     {
-        try
-        {
-            var toast = Toast.Make($"❌ {message}", ToastDuration.Long, 16);
-            await toast.Show();
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Error toast: {message}");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Error toast failed: {ex.Message}");
-        }
+        await this.ShowErrorToast(message);
+        Debug.WriteLine($"❌ [BASE_EDIT_VM] Error: {message}");
     }
 
     /// <summary>
-    /// ✅ NOVO: Mostra confirmação
+    /// ✅ USANDO EXTENSÃO: Mostra confirmação padronizada
     /// </summary>
     protected virtual async Task<bool> ShowConfirmationAsync(string title, string message, string accept, string cancel)
     {
-        try
-        {
-            bool result = await Application.Current?.MainPage?.DisplayAlert(title, message, accept, cancel);
-            return result;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Confirmation dialog error: {ex.Message}");
-            return false;
-        }
+        return await this.ShowConfirmation(title, message, accept, cancel);
     }
 
     #endregion

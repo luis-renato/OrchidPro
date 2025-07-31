@@ -1,4 +1,6 @@
 ﻿using OrchidPro.ViewModels.Families;
+using OrchidPro.Constants;
+using OrchidPro.Extensions;
 using System.Diagnostics;
 
 namespace OrchidPro.Views.Pages;
@@ -227,44 +229,34 @@ public partial class FamilyEditPage : ContentPage, IQueryAttributable
     #region ✅ Animations
 
     /// <summary>
-    /// ✅ Animação de entrada mantendo o padrão do projeto
+    /// ✅ USANDO EXTENSÃO: Animação de entrada com extension method
     /// </summary>
     private async Task PerformEntranceAnimation()
     {
         try
         {
-            // Setup initial state
-            Content.Opacity = 0;
-            Content.Scale = 0.95;
-            Content.TranslationY = 30;
-
-            // Animate entrance
-            await Task.WhenAll(
-                Content.FadeTo(1, 600, Easing.CubicOut),
-                Content.ScaleTo(1, 600, Easing.SpringOut),
-                Content.TranslateTo(0, 0, 600, Easing.CubicOut)
-            );
+            // ✅ USANDO EXTENSÃO: Uma linha substitui todo o setup + animação
+            await Content.PerformStandardEntranceAsync();
 
             Debug.WriteLine("✨ [FAMILY_EDIT_PAGE] Entrance animation completed");
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Entrance animation error: {ex.Message}");
+            // ✅ Fallback para garantir visibilidade
+            Content.Opacity = AnimationConstants.FULL_OPACITY;
         }
     }
 
     /// <summary>
-    /// ✅ Animação de saída mantendo o padrão do projeto
+    /// ✅ USANDO EXTENSÃO: Animação de saída com extension method
     /// </summary>
     private async Task PerformExitAnimation()
     {
         try
         {
-            await Task.WhenAll(
-                Content.FadeTo(0, 300, Easing.CubicIn),
-                Content.ScaleTo(0.95, 300, Easing.CubicIn),
-                Content.TranslateTo(0, -20, 300, Easing.CubicIn)
-            );
+            // ✅ USANDO EXTENSÃO: Uma linha substitui toda a animação
+            await Content.PerformStandardExitAsync();
 
             Debug.WriteLine("✨ [FAMILY_EDIT_PAGE] Exit animation completed");
         }
