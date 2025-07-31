@@ -304,36 +304,9 @@
                                     </DataTemplate>
                                 </sflistview:SfListView.ItemTemplate>
 
-                                <!-- Empty view -->
+                                <!-- ✅ TEMPLATE 2: Empty view genérico (sem botão redundante) -->
                                 <sflistview:SfListView.EmptyView>
-                                    <VerticalStackLayout Spacing="20" Padding="40" VerticalOptions="Center">
-                                        <Label Text="🌿"
-                                           FontSize="64"
-                                           HorizontalOptions="Center" />
-                                        <Label Text="{Binding EmptyStateMessage}"
-                                           FontSize="18"
-                                           FontAttributes="Bold"
-                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
-                                           HorizontalOptions="Center"
-                                           HorizontalTextAlignment="Center" />
-                                        <Label Text="Tap the + button to add your first family"
-                                           FontSize="14"
-                                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
-                                           HorizontalOptions="Center"
-                                           HorizontalTextAlignment="Center" />
-
-                                        <Button Text="Add Family"
-                                            BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                            TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
-                                            FontSize="16"
-                                            FontAttributes="Bold"
-                                            CornerRadius="25"
-                                            WidthRequest="150"
-                                            HeightRequest="50"
-                                            Command="{Binding AddNewCommand}"
-                                            IsVisible="{Binding IsConnected}"
-                                            Margin="0,10,0,0" />
-                                    </VerticalStackLayout>
+                                    <ContentView Style="{StaticResource GenericEmptyStateStyle}" />
                                 </sflistview:SfListView.EmptyView>
 
                             </sflistview:SfListView>

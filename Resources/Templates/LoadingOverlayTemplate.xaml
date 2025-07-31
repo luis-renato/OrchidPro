@@ -1,0 +1,94 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core">
+
+    <!-- ✅ TEMPLATE 1: LOADING OVERLAY CONTROL TEMPLATE -->
+    <!-- Para FamiliesListPage com IsLoading -->
+    <ControlTemplate x:Key="LoadingOverlayTemplate">
+        <Grid IsVisible="{Binding IsLoading}" 
+              BackgroundColor="#80000000">
+            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                   BorderColor="{StaticResource BorderColor}"
+                   CornerRadius="16"
+                   Padding="32"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   HasShadow="True">
+
+                <StackLayout Spacing="16" HorizontalOptions="Center">
+                    <!-- SfBusyIndicator sem overlay próprio -->
+                    <sfbusy:SfBusyIndicator IsVisible="True"
+                                            IsRunning="True"
+                                            AnimationType="HorizontalPulsingBox"
+                                            IndicatorColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                                            OverlayFill="Transparent"
+                                            WidthRequest="50"
+                                            HeightRequest="50" />
+
+                    <!-- Mensagem customizada para FamiliesListPage -->
+                    <Label Text="Loading families..."
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
+                           HorizontalOptions="Center" />
+
+                    <!-- Ícone opcional para operações de loading -->
+                    <Label Text="🌿"
+                           FontSize="24"
+                           HorizontalOptions="Center" />
+                </StackLayout>
+
+            </Frame>
+        </Grid>
+    </ControlTemplate>
+
+    <!-- Para FamilyEditPage com IsBusy -->
+    <ControlTemplate x:Key="SavingOverlayTemplate">
+        <Grid IsVisible="{Binding IsBusy}" 
+              BackgroundColor="#80000000">
+            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                   BorderColor="{StaticResource BorderColor}"
+                   CornerRadius="16"
+                   Padding="32"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center"
+                   HasShadow="True">
+
+                <StackLayout Spacing="16" HorizontalOptions="Center">
+                    <!-- SfBusyIndicator sem overlay próprio -->
+                    <sfbusy:SfBusyIndicator IsVisible="True"
+                                            IsRunning="True"
+                                            AnimationType="HorizontalPulsingBox"
+                                            IndicatorColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
+                                            OverlayFill="Transparent"
+                                            WidthRequest="50"
+                                            HeightRequest="50" />
+
+                    <!-- Mensagem customizada para FamilyEditPage -->
+                    <Label Text="Saving..."
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
+                           HorizontalOptions="Center" />
+
+                    <!-- Ícone opcional para operações de save -->
+                    <Label Text="💾"
+                           FontSize="24"
+                           HorizontalOptions="Center" />
+                </StackLayout>
+
+            </Frame>
+        </Grid>
+    </ControlTemplate>
+
+    <!-- ✅ ESTILOS PARA APLICAR OS TEMPLATES -->
+    <Style x:Key="LoadingOverlayStyle" TargetType="ContentView">
+        <Setter Property="ControlTemplate" Value="{StaticResource LoadingOverlayTemplate}" />
+    </Style>
+
+    <Style x:Key="SavingOverlayStyle" TargetType="ContentView">
+        <Setter Property="ControlTemplate" Value="{StaticResource SavingOverlayTemplate}" />
+    </Style>
+
+</ResourceDictionary>

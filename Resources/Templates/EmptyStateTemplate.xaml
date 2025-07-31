@@ -1,0 +1,35 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- ✅ TEMPLATE 2: EMPTY STATE GENÉRICO E REUTILIZÁVEL -->
+    <!-- Removido: botão redundante (já temos FAB) e texto específico -->
+    <Style x:Key="GenericEmptyStateStyle" TargetType="ContentView">
+        <Setter Property="Content">
+            <Setter.Value>
+                <VerticalStackLayout Spacing="20" Padding="40" VerticalOptions="Center">
+                    <!-- Ícone genérico (pode ser bindável no futuro) -->
+                    <Label Text="🌿"
+                           FontSize="64"
+                           HorizontalOptions="Center" />
+
+                    <!-- Mensagem principal bindável -->
+                    <Label Text="{Binding EmptyStateMessage}"
+                           FontSize="18"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                           HorizontalOptions="Center"
+                           HorizontalTextAlignment="Center" />
+
+                    <!-- Mensagem secundária genérica -->
+                    <Label Text="No items to display"
+                           FontSize="14"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
+                           HorizontalOptions="Center"
+                           HorizontalTextAlignment="Center" />
+                </VerticalStackLayout>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>
