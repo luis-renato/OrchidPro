@@ -177,42 +177,8 @@
             </StackLayout>
         </ScrollView>
 
-        <!-- ✅ SYNCFUSION SfBusyIndicator em Frame (melhor das duas opções) -->
-        <Grid IsVisible="{Binding IsBusy}" 
-              BackgroundColor="#80000000">
-            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                   BorderColor="{StaticResource BorderColor}"
-                   CornerRadius="16"
-                   Padding="32"
-                   HorizontalOptions="Center"
-                   VerticalOptions="Center"
-                   HasShadow="True">
-
-                <StackLayout Spacing="16" HorizontalOptions="Center">
-                    <!-- SfBusyIndicator sem overlay próprio -->
-                    <sfbusy:SfBusyIndicator IsVisible="True"
-                                            IsRunning="True"
-                                            AnimationType="HorizontalPulsingBox"
-                                            IndicatorColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
-                                            OverlayFill="Transparent"
-                                            WidthRequest="50"
-                                            HeightRequest="50" />
-
-                    <!-- Mensagem customizada -->
-                    <Label Text="Saving..."
-                           FontSize="16"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
-                           HorizontalOptions="Center" />
-
-                    <!-- Ícone opcional para operações de save -->
-                    <Label Text="💾"
-                           FontSize="24"
-                           HorizontalOptions="Center" />
-                </StackLayout>
-
-            </Frame>
-        </Grid>
+        <!-- ✅ TEMPLATE 1: SAVING OVERLAY USANDO TEMPLATE -->
+        <ContentView Style="{StaticResource SavingOverlayStyle}" />
 
     </Grid>
 

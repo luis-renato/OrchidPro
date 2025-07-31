@@ -1,0 +1,101 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xaml-comp compile="true" ?>
+<ResourceDictionary 
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- ✅ LIST ITEM TEMPLATE - Template genérico para qualquer entidade -->
+    <DataTemplate x:Key="GenericListItem">
+        <Grid Margin="0" BackgroundColor="Transparent">
+            <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                    StrokeThickness="1"
+                    StrokeShape="RoundRectangle 15"
+                    Margin="16,8"
+                    Padding="20,16">
+
+                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto,Auto">
+
+                    <!-- Main Content -->
+                    <StackLayout Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="3" Spacing="4">
+                        <Label Text="{Binding Name}"
+                               FontSize="18"
+                               FontAttributes="Bold"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                               VerticalOptions="Center" />
+                        <Label Text="{Binding Description}"
+                               FontSize="14"
+                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                               LineBreakMode="TailTruncation"
+                               MaxLines="2"
+                               IsVisible="{Binding Description, Converter={StaticResource StringToBoolConverter}}" />
+                    </StackLayout>
+
+                    <!-- Status Badge -->
+                    <Label Grid.Row="1" Grid.Column="0"
+                           Text="{Binding IsActive, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Active|Inactive'}"
+                           FontSize="12"
+                           FontAttributes="Bold"
+                           VerticalOptions="End"
+                           HorizontalOptions="Start"
+                           Padding="8,4"
+                           TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                           Margin="0,8,0,0">
+                        <Label.Triggers>
+                            <DataTrigger TargetType="Label" Binding="{Binding IsActive}" Value="True">
+                                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SuccessColor}, Dark={StaticResource SuccessColor}}" />
+                            </DataTrigger>
+                            <DataTrigger TargetType="Label" Binding="{Binding IsActive}" Value="False">
+                                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray600}}" />
+                            </DataTrigger>
+                        </Label.Triggers>
+                    </Label>
+
+                    <!-- Favorite Icon -->
+                    <Label Grid.Row="1" Grid.Column="1"
+                           Text="⭐"
+                           FontSize="20"
+                           VerticalOptions="Center"
+                           HorizontalOptions="End"
+                           Margin="8,0,0,0"
+                           IsVisible="{Binding IsFavorite}" />
+
+                    <!-- Arrow Icon -->
+                    <Label Grid.Row="1" Grid.Column="2"
+                           Text="→"
+                           FontSize="16"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}"
+                           VerticalOptions="Center"
+                           HorizontalOptions="End" />
+
+                </Grid>
+            </Border>
+        </Grid>
+    </DataTemplate>
+
+    <!-- ✅ SWIPE TEMPLATES - Para Edit/Delete -->
+    <DataTemplate x:Key="SwipeEdit">
+        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}" 
+              HorizontalOptions="Fill" 
+              VerticalOptions="Fill">
+            <Label Text="✏️"
+                   FontSize="32"
+                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center" />
+        </Grid>
+    </DataTemplate>
+
+    <DataTemplate x:Key="SwipeDelete">
+        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource ErrorColor}, Dark={StaticResource ErrorColor}}" 
+              HorizontalOptions="Fill" 
+              VerticalOptions="Fill">
+            <Label Text="🗑️"
+                   FontSize="32"
+                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                   HorizontalOptions="Center"
+                   VerticalOptions="Center" />
+        </Grid>
+    </DataTemplate>
+
+</ResourceDictionary>
