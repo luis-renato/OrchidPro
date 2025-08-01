@@ -1,0 +1,352 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OrchidPro.ViewModels.Genera"
+             xmlns:sflistview="clr-namespace:Syncfusion.Maui.ListView;assembly=Syncfusion.Maui.ListView"
+             xmlns:sfpulltorefresh="clr-namespace:Syncfusion.Maui.PullToRefresh;assembly=Syncfusion.Maui.PullToRefresh"
+             xmlns:converters="clr-namespace:OrchidPro.Converters"
+             x:Class="OrchidPro.Views.Pages.GeneraListPage"
+             x:DataType="vm:GeneraListViewModel"
+             Title="{Binding Title}"
+             Shell.BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ✅ TEMPLATE 6: Connection Status usando template -->
+        <ContentView Grid.Row="0" Style="{StaticResource ConnectionStatusStyle}" />
+
+        <!-- Main Content -->
+        <Grid Grid.Row="1">
+
+            <!-- ✅ Pull-to-refresh with enhanced search and family filter -->
+            <sfpulltorefresh:SfPullToRefresh IsRefreshing="{Binding IsRefreshing}"
+                                           RefreshCommand="{Binding RefreshCommand}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+
+                    <!-- ✅ TEMPLATE 5: Search Bar usando template -->
+                    <ContentView Grid.Row="0" Style="{StaticResource SearchBarStyle}" />
+
+                    <!-- ✅ Family Filter Section -->
+                    <ContentView Grid.Row="1" IsVisible="{Binding ShowFamilyFilter}">
+                        <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                               BorderColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                               HasShadow="False"
+                               CornerRadius="0"
+                               Padding="16,12">
+
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+
+                                <!-- Family Filter Icon -->
+                                <Label Grid.Column="0"
+                                       Text="🌿"
+                                       FontSize="16"
+                                       VerticalOptions="Center" />
+
+                                <!-- Family Filter Picker -->
+                                <Picker Grid.Column="1"
+                                        ItemsSource="{Binding FamilyFilterOptions}"
+                                        SelectedItem="{Binding FamilyFilter}"
+                                        Title="Filter by Family"
+                                        FontSize="14"
+                                        TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                                        VerticalOptions="Center" />
+
+                                <!-- Clear Family Filter -->
+                                <Button Grid.Column="2"
+                                        Text="All"
+                                        FontSize="12"
+                                        Padding="12,6"
+                                        CornerRadius="15"
+                                        BackgroundColor="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray700}}"
+                                        TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                                        Command="{Binding FilterByFamilyCommand}"
+                                        CommandParameter="All Families"
+                                        IsVisible="{Binding SelectedFamily, Converter={StaticResource IsNotNullConverter}}" />
+                            </Grid>
+                        </Frame>
+                    </ContentView>
+
+                    <!-- ✅ Main List with Syncfusion ListView -->
+                    <Grid Grid.Row="2">
+
+                        <!-- Loading State -->
+                        <ActivityIndicator IsVisible="{Binding IsLoading}"
+                                         IsRunning="{Binding IsLoading}"
+                                         Color="{StaticResource Primary}"
+                                         VerticalOptions="Center"
+                                         HorizontalOptions="Center" />
+
+                        <!-- ✅ TEMPLATE 2: Empty State usando template -->
+                        <ContentView Style="{StaticResource EmptyStateStyle}" />
+
+                        <!-- Genera List -->
+                        <sflistview:SfListView ItemsSource="{Binding Items}"
+                                             IsVisible="{Binding HasData}"
+                                             SelectionMode="Multiple"
+                                             SelectionGesture="Tap"
+                                             AllowSwiping="True"
+                                             SwipeOffset="100"
+                                             ItemSpacing="0"
+                                             AutoFitMode="Height">
+
+                            <!-- ✅ Start Swipe Template (Favorite) -->
+                            <sflistview:SfListView.StartSwipeTemplate>
+                                <DataTemplate x:DataType="vm:GenusItemViewModel">
+                                    <Grid BackgroundColor="{StaticResource Warning}"
+                                              WidthRequest="100">
+                                        <Label Text="⭐"
+                                                   FontSize="24"
+                                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </sflistview:SfListView.StartSwipeTemplate>
+
+                            <!-- ✅ End Swipe Template (Delete) -->
+                            <sflistview:SfListView.EndSwipeTemplate>
+                                <DataTemplate x:DataType="vm:GenusItemViewModel">
+                                    <Grid BackgroundColor="{StaticResource Danger}"
+                                              WidthRequest="100">
+                                        <Label Text="🗑️"
+                                                   FontSize="24"
+                                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </sflistview:SfListView.EndSwipeTemplate>
+
+                            <!-- ✅ Item template with genus-specific design -->
+                            <sflistview:SfListView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GenusItemViewModel">
+                                    <!-- ✅ SEM MARGIN - itens grudados -->
+                                    <Grid Margin="0" BackgroundColor="Transparent">
+                                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                                Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                                                StrokeThickness="1"
+                                                Margin="10,2">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="12" />
+                                            </Border.StrokeShape>
+
+                                            <Grid Padding="20,16" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+
+                                                <!-- Header row with genus name and family -->
+                                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="12">
+                                                    <StackLayout Grid.Column="0" Orientation="Vertical" Spacing="2">
+                                                        <Label Text="{Binding Name}"
+                                                                   FontSize="18"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                                                                   LineBreakMode="TailTruncation" />
+
+                                                        <Label Text="{Binding SecondaryText}"
+                                                                   FontSize="14"
+                                                                   TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                                   LineBreakMode="TailTruncation" />
+                                                    </StackLayout>
+
+                                                    <!-- Family Badge -->
+                                                    <Border Grid.Column="1"
+                                                                BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryContainer}, Dark={StaticResource PrimaryContainerDark}}"
+                                                                Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                                StrokeThickness="1"
+                                                                Padding="8,4"
+                                                                VerticalOptions="Center">
+                                                        <Border.StrokeShape>
+                                                            <RoundRectangle CornerRadius="12" />
+                                                        </Border.StrokeShape>
+                                                        <Label Text="{Binding FamilyBadge}"
+                                                                   FontSize="12"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="{AppThemeBinding Light={StaticResource OnPrimaryContainer}, Dark={StaticResource OnPrimaryContainerDark}}" />
+                                                    </Border>
+
+                                                    <!-- Status Icon -->
+                                                    <Label Grid.Column="2"
+                                                               Text="{Binding StatusIcon}"
+                                                               FontSize="16"
+                                                               VerticalOptions="Center" />
+
+                                                    <!-- Selection Checkbox -->
+                                                    <CheckBox Grid.Column="3"
+                                                                  IsChecked="{Binding IsSelected}"
+                                                                  Color="{StaticResource Primary}"
+                                                                  VerticalOptions="Center"
+                                                                  IsVisible="{Binding Source={RelativeSource AncestorType={x:Type vm:GeneraListViewModel}}, Path=IsMultiSelectMode}" />
+                                                </Grid>
+
+                                                <!-- Description row -->
+                                                <Label Grid.Row="1"
+                                                           Text="{Binding TertiaryText}"
+                                                           FontSize="14"
+                                                           TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                           LineBreakMode="WordWrap"
+                                                           MaxLines="2"
+                                                           IsVisible="{Binding Description, Converter={StaticResource IsNotNullOrEmptyConverter}}" />
+
+                                                <!-- Footer row with timestamps and actions -->
+                                                <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,4,0,0">
+                                                    <Label Grid.Column="0"
+                                                               Text="{Binding CreatedAt, StringFormat='Created {0:dd/MM/yyyy}'}"
+                                                               FontSize="12"
+                                                               TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                               VerticalOptions="Center" />
+
+                                                    <!-- Quick Actions -->
+                                                    <StackLayout Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                                                        <Button Text="📝"
+                                                                    FontSize="14"
+                                                                    Padding="8,4"
+                                                                    CornerRadius="8"
+                                                                    BackgroundColor="Transparent"
+                                                                    TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:GeneraListViewModel}}, Path=EditGenusCommand}"
+                                                                    CommandParameter="{Binding .}"
+                                                                    ToolTipProperties.Text="Edit genus" />
+
+                                                        <Button Text="🌿"
+                                                                    FontSize="14"
+                                                                    Padding="8,4"
+                                                                    CornerRadius="8"
+                                                                    BackgroundColor="Transparent"
+                                                                    TextColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
+                                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:GeneraListViewModel}}, Path=ViewFamilyCommand}"
+                                                                    CommandParameter="{Binding .}"
+                                                                    ToolTipProperties.Text="View family" />
+                                                    </StackLayout>
+                                                </Grid>
+                                            </Grid>
+                                        </Border>
+
+                                        <!-- Selection Overlay -->
+                                        <Border BackgroundColor="{StaticResource Primary}"
+                                                    Opacity="0.1"
+                                                    IsVisible="{Binding IsSelected}">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="12" />
+                                            </Border.StrokeShape>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </sflistview:SfListView.ItemTemplate>
+
+                            <!-- ✅ Group Header Template (quando agrupado por família) -->
+                            <sflistview:SfListView.GroupHeaderTemplate>
+                                <DataTemplate>
+                                    <Border BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryContainer}, Dark={StaticResource PrimaryContainerDark}}"
+                                                Stroke="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                StrokeThickness="2"
+                                                Margin="10,8,10,2"
+                                                Padding="16,12">
+                                        <Border.StrokeShape>
+                                            <RoundRectangle CornerRadius="8" />
+                                        </Border.StrokeShape>
+
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                            <Label Grid.Column="0"
+                                                       Text="🌿"
+                                                       FontSize="18"
+                                                       VerticalOptions="Center" />
+
+                                            <Label Grid.Column="1"
+                                                       Text="{Binding Key}"
+                                                       FontSize="16"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{AppThemeBinding Light={StaticResource OnPrimaryContainer}, Dark={StaticResource OnPrimaryContainerDark}}"
+                                                       VerticalOptions="Center" />
+
+                                            <Label Grid.Column="2"
+                                                       Text="{Binding Count, StringFormat='{0} genera'}"
+                                                       FontSize="14"
+                                                       TextColor="{AppThemeBinding Light={StaticResource OnPrimaryContainer}, Dark={StaticResource OnPrimaryContainerDark}}"
+                                                       VerticalOptions="Center" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </sflistview:SfListView.GroupHeaderTemplate>
+
+                        </sflistview:SfListView>
+                    </Grid>
+                </Grid>
+            </sfpulltorefresh:SfPullToRefresh>
+
+            <!-- ✅ FAB Button para adicionar genus -->
+            <Button Text="{Binding FabText}"
+                    Style="{StaticResource FabButtonStyle}"
+                    Command="{Binding AddNewCommand}"
+                    IsVisible="{Binding FabIsVisible}"
+                    x:Name="FabButton" />
+
+            <!-- ✅ Multi-select toolbar -->
+            <Frame IsVisible="{Binding IsMultiSelectMode}"
+                   BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                   BorderColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                   CornerRadius="0"
+                   HasShadow="True"
+                   Padding="16,12"
+                   VerticalOptions="End"
+                   Margin="0,0,0,90">
+
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="16">
+                    <Label Grid.Column="0"
+                           Text="{Binding SelectedItems.Count, StringFormat='{0} selected'}"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                           VerticalOptions="Center" />
+
+                    <Button Grid.Column="1"
+                            Text="Toggle All"
+                            FontSize="14"
+                            Padding="12,8"
+                            CornerRadius="20"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
+                            TextColor="{AppThemeBinding Light={StaticResource OnSecondary}, Dark={StaticResource OnSecondaryDark}}"
+                            Command="{Binding ToggleAllSelectionCommand}" />
+
+                    <Button Grid.Column="2"
+                            Text="Delete"
+                            FontSize="14"
+                            Padding="12,8"
+                            CornerRadius="20"
+                            BackgroundColor="{StaticResource Danger}"
+                            TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                            Command="{Binding DeleteSelectedCommand}"
+                            IsEnabled="{Binding SelectedItems.Count, Converter={StaticResource CountToBoolConverter}}" />
+
+                    <Button Grid.Column="3"
+                            Text="✕"
+                            FontSize="14"
+                            Padding="8"
+                            CornerRadius="20"
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                            TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                            Command="{Binding ExitMultiSelectCommand}" />
+                </Grid>
+            </Frame>
+        </Grid>
+
+        <!-- ✅ TEMPLATE 1: Loading Overlay usando template -->
+        <ContentView Style="{StaticResource LoadingOverlayStyle}" />
+
+    </Grid>
+
+</ContentPage>

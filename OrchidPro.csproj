@@ -83,6 +83,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Compile Update="Views\Pages\GenusEditPage.xaml.cs">
+	    <DependentUpon>GenusEditPage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Pages\GeneraListPage.xaml.cs">
+	    <DependentUpon>GeneraListPage.xaml</DependentUpon>
+	  </Compile>
 	  <Compile Update="Views\Pages\FamiliesListPage.xaml.cs">
 	    <DependentUpon>FamiliesListPage.xaml</DependentUpon>
 	  </Compile>
@@ -102,6 +108,12 @@
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Resources\Templates\ButtonStylesTemplate.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\Pages\GenusEditPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\Pages\GeneraListPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Views\Pages\FamiliesListPage.xaml">

@@ -1,0 +1,253 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OrchidPro.ViewModels.Genera"
+             xmlns:converters="clr-namespace:OrchidPro.Converters"
+             x:Class="OrchidPro.Views.Pages.GenusEditPage"
+             x:DataType="vm:GenusEditViewModel"
+             Title="{Binding PageTitle}"
+             Shell.BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
+
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <converters:IsNotNullOrEmptyConverter x:Key="IsNotNullOrEmptyConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- ✅ TEMPLATE 6: Connection Status usando template -->
+        <ContentView Grid.Row="0" Style="{StaticResource ConnectionStatusStyle}" />
+
+        <!-- Main Content -->
+        <ScrollView Grid.Row="1" Padding="20">
+            <StackLayout Spacing="24">
+
+                <!-- ✅ Page Header -->
+                <StackLayout Spacing="8">
+                    <Label Text="{Binding PageTitle}"
+                           FontSize="28"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource OnBackground}, Dark={StaticResource OnBackgroundDark}}" />
+
+                    <Label Text="{Binding PageSubtitle}"
+                           FontSize="16"
+                           TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}" />
+                </StackLayout>
+
+                <!-- ✅ TEMPLATE 3: Family Selection Field usando template -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Family *" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <!-- Family Selection with Loading State -->
+                        <Grid IsVisible="{Binding IsLoadingFamilies, Converter={StaticResource InvertedBoolConverter}}">
+                            <Picker ItemsSource="{Binding AvailableFamilies}"
+                                    SelectedItem="{Binding SelectedFamily}"
+                                    ItemDisplayBinding="{Binding Name}"
+                                    Title="Select a family for this genus"
+                                    FontSize="16"
+                                    TextColor="Black"
+                                    BackgroundColor="Transparent" />
+                        </Grid>
+
+                        <!-- Loading Families Indicator -->
+                        <Grid IsVisible="{Binding IsLoadingFamilies}" HeightRequest="50">
+                            <ActivityIndicator IsRunning="{Binding IsLoadingFamilies}"
+                                             Color="{StaticResource Primary}"
+                                             VerticalOptions="Center"
+                                             HorizontalOptions="Center" />
+                            <Label Text="Loading families..."
+                                   FontSize="14"
+                                   TextColor="{StaticResource Primary}"
+                                   HorizontalOptions="Center"
+                                   VerticalOptions="Center"
+                                   Margin="0,25,0,0" />
+                        </Grid>
+
+                        <!-- Family Actions -->
+                        <StackLayout Orientation="Horizontal" Spacing="12" Margin="0,8,0,0">
+                            <Button Text="🔄 Refresh"
+                                    FontSize="12"
+                                    Padding="8,4"
+                                    CornerRadius="12"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SecondaryDark}}"
+                                    TextColor="{AppThemeBinding Light={StaticResource OnSecondary}, Dark={StaticResource OnSecondaryDark}}"
+                                    Command="{Binding RefreshFamiliesCommand}"
+                                    IsEnabled="{Binding IsLoadingFamilies, Converter={StaticResource InvertedBoolConverter}}" />
+
+                            <Button Text="➕ New Family"
+                                    FontSize="12"
+                                    Padding="8,4"
+                                    CornerRadius="12"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                                    TextColor="{AppThemeBinding Light={StaticResource OnTertiary}, Dark={StaticResource OnTertiaryDark}}"
+                                    Command="{Binding CreateFamilyCommand}" />
+                        </StackLayout>
+
+                        <!-- Family Validation Message -->
+                        <Label Text="{Binding FamilyValidationMessage}"
+                               FontSize="12"
+                               TextColor="Red"
+                               IsVisible="{Binding IsFamilyValid, Converter={StaticResource InvertedBoolConverter}}" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- ✅ TEMPLATE 3: Name Field usando template -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Genus Name *" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Entry Text="{Binding Name}"
+                               Placeholder="Enter genus name (e.g., Cattleya, Phalaenopsis)"
+                               FontSize="16"
+                               TextColor="Black"
+                               BackgroundColor="Transparent" />
+
+                        <Label Text="{Binding NameValidationMessage}"
+                               FontSize="12"
+                               TextColor="Red"
+                               IsVisible="{Binding IsNameValid, Converter={StaticResource InvertedBoolConverter}}" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- ✅ TEMPLATE 3: Description Field usando template -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Description" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Editor Text="{Binding Description}"
+                                Placeholder="Optional description of this genus..."
+                                FontSize="16"
+                                TextColor="Black"
+                                BackgroundColor="Transparent"
+                                HeightRequest="80" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- ✅ TEMPLATE 3: Settings usando template -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormSettingsStackStyle}">
+                        <Label Text="Settings" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <!-- Active Toggle -->
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Label Grid.Column="0"
+                                   Text="🔵"
+                                   FontSize="18"
+                                   VerticalOptions="Center" />
+
+                            <StackLayout Grid.Column="1" 
+                                         Orientation="Vertical" 
+                                         Spacing="2"
+                                         Margin="12,0,0,0">
+                                <Label Text="Active Genus"
+                                       FontSize="14"
+                                       FontAttributes="Bold"
+                                       TextColor="Black" />
+                                <Label Text="Available for use in species"
+                                       FontSize="12"
+                                       TextColor="Gray" />
+                            </StackLayout>
+
+                            <Switch Grid.Column="2"
+                                    IsToggled="{Binding IsActive}"
+                                    OnColor="{StaticResource Primary}"
+                                    ThumbColor="White"
+                                    VerticalOptions="Center" />
+                        </Grid>
+
+                        <!-- Favorite Toggle -->
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Label Grid.Column="0"
+                                   Text="⭐"
+                                   FontSize="18"
+                                   VerticalOptions="Center" />
+
+                            <StackLayout Grid.Column="1" 
+                                         Orientation="Vertical" 
+                                         Spacing="2"
+                                         Margin="12,0,0,0">
+                                <Label Text="Favorite Genus"
+                                       FontSize="14"
+                                       FontAttributes="Bold"
+                                       TextColor="Black" />
+                                <Label Text="Mark as important genus"
+                                       FontSize="12"
+                                       TextColor="Gray" />
+                            </StackLayout>
+
+                            <Switch Grid.Column="2"
+                                    IsToggled="{Binding IsFavorite}"
+                                    OnColor="{StaticResource WarningColor}"
+                                    ThumbColor="White"
+                                    VerticalOptions="Center" />
+                        </Grid>
+
+                    </StackLayout>
+                </ContentView>
+
+                <!-- ✅ Current Family Display (when editing) -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}"
+                             IsVisible="{Binding IsEditMode}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Current Family" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                            <Label Grid.Column="0"
+                                   Text="🌿"
+                                   FontSize="16"
+                                   VerticalOptions="Center" />
+
+                            <Label Grid.Column="1"
+                                   Text="{Binding FamilyName}"
+                                   FontSize="16"
+                                   FontAttributes="Bold"
+                                   TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                   VerticalOptions="Center" />
+
+                            <Button Grid.Column="2"
+                                    Text="View"
+                                    FontSize="12"
+                                    Padding="8,4"
+                                    CornerRadius="12"
+                                    BackgroundColor="{AppThemeBinding Light={StaticResource PrimaryContainer}, Dark={StaticResource PrimaryContainerDark}}"
+                                    TextColor="{AppThemeBinding Light={StaticResource OnPrimaryContainer}, Dark={StaticResource OnPrimaryContainerDark}}"
+                                    Command="{Binding ManageFamiliesCommand}" />
+                        </Grid>
+                    </StackLayout>
+                </ContentView>
+
+                <!-- ✅ TEMPLATE 4: Bottom Buttons usando templates -->
+                <Grid ColumnDefinitions="*,*" 
+                      ColumnSpacing="16"
+                      Margin="0,24,0,0">
+
+                    <Button Grid.Column="0"
+                            Text="Cancel"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding CancelCommand}" />
+
+                    <Button Grid.Column="1"
+                            Text="{Binding SaveButtonText}"
+                            Style="{StaticResource DynamicPrimaryButtonStyle}"
+                            BackgroundColor="{Binding SaveButtonColor}"
+                            Command="{Binding SaveCommand}"
+                            IsEnabled="{Binding CanSave}" />
+
+                </Grid>
+
+            </StackLayout>
+        </ScrollView>
+
+        <!-- ✅ TEMPLATE 1: SAVING OVERLAY usando template -->
+        <ContentView Style="{StaticResource SavingOverlayStyle}" />
+
+    </Grid>
+
+</ContentPage>

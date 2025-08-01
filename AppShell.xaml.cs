@@ -36,6 +36,18 @@ public partial class AppShell : Shell
             Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
             Routing.RegisterRoute("familieslist", typeof(FamiliesListPage));
 
+            // ✅ NEW: Genus management routes
+            Routing.RegisterRoute("generalist", typeof(GeneraListPage));
+            Routing.RegisterRoute("genusedit", typeof(GenusEditPage));
+            Routing.RegisterRoute("genera/list", typeof(GeneraListPage));
+            Routing.RegisterRoute("genera/edit", typeof(GenusEditPage));
+            Routing.RegisterRoute("genera/add", typeof(GenusEditPage));
+            Routing.RegisterRoute("genera/family", typeof(GeneraListPage));
+
+            // ✅ NEW: Parameterized genus routes
+            Routing.RegisterRoute("genus/{genusId}/edit", typeof(GenusEditPage));
+            Routing.RegisterRoute("genera/family/{familyId}", typeof(GeneraListPage));
+
             // Authentication routes
             Routing.RegisterRoute("login", typeof(LoginPage));
 
@@ -47,10 +59,9 @@ public partial class AppShell : Shell
             }
 
             // Future module routes (placeholders)
-            // Routing.RegisterRoute("genusedit", typeof(GenusEditPage));
             // Routing.RegisterRoute("speciesedit", typeof(SpeciesEditPage));
 
-            this.LogSuccess("All navigation routes registered successfully");
+            this.LogSuccess("All navigation routes registered successfully (including Genus)");
         }, operationName: "RegisterRoutes");
     }
 
@@ -148,6 +159,111 @@ public partial class AppShell : Shell
 
             this.LogSuccess("Logout completed successfully");
         }, operationName: "PerformLogout");
+    }
+
+    // ✅ NEW: Enhanced navigation methods for Genus integration
+
+    /// <summary>
+    /// Navigate to Genera list with optional family filter
+    /// </summary>
+    public static async Task GoToGeneraAsync(Guid? familyId = null, string? familyName = null)
+    {
+        try
+        {
+            if (familyId.HasValue)
+            {
+                var parameters = new Dictionary<string, object>
+                {
+                    ["familyId"] = familyId.Value
+                };
+
+                if (!string.IsNullOrEmpty(familyName))
+                {
+                    parameters["familyName"] = familyName;
+                }
+
+                await Shell.Current.GoToAsync("//genera", parameters);
+            }
+            else
+            {
+                await Shell.Current.GoToAsync("//genera");
+            }
+        }
+        catch (Exception ex)
+        {
+            // Handle navigation error
+            await Shell.Current.DisplayAlert("Navigation Error",
+                "Unable to navigate to genera. Please try again.", "OK");
+        }
+    }
+
+    /// <summary>
+    /// Navigate to Genus edit with optional parameters
+    /// </summary>
+    public static async Task GoToGenusEditAsync(Guid? genusId = null, Guid? familyId = null, string? familyName = null)
+    {
+        try
+        {
+            var parameters = new Dictionary<string, object>();
+
+            if (genusId.HasValue)
+                parameters["genusId"] = genusId.Value;
+
+            if (familyId.HasValue)
+                parameters["familyId"] = familyId.Value;
+
+            if (!string.IsNullOrEmpty(familyName))
+                parameters["familyName"] = familyName;
+
+            await Shell.Current.GoToAsync("genusedit", parameters);
+        }
+        catch (Exception ex)
+        {
+            await Shell.Current.DisplayAlert("Navigation Error",
+                "Unable to navigate to genus edit. Please try again.", "OK");
+        }
+    }
+
+    /// <summary>
+    /// Navigate back to Families from Genus context
+    /// </summary>
+    public static async Task GoToFamiliesAsync(Guid? familyId = null)
+    {
+        try
+        {
+            if (familyId.HasValue)
+            {
+                await Shell.Current.GoToAsync("//families/familyedit", new Dictionary<string, object>
+                {
+                    ["familyId"] = familyId.Value
+                });
+            }
+            else
+            {
+                await Shell.Current.GoToAsync("//families");
+            }
+        }
+        catch (Exception ex)
+        {
+            await Shell.Current.DisplayAlert("Navigation Error",
+                "Unable to navigate to families. Please try again.", "OK");
+        }
+    }
+
+    /// <summary>
+    /// Navigate to specific family filtered genera
+    /// </summary>
+    public static async Task GoToFamilyGeneraAsync(Guid familyId, string familyName)
+    {
+        try
+        {
+            await GoToGeneraAsync(familyId, familyName);
+        }
+        catch (Exception ex)
+        {
+            await Shell.Current.DisplayAlert("Navigation Error",
+                $"Unable to navigate to genera for {familyName}. Please try again.", "OK");
+        }
     }
 
     /// <summary>

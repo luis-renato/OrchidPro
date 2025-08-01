@@ -115,11 +115,12 @@
                          ContentTemplate="{DataTemplate pages:FamiliesListPage}" />
         </Tab>
 
-        <!-- Future: Genera -->
-        <Tab Title="Genera" IsEnabled="False">
+        <!-- ✅ UPDATED: Genera - Now Active! -->
+        <Tab Title="Genera">
             <ShellContent Title="Genera" 
                          Icon="genus.png" 
-                         Route="genera" />
+                         Route="genera" 
+                         ContentTemplate="{DataTemplate pages:GeneraListPage}" />
         </Tab>
 
         <!-- Future: Species -->
