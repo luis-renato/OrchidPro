@@ -1,0 +1,39 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- ✅ TEMPLATE 3: FORM FIELD FRAME TEMPLATE -->
+    <!-- Código EXATO extraído dos frames repetidos do FamilyEditPage.xaml -->
+    <ControlTemplate x:Key="FormFieldFrameTemplate">
+        <Frame HasShadow="False" 
+               BorderColor="LightGray" 
+               CornerRadius="12" 
+               Padding="16"
+               BackgroundColor="WhiteSmoke">
+            <ContentPresenter />
+        </Frame>
+    </ControlTemplate>
+
+    <!-- ✅ STYLE PARA APLICAR O TEMPLATE -->
+    <Style x:Key="FormFieldFrameStyle" TargetType="ContentView">
+        <Setter Property="ControlTemplate" Value="{StaticResource FormFieldFrameTemplate}" />
+    </Style>
+
+    <!-- ✅ TEMPLATE PARA LABEL DE TÍTULO DO CAMPO -->
+    <Style x:Key="FormFieldLabelStyle" TargetType="Label">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{StaticResource Primary}" />
+    </Style>
+
+    <!-- ✅ TEMPLATE PARA STACKLAYOUT DOS CAMPOS -->
+    <Style x:Key="FormFieldStackStyle" TargetType="StackLayout">
+        <Setter Property="Spacing" Value="8" />
+    </Style>
+
+    <!-- ✅ TEMPLATE PARA STACKLAYOUT DE SETTINGS (espaçamento maior) -->
+    <Style x:Key="FormSettingsStackStyle" TargetType="StackLayout">
+        <Setter Property="Spacing" Value="16" />
+    </Style>
+
+</ResourceDictionary>

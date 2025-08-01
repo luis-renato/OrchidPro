@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- ✅ TEMPLATE 6: CONNECTION STATUS TEMPLATE -->
+    <!-- Código EXATO extraído do arquivo original FamiliesListPage.xaml -->
+
+    <!-- ✅ STYLE PARA HEADER CONTAINER -->
+    <Style x:Key="StatusHeaderContainerStyle" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Padding" Value="20,15" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="16,16,0,0" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ✅ STYLE PARA STATISTICS LABEL -->
+    <Style x:Key="StatisticsLabelStyle" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- ✅ STYLE PARA CONNECTION STATUS BORDER -->
+    <Style x:Key="ConnectionStatusBorderStyle" TargetType="Border">
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="10" />
+            </Setter.Value>
+        </Setter>
+        <!-- BackgroundColor será bindável: BackgroundColor="{Binding ConnectionStatusColor}" -->
+    </Style>
+
+    <!-- ✅ STYLE PARA CONNECTION STATUS LABEL -->
+    <Style x:Key="ConnectionStatusLabelStyle" TargetType="Label">
+        <Setter Property="FontSize" Value="10" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}" />
+    </Style>
+
+</ResourceDictionary>

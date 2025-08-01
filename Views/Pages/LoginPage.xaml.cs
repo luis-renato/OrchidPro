@@ -1,11 +1,13 @@
 ﻿using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
-using System.Diagnostics;
+using OrchidPro.Extensions;
+using OrchidPro.Constants;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// CORRIGIDO: Login page que salva sessão nos singleton services
+/// Login page that manages user authentication and session persistence.
+/// Handles Supabase authentication with singleton service management and smooth animations.
 /// </summary>
 public partial class LoginPage : ContentPage
 {
@@ -13,7 +15,7 @@ public partial class LoginPage : ContentPage
     private readonly INavigationService _navigationService;
 
     /// <summary>
-    /// ✅ CORRIGIDO: Usar DI para obter singleton services
+    /// Initialize login page with dependency injection for singleton services
     /// </summary>
     public LoginPage(SupabaseService supabaseService, INavigationService navigationService)
     {
@@ -21,153 +23,191 @@ public partial class LoginPage : ContentPage
         _supabaseService = supabaseService;
         _navigationService = navigationService;
 
-        Debug.WriteLine("📱 LoginPage created with singleton services");
+        this.LogInfo("LoginPage created with singleton services");
     }
 
+    /// <summary>
+    /// Handle page appearing with service initialization and animations
+    /// </summary>
     protected override async void OnAppearing()
     {
         base.OnAppearing();
 
-        // ✅ VERIFICAR estado dos singletons
-        Debug.WriteLine("👁️ === LOGIN PAGE APPEARING ===");
-        Debug.WriteLine($"🔧 SupabaseService.IsInitialized: {_supabaseService.IsInitialized}");
-        Debug.WriteLine($"🔐 SupabaseService.IsAuthenticated: {_supabaseService.IsAuthenticated}");
-
-        // ✅ GARANTIR que SupabaseService está inicializado
-        if (!_supabaseService.IsInitialized)
+        await this.SafeExecuteAsync(async () =>
         {
-            Debug.WriteLine("🔄 SupabaseService not initialized - initializing...");
-            try
-            {
-                await _supabaseService.InitializeAsync();
-                Debug.WriteLine("✅ SupabaseService initialized in LoginPage");
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"❌ Failed to initialize SupabaseService: {ex.Message}");
-            }
-        }
+            this.LogInfo("=== LOGIN PAGE APPEARING ===");
+            this.LogInfo($"SupabaseService.IsInitialized: {_supabaseService.IsInitialized}");
+            this.LogInfo($"SupabaseService.IsAuthenticated: {_supabaseService.IsAuthenticated}");
 
-        // Perform entrance animation
-        await PerformEntranceAnimation();
+            // Ensure SupabaseService is initialized
+            if (!_supabaseService.IsInitialized)
+            {
+                this.LogInfo("SupabaseService not initialized - initializing...");
+                await _supabaseService.InitializeAsync();
+                this.LogSuccess("SupabaseService initialized in LoginPage");
+            }
+
+            // Perform entrance animation
+            await PerformEntranceAnimation();
+        }, "LoginPage OnAppearing");
     }
 
     /// <summary>
-    /// Performs enhanced entrance animation
+    /// Perform enhanced entrance animation with logo and card effects
     /// </summary>
     private async Task PerformEntranceAnimation()
     {
-        // Set initial states
-        RootGrid.Opacity = 0;
-        LoginCard.Scale = 0.9;
-        LogoImage.Scale = 0.8;
+        await this.SafeAnimationExecuteAsync(async () =>
+        {
+            // Set initial states using constants
+            RootGrid.Opacity = AnimationConstants.INITIAL_OPACITY;
+            LoginCard.Scale = AnimationConstants.PAGE_ENTRANCE_INITIAL_SCALE;
+            LogoImage.Scale = AnimationConstants.PAGE_ENTRANCE_INITIAL_SCALE;
 
-        // Animate main container
-        await RootGrid.FadeTo(1, 600, Easing.CubicOut);
+            // Animate main container using constants
+            await RootGrid.FadeTo(
+                AnimationConstants.FULL_OPACITY,
+                AnimationConstants.PAGE_ENTRANCE_DURATION,
+                AnimationConstants.ENTRANCE_EASING);
 
-        // Animate card and logo
-        await Task.WhenAll(
-            LoginCard.ScaleTo(1, 600, Easing.SpringOut),
-            LogoImage.ScaleTo(1, 800, Easing.SpringOut)
-        );
+            // Animate card and logo in parallel using constants
+            await Task.WhenAll(
+                LoginCard.ScaleTo(
+                    AnimationConstants.FEEDBACK_SCALE_NORMAL,
+                    AnimationConstants.PAGE_ENTRANCE_SCALE_DURATION,
+                    AnimationConstants.SPRING_EASING),
+                LogoImage.ScaleTo(
+                    AnimationConstants.FEEDBACK_SCALE_NORMAL,
+                    AnimationConstants.SPLASH_LOGO_SCALE_DURATION,
+                    AnimationConstants.SPRING_EASING)
+            );
+
+            this.LogSuccess("Login entrance animation completed");
+        }, "Login entrance animation");
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Handles login com salvamento correto na sessão singleton
+    /// Handle login button click with authentication and session management
     /// </summary>
     private async void OnLoginClicked(object sender, EventArgs e)
     {
-        if (string.IsNullOrWhiteSpace(EmailEntry.Text) || string.IsNullOrWhiteSpace(PasswordEntry.Text))
-        {
-            await DisplayAlert("Error", "Please enter both email and password", "OK");
-            return;
-        }
-
         try
         {
+            // Validate input fields
+            if (string.IsNullOrWhiteSpace(EmailEntry.Text) || string.IsNullOrWhiteSpace(PasswordEntry.Text))
+            {
+                await this.ShowErrorToast("Please enter both email and password");
+                return;
+            }
+
             // Show loading state
-            LoginButton.IsVisible = false;
-            LoadingIndicator.IsVisible = true;
-            LoadingIndicator.IsRunning = true;
-            ErrorLabel.IsVisible = false;
+            SetLoadingState(true);
 
-            Debug.WriteLine("🔐 Attempting login with singleton service...");
+            this.LogInfo("Attempting login with singleton service...");
 
-            // ✅ GARANTIR que SupabaseService está inicializado
+            // Ensure SupabaseService is initialized
             if (!_supabaseService.IsInitialized)
             {
-                Debug.WriteLine("🔄 Initializing SupabaseService during login...");
+                this.LogInfo("Initializing SupabaseService during login...");
                 await _supabaseService.InitializeAsync();
             }
 
-            Debug.WriteLine("✅ SupabaseService ready for login");
+            this.LogSuccess("SupabaseService ready for login");
 
-            // Attempt login
+            // Attempt authentication
             var session = await _supabaseService.Client!.Auth.SignIn(EmailEntry.Text, PasswordEntry.Text);
 
             if (session?.User != null)
             {
-                Debug.WriteLine($"✅ Login successful for user: {session.User.Email}");
-                Debug.WriteLine($"✅ User ID: {session.User.Id}");
-                Debug.WriteLine($"✅ Access Token: {session.AccessToken?[..20]}...");
+                this.LogSuccess($"Login successful for user: {session.User.Email}");
+                this.LogInfo($"User ID: {session.User.Id}");
+                this.LogInfo($"Access Token: {session.AccessToken?[..20]}...");
 
-                // ✅ CRÍTICO: Salvar sessão no singleton
+                // Save session to singleton service
                 _supabaseService.SaveSession();
-                Debug.WriteLine("💾 Session saved to singleton service");
+                this.LogSuccess("Session saved to singleton service");
 
-                // ✅ VERIFICAÇÃO: Confirmar que sessão foi salva
+                // Verify session was saved correctly
                 var savedSession = Preferences.Get("supabase_session", null);
-                Debug.WriteLine($"✅ Session verification: {(string.IsNullOrEmpty(savedSession) ? "FAILED" : "SUCCESS")}");
+                var sessionVerified = !string.IsNullOrEmpty(savedSession);
+                this.LogInfo($"Session verification: {(sessionVerified ? "SUCCESS" : "FAILED")}");
 
-                // ✅ VERIFICAÇÃO: Estado do singleton após login
+                // Verify singleton state after login
                 var isAuth = _supabaseService.IsAuthenticated;
                 var userId = _supabaseService.GetCurrentUserId();
-                Debug.WriteLine($"✅ Singleton state - Authenticated: {isAuth}, UserID: {userId}");
+                this.LogInfo($"Singleton state - Authenticated: {isAuth}, UserID: {userId}");
 
                 if (!isAuth)
                 {
-                    Debug.WriteLine("❌ CRITICAL: Singleton not reflecting authenticated state!");
-                    ShowError("Login succeeded but singleton state invalid");
+                    this.LogError("CRITICAL: Singleton not reflecting authenticated state!");
+                    await ShowErrorMessage("Login succeeded but singleton state invalid");
                     return;
                 }
 
-                // Add delay for better UX
+                // Brief delay for better user experience
                 await Task.Delay(500);
 
-                // Navigate to main app
-                await _navigationService.NavigateToMainAsync();
+                // Navigate to main application
+                await this.SafeNavigationExecuteAsync(async () =>
+                {
+                    await _navigationService.NavigateToMainAsync();
+                }, "Main app navigation");
             }
             else
             {
-                Debug.WriteLine("❌ Login failed - no session returned");
-                ShowError("Login failed. Please check your credentials.");
+                this.LogError("Login failed - no session returned");
+                await ShowErrorMessage("Login failed. Please check your credentials.");
             }
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ Login exception: {ex.Message}");
-            Debug.WriteLine($"❌ Stack trace: {ex.StackTrace}");
-            ShowError($"Login failed: {ex.Message}");
+            this.LogError(ex, "Login process failed");
+            await ShowErrorMessage($"Login failed: {ex.Message}");
         }
         finally
         {
-            // Hide loading state
-            LoadingIndicator.IsRunning = false;
-            LoadingIndicator.IsVisible = false;
-            LoginButton.IsVisible = true;
+            // Always hide loading state
+            SetLoadingState(false);
         }
     }
 
     /// <summary>
-    /// Shows error message with animation
+    /// Set loading state for login button and indicator
     /// </summary>
-    private async void ShowError(string message)
+    private void SetLoadingState(bool isLoading)
     {
-        ErrorLabel.Text = message;
-        ErrorLabel.IsVisible = true;
+        this.SafeExecute(() =>
+        {
+            LoginButton.IsVisible = !isLoading;
+            LoadingIndicator.IsVisible = isLoading;
+            LoadingIndicator.IsRunning = isLoading;
 
-        // Animate error appearance
-        ErrorLabel.Opacity = 0;
-        await ErrorLabel.FadeTo(1, 300);
+            if (!isLoading)
+            {
+                ErrorLabel.IsVisible = false;
+            }
+
+            this.LogInfo($"Loading state: {(isLoading ? "ACTIVE" : "INACTIVE")}");
+        }, "SetLoadingState");
+    }
+
+    /// <summary>
+    /// Display error message with smooth animation using constants
+    /// </summary>
+    private async Task ShowErrorMessage(string message)
+    {
+        await this.SafeAnimationExecuteAsync(async () =>
+        {
+            ErrorLabel.Text = message;
+            ErrorLabel.IsVisible = true;
+
+            // Animate error appearance using constants
+            ErrorLabel.Opacity = AnimationConstants.INITIAL_OPACITY;
+            await ErrorLabel.FadeTo(
+                AnimationConstants.FULL_OPACITY,
+                AnimationConstants.STATUS_LABEL_FADE_DURATION);
+
+            this.LogInfo($"Error message displayed: {message}");
+        }, "Error message animation");
     }
 }

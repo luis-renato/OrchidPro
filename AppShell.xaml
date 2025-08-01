@@ -8,7 +8,7 @@
     Title="OrchidPro"
     FlyoutBehavior="Flyout">
 
-    <!-- Cabeçalho do menu -->
+    <!-- Application header with branding -->
     <Shell.FlyoutHeader>
         <Grid BackgroundColor="{StaticResource Primary}" HeightRequest="150">
             <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10">
@@ -20,7 +20,7 @@
                        FontAttributes="Bold"
                        TextColor="{StaticResource OnPrimary}" 
                        HorizontalOptions="Center" />
-                <Label Text="Botanical Management" 
+                <Label Text="Botanical Management System" 
                        FontSize="12" 
                        TextColor="{StaticResource OnPrimary}" 
                        Opacity="0.8"
@@ -28,6 +28,78 @@
             </VerticalStackLayout>
         </Grid>
     </Shell.FlyoutHeader>
+
+    <!-- Footer with logout and dynamic version information -->
+    <Shell.FlyoutFooter>
+        <VerticalStackLayout BackgroundColor="{StaticResource Surface}" 
+                             Padding="0" 
+                             Spacing="0">
+
+            <!-- Separator -->
+            <BoxView HeightRequest="1" 
+                     BackgroundColor="{StaticResource Gray200}"
+                     Opacity="0.3" />
+
+            <!-- Logout menu item -->
+            <Grid BackgroundColor="Transparent"
+                  Padding="20,16"
+                  ColumnDefinitions="Auto,*"
+                  ColumnSpacing="16">
+
+                <Grid.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnLogoutClicked" />
+                </Grid.GestureRecognizers>
+
+                <!-- Icon -->
+                <Label Grid.Column="0"
+                       Text="🚪"
+                       FontSize="18"
+                       VerticalOptions="Center" />
+
+                <!-- Text -->
+                <Label Grid.Column="1"
+                       Text="Sign Out"
+                       FontSize="16"
+                       FontFamily="OpenSansRegular"
+                       TextColor="{StaticResource ErrorColor}"
+                       VerticalOptions="Center" />
+
+            </Grid>
+
+            <!-- Bottom separator -->
+            <BoxView HeightRequest="1" 
+                     BackgroundColor="{StaticResource Gray200}"
+                     Opacity="0.2" />
+
+            <!-- Dynamic version information -->
+            <VerticalStackLayout Spacing="4"
+                                 HorizontalOptions="Center"
+                                 Padding="20,12,20,16">
+
+                <Label x:Name="VersionLabel"
+                       FontSize="11"
+                       FontFamily="OpenSansRegular"
+                       FontAttributes="Bold"
+                       TextColor="{StaticResource Gray600}"
+                       HorizontalOptions="Center" />
+
+                <Label x:Name="BuildLabel"
+                       FontSize="10"
+                       FontFamily="OpenSansRegular"
+                       TextColor="{StaticResource Gray500}"
+                       HorizontalOptions="Center" />
+
+                <Label Text="🌺 Made with ♥ for orchid lovers"
+                       FontSize="9"
+                       FontFamily="OpenSansRegular"
+                       TextColor="{StaticResource Gray400}"
+                       HorizontalOptions="Center"
+                       Margin="0,4,0,0" />
+
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </Shell.FlyoutFooter>
 
     <!-- Main Navigation Items -->
     <FlyoutItem Title="Dashboard" Icon="home.png">
@@ -38,89 +110,46 @@
     <FlyoutItem Title="Botanical Data" Icon="plant.png">
         <Tab Title="Families">
             <ShellContent Title="Families" 
-                          Icon="family.png" 
-                          Route="families" 
-                          ContentTemplate="{DataTemplate pages:FamiliesListPage}" />
+                         Icon="family.png" 
+                         Route="families" 
+                         ContentTemplate="{DataTemplate pages:FamiliesListPage}" />
         </Tab>
-        <Tab Title="Genera">
+
+        <!-- Future: Genera -->
+        <Tab Title="Genera" IsEnabled="False">
             <ShellContent Title="Genera" 
-                          Icon="genus.png" 
-                          Route="genera" 
-                          ContentTemplate="{DataTemplate pages:TestSyncPage}" />
+                         Icon="genus.png" 
+                         Route="genera" />
         </Tab>
-        <Tab Title="Species">
+
+        <!-- Future: Species -->
+        <Tab Title="Species" IsEnabled="False">
             <ShellContent Title="Species" 
-                          Icon="species.png" 
-                          Route="species" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
+                         Icon="species.png" 
+                         Route="species" />
         </Tab>
     </FlyoutItem>
 
-    <!-- Plant Management Section -->
-    <FlyoutItem Title="My Plants" Icon="orchid.png">
-        <Tab Title="Orchid Collection">
-            <ShellContent Title="My Orchids" 
-                          Icon="orchid_collection.png" 
-                          Route="orchids" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
-        </Tab>
-        <Tab Title="Care Schedule">
-            <ShellContent Title="Care Schedule" 
-                          Icon="calendar.png" 
-                          Route="schedule" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
-        </Tab>
-        <Tab Title="Health Tracking">
-            <ShellContent Title="Health Status" 
-                          Icon="health.png" 
-                          Route="health" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
-        </Tab>
+    <!-- Plants Management Section -->
+    <FlyoutItem Title="My Plants" Icon="plant_collection.png" IsEnabled="False">
+        <ShellContent Route="plants" />
     </FlyoutItem>
 
-    <!-- Tools & Analytics -->
-    <FlyoutItem Title="Analytics" Icon="chart.png">
-        <Tab Title="Reports">
-            <ShellContent Title="Reports" 
-                          Icon="report.png" 
-                          Route="reports" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
-        </Tab>
-        <Tab Title="Statistics">
-            <ShellContent Title="Statistics" 
-                          Icon="stats.png" 
-                          Route="statistics" 
-                          ContentTemplate="{DataTemplate local:MainPage}" />
-        </Tab>
+    <!-- Analytics Section -->
+    <FlyoutItem Title="Analytics" Icon="analytics.png" IsEnabled="False">
+        <ShellContent Route="analytics" />
     </FlyoutItem>
 
     <!-- Settings Section -->
-    <FlyoutItem Title="Settings" Icon="settings.png">
-        <ShellContent Route="SettingsPage" ContentTemplate="{DataTemplate local:MainPage}" />
+    <FlyoutItem Title="Settings" Icon="settings.png" IsEnabled="False">
+        <ShellContent Route="settings" />
     </FlyoutItem>
 
-    <!-- Sync Status -->
-    <FlyoutItem Title="Sync Status" Icon="sync.png">
-        <ShellContent Route="SyncPage" ContentTemplate="{DataTemplate pages:TestSyncPage}" />
+    <!-- Debug section (only visible in debug builds) -->
+    <FlyoutItem x:Name="DebugSection" Title="🧪 Debug Tools" Icon="debug.png" FlyoutDisplayOptions="AsMultipleItems">
+        <ShellContent Title="Test Sync" 
+                     Route="testsync" 
+                     ContentTemplate="{DataTemplate pages:TestSyncPage}" />
     </FlyoutItem>
-
-    <!-- Rodapé do menu com logout -->
-    <Shell.FlyoutFooter>
-        <Grid BackgroundColor="{StaticResource Secondary}" HeightRequest="80">
-            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="5">
-                <Button Text="Logout" 
-                        BackgroundColor="Transparent"
-                        TextColor="{StaticResource OnSecondary}"
-                        FontSize="14"
-                        Clicked="OnLogoutClicked"
-                        HorizontalOptions="Center" />
-                <Label Text="v1.0.0" 
-                       FontSize="10" 
-                       TextColor="{StaticResource OnSecondary}" 
-                       Opacity="0.6"
-                       HorizontalOptions="Center" />
-            </VerticalStackLayout>
-        </Grid>
-    </Shell.FlyoutFooter>
 
 </Shell>

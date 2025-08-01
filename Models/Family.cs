@@ -1,11 +1,13 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using OrchidPro.Models.Base;
+using System.ComponentModel.DataAnnotations;
 
 namespace OrchidPro.Models;
 
 /// <summary>
-/// LIMPO: Modelo Family sem conceitos de sync (arquitetura Supabase direta)
+/// Family model - ATUALIZADO: Removido IsSystemDefault
+/// ✅ Schema atualizado sem is_system_default
 /// </summary>
-public class Family
+public class Family : IBaseEntity
 {
     /// <summary>
     /// Unique identifier for the family
@@ -31,14 +33,19 @@ public class Family
     public string? Description { get; set; }
 
     /// <summary>
-    /// Indicates if this is a system default family
+    /// ✅ REMOVIDO: IsSystemDefault - não existe mais no schema
+    /// Agora identificamos dados do sistema por UserId == null
     /// </summary>
-    public bool IsSystemDefault { get; set; } = false;
 
     /// <summary>
     /// Indicates if the family is active
     /// </summary>
     public bool IsActive { get; set; } = true;
+
+    /// <summary>
+    /// ✅ Indicates if this family is marked as favorite by the user
+    /// </summary>
+    public bool IsFavorite { get; set; } = false;
 
     /// <summary>
     /// When the family was created
@@ -51,14 +58,33 @@ public class Family
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
+    /// ✅ ATUALIZADO: IsSystemDefault baseado em UserId
+    /// </summary>
+    public bool IsSystemDefault => UserId == null;
+
+    /// <summary>
     /// Display name for UI purposes
     /// </summary>
-    public string DisplayName => $"{Name}{(IsSystemDefault ? " (System)" : "")}";
+    public string DisplayName => $"{Name}{(IsSystemDefault ? " (System)" : "")}{(IsFavorite ? " ⭐" : "")}";
 
     /// <summary>
     /// Status display text for UI
     /// </summary>
     public string StatusDisplay => IsActive ? "Active" : "Inactive";
+
+    /// <summary>
+    /// ✅ Extended status display with favorite indicator
+    /// </summary>
+    public string FullStatusDisplay
+    {
+        get
+        {
+            var status = StatusDisplay;
+            if (IsSystemDefault) status += " • System";
+            if (IsFavorite) status += " • Favorite";
+            return status;
+        }
+    }
 
     /// <summary>
     /// Validates the family data
@@ -90,10 +116,28 @@ public class Family
             UserId = this.UserId,
             Name = this.Name,
             Description = this.Description,
-            IsSystemDefault = this.IsSystemDefault,
+            // ✅ REMOVIDO: IsSystemDefault não é mais copiado (é computed property)
             IsActive = this.IsActive,
+            IsFavorite = this.IsFavorite,
             CreatedAt = this.CreatedAt,
             UpdatedAt = this.UpdatedAt
         };
+    }
+
+    /// <summary>
+    /// Implementation of interface: Generic clone
+    /// </summary>
+    IBaseEntity IBaseEntity.Clone()
+    {
+        return Clone();
+    }
+
+    /// <summary>
+    /// ✅ Toggle favorite status
+    /// </summary>
+    public void ToggleFavorite()
+    {
+        IsFavorite = !IsFavorite;
+        UpdatedAt = DateTime.UtcNow;
     }
 }

@@ -1,176 +1,237 @@
-﻿using OrchidPro.ViewModels;
+﻿using OrchidPro.ViewModels.Families;
+using OrchidPro.Constants;
+using OrchidPro.Extensions;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// CORRIGIDO: Family edit page com animações otimizadas e tratamento de conectividade
+/// Page for creating and editing botanical family records with form validation.
+/// Handles navigation interception for unsaved changes and provides smooth animations.
 /// </summary>
-public partial class FamilyEditPage : ContentPage
+public partial class FamilyEditPage : ContentPage, IQueryAttributable
 {
     private readonly FamilyEditViewModel _viewModel;
+    private bool _isNavigating = false;
+    private bool _isNavigationHandlerAttached = false;
 
+    /// <summary>
+    /// Initialize the family edit page with dependency injection and setup
+    /// </summary>
     public FamilyEditPage(FamilyEditViewModel viewModel)
     {
-        InitializeComponent();
         _viewModel = viewModel;
         BindingContext = _viewModel;
+
+        var success = this.SafeExecute(() =>
+        {
+            InitializeComponent();
+            this.LogSuccess("InitializeComponent completed successfully");
+        }, "InitializeComponent");
+
+        if (!success)
+        {
+            this.LogError("InitializeComponent failed");
+        }
+
+        this.LogInfo("Initialized successfully");
     }
 
+    /// <summary>
+    /// Intercept navigation events to handle unsaved changes confirmation
+    /// </summary>
+    private async void OnShellNavigating(object? sender, ShellNavigatingEventArgs e)
+    {
+        // Only intercept back navigation from toolbar
+        if (_isNavigating || (e.Source != ShellNavigationSource.Pop && e.Source != ShellNavigationSource.PopToRoot))
+            return;
+
+        this.LogInfo($"Toolbar navigation detected - HasUnsavedChanges: {_viewModel.HasUnsavedChanges}");
+
+        // Only intercept if there are unsaved changes
+        if (_viewModel.HasUnsavedChanges)
+        {
+            // Cancel navigation to intercept
+            e.Cancel();
+            _isNavigating = true;
+
+            await this.SafeExecuteAsync(async () =>
+            {
+                // Remove handler BEFORE calling CancelCommand to avoid interference
+                DetachNavigationHandler();
+
+                this.LogInfo("Handler removed, delegating to CancelCommand");
+
+                if (_viewModel.CancelCommand.CanExecute(null))
+                {
+                    await _viewModel.CancelCommand.ExecuteAsync(null);
+                }
+            }, "Navigation handler");
+
+            _isNavigating = false;
+        }
+        // If no changes, allow normal navigation (don't cancel)
+    }
+
+    /// <summary>
+    /// Remove navigation event handler safely
+    /// </summary>
+    private void DetachNavigationHandler()
+    {
+        this.SafeExecute(() =>
+        {
+            if (_isNavigationHandlerAttached)
+            {
+                Shell.Current.Navigating -= OnShellNavigating;
+                _isNavigationHandlerAttached = false;
+                this.LogInfo("Navigation handler detached");
+            }
+        }, "DetachNavigationHandler");
+    }
+
+    #region Query Attributes Management
+
+    /// <summary>
+    /// Handle navigation parameters from Shell routing system
+    /// </summary>
+    public void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        this.SafeExecute(() =>
+        {
+            this.LogInfo($"ApplyQueryAttributes called with {query.Count} parameters");
+
+            foreach (var param in query)
+            {
+                this.LogInfo($"Parameter: {param.Key} = {param.Value} ({param.Value?.GetType().Name})");
+            }
+
+            // Pass parameters to ViewModel
+            _viewModel.ApplyQueryAttributes(query);
+
+            this.LogSuccess("Parameters applied to ViewModel");
+        }, "ApplyQueryAttributes");
+    }
+
+    #endregion
+
+    #region Page Lifecycle Management
+
+    /// <summary>
+    /// Handle page appearing with navigation setup and animations
+    /// </summary>
     protected override async void OnAppearing()
     {
         base.OnAppearing();
 
-        // ✅ OTIMIZADO: Animação + inicialização em paralelo
-        var animationTask = PerformEntranceAnimation();
-        var initTask = _viewModel.OnAppearingAsync();
+        await this.SafeExecuteAsync(async () =>
+        {
+            this.LogInfo($"OnAppearing - Mode: {(_viewModel.IsEditMode ? "EDIT" : "CREATE")}");
 
-        // Aguarda ambos completarem
-        await Task.WhenAll(animationTask, initTask);
+            // Always intercept navigation from toolbar - simpler approach
+            if (!_isNavigationHandlerAttached)
+            {
+                Shell.Current.Navigating += OnShellNavigating;
+                _isNavigationHandlerAttached = true;
+                this.LogInfo("Navigation handler attached (always active)");
+            }
+
+            // Animation and initialization in parallel
+            var animationTask = PerformEntranceAnimation();
+            var initTask = _viewModel.OnAppearingAsync();
+
+            // Wait for both to complete
+            await Task.WhenAll(animationTask, initTask);
+
+            this.LogSuccess("Page fully loaded and initialized");
+        }, "OnAppearing");
     }
 
+    /// <summary>
+    /// Handle page disappearing with cleanup and animations
+    /// </summary>
     protected override async void OnDisappearing()
     {
         base.OnDisappearing();
 
-        // Perform exit animation
-        await PerformExitAnimation();
-
-        // Cleanup ViewModel
-        await _viewModel.OnDisappearingAsync();
-    }
-
-    protected override bool OnBackButtonPressed()
-    {
-        // Handle back button with unsaved changes check
-        _ = Task.Run(async () =>
+        await this.SafeExecuteAsync(async () =>
         {
-            // ✅ CORRIGIDO: Verifica mudanças não salvas
-            if (_viewModel.HasUnsavedChanges)
-            {
-                var canNavigate = await _viewModel.ShowConfirmAsync(
-                    "Unsaved Changes",
-                    "You have unsaved changes. Discard them?");
+            this.LogInfo("OnDisappearing");
 
-                if (canNavigate)
-                {
-                    await Shell.Current.GoToAsync("..");
-                }
-            }
-            else
-            {
-                await Shell.Current.GoToAsync("..");
-            }
-        });
+            // Always remove handler
+            DetachNavigationHandler();
 
-        return true; // Always handle the back button
+            // Perform exit animation
+            await PerformExitAnimation();
+
+            // Cleanup ViewModel
+            await _viewModel.OnDisappearingAsync();
+        }, "OnDisappearing");
     }
 
     /// <summary>
-    /// ✅ OTIMIZADO: Performs enhanced entrance animation
+    /// Handle Android physical back button with unsaved changes check
+    /// </summary>
+    protected override bool OnBackButtonPressed()
+    {
+        // Check if already navigating to avoid multiple dialogs
+        if (_isNavigating)
+            return true;
+
+        // For physical button, redirect to Cancel command from base class
+        _ = Task.Run(async () =>
+        {
+            await this.SafeExecuteAsync(async () =>
+            {
+                this.LogInfo("Physical back button pressed - calling CancelCommand");
+                _isNavigating = true;
+
+                await MainThread.InvokeOnMainThreadAsync(async () =>
+                {
+                    // Use Cancel command from base class which has all the logic
+                    if (_viewModel.CancelCommand.CanExecute(null))
+                    {
+                        await _viewModel.CancelCommand.ExecuteAsync(null);
+                    }
+                });
+            }, "Back button handler");
+
+            _isNavigating = false;
+        });
+
+        // Prevent default back button behavior
+        return true;
+    }
+
+    #endregion
+
+    #region Animation Management
+
+    /// <summary>
+    /// Perform smooth entrance animation for better user experience
     /// </summary>
     private async Task PerformEntranceAnimation()
     {
-        // Set initial states
-        RootGrid.Opacity = 0;
-        RootGrid.Scale = 0.95;
-        RootGrid.TranslationY = 30;
+        await this.SafeAnimationExecuteAsync(async () =>
+        {
+            // Use extension method for standardized page entrance
+            await Content.PerformStandardEntranceAsync();
 
-        // Animate with multiple effects mais suave
-        await Task.WhenAll(
-            RootGrid.FadeTo(1, 500, Easing.CubicOut),
-            RootGrid.ScaleTo(1, 500, Easing.SpringOut),
-            RootGrid.TranslateTo(0, 0, 500, Easing.CubicOut)
-        );
+            this.LogSuccess("Entrance animation completed");
+        }, "Page entrance animation");
     }
 
     /// <summary>
-    /// Performs smooth exit animation
+    /// Perform smooth exit animation for better user experience
     /// </summary>
     private async Task PerformExitAnimation()
     {
-        await Task.WhenAll(
-            RootGrid.FadeTo(0, 300, Easing.CubicIn),
-            RootGrid.ScaleTo(0.95, 300, Easing.CubicIn),
-            RootGrid.TranslateTo(0, -20, 300, Easing.CubicIn)
-        );
+        await this.SafeAnimationExecuteAsync(async () =>
+        {
+            // Use extension method for standardized page exit
+            await Content.PerformStandardExitAsync();
+
+            this.LogSuccess("Exit animation completed");
+        }, "Page exit animation");
     }
 
-    /// <summary>
-    /// ✅ CORRIGIDO: Handles entry focus with animation otimizada
-    /// </summary>
-    private async void OnEntryFocused(object sender, FocusEventArgs e)
-    {
-        if (sender is Entry entry && e.IsFocused)
-        {
-            // Animate field focus mais sutil
-            if (entry.Parent is Border border)
-            {
-                await border.ScaleTo(1.01, 150, Easing.CubicOut);
-            }
-        }
-    }
-
-    /// <summary>
-    /// ✅ CORRIGIDO: Handles entry unfocus with animation otimizada
-    /// </summary>
-    private async void OnEntryUnfocused(object sender, FocusEventArgs e)
-    {
-        if (sender is Entry entry && !e.IsFocused)
-        {
-            // Animate field unfocus mais sutil
-            if (entry.Parent is Border border)
-            {
-                await border.ScaleTo(1, 150, Easing.CubicOut);
-            }
-        }
-    }
-
-    /// <summary>
-    /// Handles button press animations
-    /// </summary>
-    private async void OnButtonPressed(object sender, EventArgs e)
-    {
-        if (sender is Button button)
-        {
-            await button.ScaleTo(0.96, 50, Easing.CubicOut);
-            await button.ScaleTo(1, 50, Easing.CubicOut);
-        }
-    }
-
-    /// <summary>
-    /// Handles switch toggle with visual feedback
-    /// </summary>
-    private async void OnSwitchToggled(object sender, ToggledEventArgs e)
-    {
-        if (sender is Switch switchControl)
-        {
-            // Visual feedback only
-            await switchControl.ScaleTo(1.05, 80, Easing.CubicOut);
-            await switchControl.ScaleTo(1, 80, Easing.CubicOut);
-        }
-    }
-
-    /// <summary>
-    /// ✅ NOVO: Testa conectividade e mostra overlay temporário
-    /// </summary>
-    private async void OnTestConnectivityTapped(object sender, EventArgs e)
-    {
-        try
-        {
-            // Mostrar overlay de teste
-            ConnectionTestOverlay.IsVisible = true;
-
-            // Executar teste via ViewModel
-            await _viewModel.TestConnectionCommand.ExecuteAsync(null);
-
-            // Esconder overlay após 2 segundos
-            await Task.Delay(2000);
-            ConnectionTestOverlay.IsVisible = false;
-        }
-        catch (Exception ex)
-        {
-            await DisplayAlert("Test Error", $"Connection test failed: {ex.Message}", "OK");
-            ConnectionTestOverlay.IsVisible = false;
-        }
-    }
+    #endregion
 }

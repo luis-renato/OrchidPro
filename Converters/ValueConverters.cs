@@ -7,12 +7,12 @@ namespace OrchidPro.Converters;
 /// </summary>
 public class StringToBoolConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         return !string.IsNullOrWhiteSpace(value?.ToString());
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }
@@ -23,12 +23,12 @@ public class StringToBoolConverter : IValueConverter
 /// </summary>
 public class InvertedStringToBoolConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         return string.IsNullOrWhiteSpace(value?.ToString());
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }
@@ -39,12 +39,12 @@ public class InvertedStringToBoolConverter : IValueConverter
 /// </summary>
 public class InvertedBoolConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         return value is bool boolValue ? !boolValue : false;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         return value is bool boolValue ? !boolValue : false;
     }
@@ -55,7 +55,7 @@ public class InvertedBoolConverter : IValueConverter
 /// </summary>
 public class IntToBoolConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is int intValue)
         {
@@ -64,7 +64,7 @@ public class IntToBoolConverter : IValueConverter
         return false;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }
@@ -76,7 +76,7 @@ public class IntToBoolConverter : IValueConverter
 /// </summary>
 public class BoolToColorConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is bool boolValue && parameter is string colorParams)
         {
@@ -86,14 +86,21 @@ public class BoolToColorConverter : IValueConverter
                 var trueColor = colors[0].Trim();
                 var falseColor = colors[1].Trim();
 
-                return boolValue ? Color.FromArgb(trueColor) : Color.FromArgb(falseColor);
+                try
+                {
+                    return boolValue ? Color.FromArgb(trueColor) : Color.FromArgb(falseColor);
+                }
+                catch
+                {
+                    return Colors.Transparent;
+                }
             }
         }
 
         return Colors.Transparent;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }
@@ -105,7 +112,7 @@ public class BoolToColorConverter : IValueConverter
 /// </summary>
 public class BoolToIntConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is bool boolValue && parameter is string intParams)
         {
@@ -121,7 +128,7 @@ public class BoolToIntConverter : IValueConverter
         return 0;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }
@@ -133,7 +140,7 @@ public class BoolToIntConverter : IValueConverter
 /// </summary>
 public class BoolToStringConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is bool boolValue && parameter is string stringParams)
         {
@@ -147,7 +154,7 @@ public class BoolToStringConverter : IValueConverter
         return string.Empty;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }
@@ -158,12 +165,12 @@ public class BoolToStringConverter : IValueConverter
 /// </summary>
 public class NullToBoolConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         return value != null;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }
@@ -174,12 +181,12 @@ public class NullToBoolConverter : IValueConverter
 /// </summary>
 public class InvertedNullToBoolConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         return value == null;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }
@@ -190,7 +197,7 @@ public class InvertedNullToBoolConverter : IValueConverter
 /// </summary>
 public class CollectionToBoolConverter : IValueConverter
 {
-    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         if (value is System.Collections.ICollection collection)
         {
@@ -205,7 +212,34 @@ public class CollectionToBoolConverter : IValueConverter
         return false;
     }
 
-    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+/// <summary>
+/// Converter para mostrar ícones de ordenação
+/// </summary>
+public class SortToIconConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object? parameter, CultureInfo culture)
+    {
+        if (value is string sortOrder)
+        {
+            return sortOrder switch
+            {
+                "Name A→Z" => "🔤↑",
+                "Name Z→A" => "🔤↓",
+                "Recent First" => "🕐↓",
+                "Oldest First" => "🕐↑",
+                _ => "📊"
+            };
+        }
+        return "📊";
+    }
+
+    public object? ConvertBack(object? value, Type targetType, object? parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
     }

@@ -2,18 +2,19 @@
 using OrchidPro.Services.Data;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
-using System.Diagnostics;
+using OrchidPro.Extensions;
 
 namespace OrchidPro.Services;
 
 /// <summary>
-/// Modelo da Family para Supabase - SCHEMA PUBLIC (families)
+/// Supabase database model representing families table without system default field.
+/// Maps between database schema and application domain models.
 /// </summary>
 [Table("families")]
 public class SupabaseFamily : BaseModel
 {
-    [PrimaryKey("id")]
-    public Guid Id { get; set; }
+    [PrimaryKey("id", false)]
+    public Guid Id { get; set; } = Guid.NewGuid();
 
     [Column("user_id")]
     public Guid? UserId { get; set; }
@@ -24,18 +25,39 @@ public class SupabaseFamily : BaseModel
     [Column("description")]
     public string? Description { get; set; }
 
-    [Column("is_system_default")]
-    public bool? IsSystemDefault { get; set; } = false;
-
     [Column("is_active")]
     public bool? IsActive { get; set; } = true;
 
+    [Column("is_favorite")]
+    public bool? IsFavorite { get; set; } = false;
+
     [Column("created_at")]
-    public DateTime? CreatedAt { get; set; }
+    public DateTime? CreatedAt { get; set; } = DateTime.UtcNow;
 
     [Column("updated_at")]
-    public DateTime? UpdatedAt { get; set; }
+    public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
+    /// <summary>
+    /// Convert SupabaseFamily to domain Family model
+    /// </summary>
+    public Family ToFamily()
+    {
+        return new Family
+        {
+            Id = this.Id,
+            UserId = this.UserId,
+            Name = this.Name ?? string.Empty,
+            Description = this.Description,
+            IsActive = this.IsActive ?? true,
+            IsFavorite = this.IsFavorite ?? false,
+            CreatedAt = this.CreatedAt ?? DateTime.UtcNow,
+            UpdatedAt = this.UpdatedAt ?? DateTime.UtcNow
+        };
+    }
+
+    /// <summary>
+    /// Convert domain Family model to SupabaseFamily
+    /// </summary>
     public static SupabaseFamily FromFamily(Family family)
     {
         return new SupabaseFamily
@@ -44,31 +66,17 @@ public class SupabaseFamily : BaseModel
             UserId = family.UserId,
             Name = family.Name,
             Description = family.Description,
-            IsSystemDefault = family.IsSystemDefault,
             IsActive = family.IsActive,
+            IsFavorite = family.IsFavorite,
             CreatedAt = family.CreatedAt,
             UpdatedAt = family.UpdatedAt
-        };
-    }
-
-    public Family ToFamily()
-    {
-        return new Family
-        {
-            Id = this.Id,
-            UserId = this.UserId,
-            Name = this.Name,
-            Description = this.Description,
-            IsSystemDefault = this.IsSystemDefault ?? false,
-            IsActive = this.IsActive ?? true,
-            CreatedAt = this.CreatedAt ?? DateTime.UtcNow,
-            UpdatedAt = this.UpdatedAt ?? DateTime.UtcNow
         };
     }
 }
 
 /// <summary>
-/// CORRIGIDO: Serviço com queries otimizadas e logs detalhados
+/// Service for managing family entities in Supabase database.
+/// Provides CRUD operations and business logic for family management.
 /// </summary>
 public class SupabaseFamilyService
 {
@@ -77,408 +85,421 @@ public class SupabaseFamilyService
     public SupabaseFamilyService(SupabaseService supabaseService)
     {
         _supabaseService = supabaseService;
+        this.LogInfo("SupabaseFamilyService initialized");
     }
 
     /// <summary>
-    /// Busca todas as famílias do usuário atual + system defaults
+    /// Retrieve all families accessible to current user including system defaults
     /// </summary>
     public async Task<List<Family>> GetAllAsync()
     {
-        try
+        using (this.LogPerformance("Get All Families"))
         {
-            if (_supabaseService.Client == null)
+            var result = await this.SafeDataExecuteAsync(async () =>
             {
-                Debug.WriteLine("❌ [FAMILY_SERVICE] Supabase client not available");
-                return new List<Family>();
-            }
-
-            Debug.WriteLine("📥 [FAMILY_SERVICE] Fetching families from Supabase...");
-
-            var currentUserId = _supabaseService.GetCurrentUserId();
-            Debug.WriteLine($"📥 [FAMILY_SERVICE] Current user ID: {currentUserId ?? "null"}");
-
-            var allFamilies = new List<SupabaseFamily>();
-
-            // Se autenticado, buscar minhas + system
-            if (!string.IsNullOrEmpty(currentUserId) && Guid.TryParse(currentUserId, out var userGuid))
-            {
-                Debug.WriteLine("📥 [FAMILY_SERVICE] Authenticated - fetching user + system families...");
-
-                // Buscar families do usuário (SEM FILTRO DE is_active)
-                var userQuery = _supabaseService.Client
-                    .From<SupabaseFamily>()
-                    .Where(f => f.UserId == userGuid);
-
-                var userResponse = await userQuery.Get();
-
-                if (userResponse?.Models != null)
+                if (_supabaseService.Client == null)
                 {
-                    allFamilies.AddRange(userResponse.Models);
-                    Debug.WriteLine($"📥 [FAMILY_SERVICE] User families: {userResponse.Models.Count}");
+                    this.LogError("Supabase client not available");
+                    return new List<Family>();
                 }
 
-                // Buscar families do sistema (user_id = null) (SEM FILTRO DE is_active)
-                var systemQuery = _supabaseService.Client
-                    .From<SupabaseFamily>()
-                    .Where(f => f.UserId == null);
+                this.LogInfo("Starting GetAllAsync operation");
 
-                var systemResponse = await systemQuery.Get();
+                var currentUserIdString = _supabaseService.GetCurrentUserId();
+                this.LogInfo($"Current user ID: '{currentUserIdString}'");
 
-                if (systemResponse?.Models != null)
+                // Validate and convert userId
+                Guid? currentUserId = null;
+                if (Guid.TryParse(currentUserIdString, out Guid parsedUserId))
                 {
-                    allFamilies.AddRange(systemResponse.Models);
-                    Debug.WriteLine($"📥 [FAMILY_SERVICE] System families: {systemResponse.Models.Count}");
-                }
-            }
-            else
-            {
-                Debug.WriteLine("📥 [FAMILY_SERVICE] Not authenticated - fetching system families only...");
-
-                // Apenas families do sistema (SEM FILTRO DE is_active)
-                var systemQuery = _supabaseService.Client
-                    .From<SupabaseFamily>()
-                    .Where(f => f.UserId == null);
-
-                var response = await systemQuery.Get();
-
-                if (response?.Models != null)
-                {
-                    allFamilies.AddRange(response.Models);
-                }
-            }
-
-            var families = allFamilies.Select(sf => sf.ToFamily()).ToList();
-            Debug.WriteLine($"📥 [FAMILY_SERVICE] Retrieved {families.Count} families successfully");
-            return families;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] GetAllAsync failed: {ex.Message}");
-            return new List<Family>();
-        }
-    }
-
-
-
-    /// <summary>
-    /// Busca uma família por ID
-    /// </summary>
-    public async Task<Family?> GetByIdAsync(Guid id)
-    {
-        try
-        {
-            if (_supabaseService.Client == null)
-            {
-                Debug.WriteLine("❌ [FAMILY_SERVICE] Client not available");
-                return null;
-            }
-
-            Debug.WriteLine($"🔍 [FAMILY_SERVICE] Fetching family by ID: {id}");
-
-            var query = _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Select("*")
-                .Where(f => f.Id == id)
-                .Limit(1);
-
-            var response = await query.Get();
-            var supabaseFamily = response?.Models?.FirstOrDefault();
-
-            if (supabaseFamily != null)
-            {
-                var family = supabaseFamily.ToFamily();
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Found family: {family.Name}");
-                return family;
-            }
-
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] Family not found: {id}");
-            return null;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] GetByIdAsync failed: {ex.Message}");
-            return null;
-        }
-    }
-
-    /// <summary>
-    /// Verifica se nome já existe
-    /// </summary>
-    public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
-    {
-        try
-        {
-            if (_supabaseService.Client == null) return false;
-
-            var currentUserId = _supabaseService.GetCurrentUserId();
-            Guid? userGuid = null;
-
-            if (!string.IsNullOrEmpty(currentUserId))
-            {
-                Guid.TryParse(currentUserId, out var parsed);
-                userGuid = parsed;
-            }
-
-            Debug.WriteLine($"🔍 [FAMILY_SERVICE] Checking name existence: {name}");
-
-            var query = _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Select("id,name")
-                .Where(f => f.Name == name && f.UserId == userGuid);
-
-            if (excludeId.HasValue)
-            {
-                query = query.Where(f => f.Id != excludeId.Value);
-            }
-
-            var response = await query.Get();
-            var exists = response?.Models?.Any() == true;
-
-            Debug.WriteLine($"🔍 [FAMILY_SERVICE] Name '{name}' exists: {exists}");
-            return exists;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] NameExistsAsync failed: {ex.Message}");
-            return false;
-        }
-    }
-
-    /// <summary>
-    /// Cria uma nova família
-    /// </summary>
-    public async Task<Family> CreateAsync(Family family)
-    {
-        try
-        {
-            if (_supabaseService.Client == null)
-            {
-                throw new InvalidOperationException("Supabase client not available");
-            }
-
-            Debug.WriteLine($"➕ [FAMILY_SERVICE] Creating family: {family.Name}");
-
-            var supabaseFamily = SupabaseFamily.FromFamily(family);
-
-            // Garantir user_id para famílias não-system
-            if (supabaseFamily.UserId == null && !(supabaseFamily.IsSystemDefault ?? false))
-            {
-                var currentUserId = _supabaseService.GetCurrentUserId();
-                if (Guid.TryParse(currentUserId, out var userId))
-                {
-                    supabaseFamily.UserId = userId;
-                    Debug.WriteLine($"➕ [FAMILY_SERVICE] Set user_id to: {userId}");
+                    currentUserId = parsedUserId;
+                    this.LogInfo($"Parsed user ID: {currentUserId}");
                 }
                 else
                 {
-                    throw new InvalidOperationException("Could not determine current user ID");
+                    this.LogWarning("Could not parse user ID, will only get system families");
                 }
-            }
 
-            // Garantir timestamps
-            var now = DateTime.UtcNow;
-            supabaseFamily.CreatedAt = now;
-            supabaseFamily.UpdatedAt = now;
+                if (currentUserId.HasValue)
+                {
+                    // Query all families and filter on client side
+                    var response = await _supabaseService.Client
+                        .From<SupabaseFamily>()
+                        .Select("*")
+                        .Get();
 
-            Debug.WriteLine($"➕ [FAMILY_SERVICE] Inserting with UserID: {supabaseFamily.UserId?.ToString() ?? "NULL"}");
+                    this.LogInfo("Querying all families");
 
-            var response = await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Insert(supabaseFamily);
+                    if (response?.Models == null || !response.Models.Any())
+                    {
+                        this.LogWarning("No families found in database");
+                        return new List<Family>();
+                    }
 
-            if (response?.Models?.Any() == true)
+                    // Filter: user families OR system defaults (UserId == null)
+                    var filteredFamilies = response.Models.Where(sf =>
+                        sf.UserId == currentUserId || sf.UserId == null
+                    ).ToList();
+
+                    this.LogInfo($"Found {response.Models.Count()} total families in database");
+                    this.LogInfo($"Filtered to {filteredFamilies.Count} families for user");
+
+                    var families = filteredFamilies
+                        .Select(sf => sf.ToFamily())
+                        .OrderBy(f => f.Name)
+                        .ToList();
+
+                    this.LogDataOperation("Retrieved", "Families", $"{families.Count} items");
+
+                    // Log sample families for diagnostics
+                    foreach (var family in families.Take(3))
+                    {
+                        this.LogDebug($"Family: {family.Name} (ID: {family.Id}, Active: {family.IsActive}, Favorite: {family.IsFavorite}, System: {family.IsSystemDefault})");
+                    }
+
+                    return families;
+                }
+                else
+                {
+                    // Only system families if no authenticated user
+                    var response = await _supabaseService.Client
+                        .From<SupabaseFamily>()
+                        .Select("*")
+                        .Where(f => f.UserId == null)
+                        .Get();
+
+                    this.LogInfo("Querying only system families (no authenticated user)");
+
+                    if (response?.Models == null || !response.Models.Any())
+                    {
+                        this.LogWarning("No families found in database");
+                        return new List<Family>();
+                    }
+
+                    var families = response.Models
+                        .Select(sf => sf.ToFamily())
+                        .OrderBy(f => f.Name)
+                        .ToList();
+
+                    this.LogDataOperation("Retrieved", "System Families", $"{families.Count} items");
+
+                    // Log sample families for diagnostics
+                    foreach (var family in families.Take(3))
+                    {
+                        this.LogDebug($"Family: {family.Name} (ID: {family.Id}, Active: {family.IsActive}, Favorite: {family.IsFavorite}, System: {family.IsSystemDefault})");
+                    }
+
+                    return families;
+                }
+            }, "Families");
+
+            if (result.Success && result.Data != null)
             {
-                var created = response.Models.First().ToFamily();
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Created family: {created.Name} (ID: {created.Id})");
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Created with UserID: {created.UserId?.ToString() ?? "NULL"}");
-                return created;
-            }
-
-            throw new InvalidOperationException("Insert returned no data");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] CreateAsync failed: {ex.Message}");
-            throw;
-        }
-    }
-
-    /// <summary>
-    /// Atualiza uma família existente
-    /// </summary>
-    public async Task<Family> UpdateAsync(Family family)
-    {
-        try
-        {
-            if (_supabaseService.Client == null)
-            {
-                throw new InvalidOperationException("Supabase client not available");
-            }
-
-            Debug.WriteLine($"📝 [FAMILY_SERVICE] Updating family: {family.Name} (ID: {family.Id})");
-
-            var supabaseFamily = SupabaseFamily.FromFamily(family);
-            supabaseFamily.UpdatedAt = DateTime.UtcNow;
-
-            var response = await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Where(f => f.Id == family.Id)
-                .Update(supabaseFamily);
-
-            if (response?.Models?.Any() == true)
-            {
-                var updated = response.Models.First().ToFamily();
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Updated family: {updated.Name}");
-                return updated;
-            }
-
-            throw new InvalidOperationException("Update returned no data");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] UpdateAsync failed: {ex.Message}");
-            throw;
-        }
-    }
-
-    /// <summary>
-    /// ✅ CORRIGIDO: Hard delete (remove o registro completamente da tabela)
-    /// </summary>
-    public async Task<bool> DeleteAsync(Guid id)
-    {
-        try
-        {
-            if (_supabaseService.Client == null)
-            {
-                Debug.WriteLine("❌ [FAMILY_SERVICE] Client not available");
-                return false;
-            }
-
-            Debug.WriteLine($"🗑️ [FAMILY_SERVICE] Hard deleting family: {id}");
-
-            // Buscar família primeiro para verificar se pode deletar
-            var existing = await GetByIdAsync(id);
-            if (existing == null)
-            {
-                Debug.WriteLine($"❌ [FAMILY_SERVICE] Family not found for deletion: {id}");
-                return false;
-            }
-
-            if (existing.IsSystemDefault)
-            {
-                Debug.WriteLine($"❌ [FAMILY_SERVICE] Cannot delete system default family: {existing.Name}");
-                return false;
-            }
-
-            // ✅ HARD DELETE: Remove o registro da tabela
-            await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Where(f => f.Id == id)
-                .Delete();
-
-            // Verificar se foi deletado tentando buscar o registro
-            var verification = await GetByIdAsync(id);
-            var success = verification == null;
-
-            if (success)
-            {
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Hard deleted family: {existing.Name}");
+                return result.Data;
             }
             else
             {
-                Debug.WriteLine($"❌ [FAMILY_SERVICE] Hard delete failed for: {existing.Name}");
+                this.LogError($"GetAllAsync failed: {result.Message}");
+                return new List<Family>();
             }
-
-            return success;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] DeleteAsync failed: {ex.Message}");
-            return false;
         }
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Testa conectividade REAL com query no banco
+    /// Check if a family name already exists in the database
+    /// </summary>
+    public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
+    {
+        using (this.LogPerformance("Check Name Exists"))
+        {
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                this.LogInfo($"Checking if name exists: '{name}', exclude: {excludeId}");
+
+                var allFamilies = await GetAllAsync();
+
+                var exists = allFamilies.Any(f =>
+                    string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                    f.Id != excludeId);
+
+                this.LogInfo($"Name '{name}' exists: {exists}");
+                return exists;
+            }, "Name Check");
+
+            return result.Success && result.Data;
+        }
+    }
+
+    /// <summary>
+    /// Toggle favorite status for a specific family
+    /// </summary>
+    public async Task<Family> ToggleFavoriteAsync(Guid familyId)
+    {
+        using (this.LogPerformance("Toggle Favorite"))
+        {
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                this.LogDataOperation("Toggling favorite", "Family", familyId);
+
+                var response = await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Select("*")
+                    .Where(f => f.Id == familyId)
+                    .Single();
+
+                if (response == null)
+                {
+                    throw new InvalidOperationException($"Family {familyId} not found");
+                }
+
+                var updatedFamily = new SupabaseFamily
+                {
+                    Id = familyId,
+                    UserId = response.UserId,
+                    Name = response.Name,
+                    Description = response.Description,
+                    IsActive = response.IsActive ?? true,
+                    IsFavorite = !(response.IsFavorite ?? false),
+                    UpdatedAt = DateTime.UtcNow
+                };
+
+                await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Where(f => f.Id == familyId)
+                    .Update(updatedFamily);
+
+                this.LogDataOperation("Toggled favorite", "Family", $"{familyId} to {updatedFamily.IsFavorite}");
+
+                var updatedResponse = await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Select("*")
+                    .Where(f => f.Id == familyId)
+                    .Single();
+
+                return updatedResponse.ToFamily();
+            }, "Family");
+
+            if (result.Success && result.Data != null)
+            {
+                return result.Data;
+            }
+            else
+            {
+                throw new InvalidOperationException(result.Message);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Test database connectivity
     /// </summary>
     public async Task<bool> TestConnectionAsync()
     {
-        try
+        using (this.LogPerformance("Test Connection"))
         {
-            if (_supabaseService.Client == null || !_supabaseService.IsAuthenticated)
+            var result = await this.SafeNetworkExecuteAsync(async () =>
             {
-                Debug.WriteLine("❌ [FAMILY_SERVICE] Client null or not authenticated");
-                return false;
-            }
+                if (_supabaseService.Client == null)
+                {
+                    this.LogError("No client available");
+                    return false;
+                }
 
-            Debug.WriteLine("🔍 [FAMILY_SERVICE] Testing REAL database connection...");
+                var response = await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Select("id")
+                    .Limit(1)
+                    .Get();
 
-            // ✅ TESTE REAL: Query simples na tabela families com timeout
-            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                this.LogSuccess("Connection test successful");
+                return true;
+            }, "Connection Test");
 
-            var query = _supabaseService.Client.From<SupabaseFamily>()
-                .Select("id,name")
-                .Limit(1);
-
-            var response = await query.Get();
-
-            var success = response?.Models != null;
-
-            if (success)
-            {
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] REAL connection test: SUCCESS");
-                Debug.WriteLine($"✅ [FAMILY_SERVICE] Query returned valid response");
-            }
-            else
-            {
-                Debug.WriteLine($"❌ [FAMILY_SERVICE] REAL connection test: FAILED - no response");
-            }
-
-            return success;
-        }
-        catch (OperationCanceledException)
-        {
-            Debug.WriteLine("⏰ [FAMILY_SERVICE] Connection test timeout (10s)");
-            return false;
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] REAL connection test failed: {ex.Message}");
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] Exception type: {ex.GetType().Name}");
-
-            // ✅ Log mais detalhes para debug
-            if (ex.InnerException != null)
-            {
-                Debug.WriteLine($"❌ [FAMILY_SERVICE] Inner exception: {ex.InnerException.Message}");
-            }
-
-            return false;
+            return result;
         }
     }
 
     /// <summary>
-    /// Calcula estatísticas das famílias
+    /// Get statistical information about families
     /// </summary>
     public async Task<FamilyStatistics> GetStatisticsAsync()
     {
-        try
+        using (this.LogPerformance("Get Statistics"))
         {
-            var families = await GetAllAsync();
-
-            return new FamilyStatistics
+            var result = await this.SafeDataExecuteAsync(async () =>
             {
-                TotalCount = families.Count,
-                ActiveCount = families.Count(f => f.IsActive),
-                InactiveCount = families.Count(f => !f.IsActive),
-                SystemDefaultCount = families.Count(f => f.IsSystemDefault),
-                UserCreatedCount = families.Count(f => !f.IsSystemDefault),
-                LastRefreshTime = DateTime.UtcNow // Sempre atual na arquitetura direta
-            };
+                this.LogInfo("Getting family statistics");
+
+                var families = await GetAllAsync();
+
+                var statistics = new FamilyStatistics
+                {
+                    TotalCount = families.Count,
+                    ActiveCount = families.Count(f => f.IsActive),
+                    InactiveCount = families.Count(f => !f.IsActive),
+                    SystemDefaultCount = families.Count(f => f.IsSystemDefault),
+                    UserCreatedCount = families.Count(f => !f.IsSystemDefault),
+                    LastRefreshTime = DateTime.UtcNow
+                };
+
+                this.LogInfo($"Statistics: {statistics.TotalCount} total, {statistics.ActiveCount} active, {statistics.SystemDefaultCount} system");
+
+                return statistics;
+            }, "Statistics");
+
+            if (result.Success && result.Data != null)
+            {
+                return result.Data;
+            }
+            else
+            {
+                this.LogError($"GetStatisticsAsync failed: {result.Message}");
+                return new FamilyStatistics();
+            }
         }
-        catch (Exception ex)
+    }
+
+    /// <summary>
+    /// Create a new family entity in the database
+    /// </summary>
+    public async Task<Family> CreateAsync(Family family)
+    {
+        using (this.LogPerformance("Create Family"))
         {
-            Debug.WriteLine($"❌ [FAMILY_SERVICE] GetStatisticsAsync failed: {ex.Message}");
-            return new FamilyStatistics();
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                this.LogDataOperation("Creating", "Family", family.Name);
+
+                family.UpdatedAt = DateTime.UtcNow;
+                var supabaseFamily = SupabaseFamily.FromFamily(family);
+
+                var response = await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Insert(supabaseFamily);
+
+                var createdFamily = response.Models.First().ToFamily();
+
+                this.LogDataOperation("Created", "Family", $"{createdFamily.Name} (ID: {createdFamily.Id})");
+
+                return createdFamily;
+            }, "Family");
+
+            if (result.Success && result.Data != null)
+            {
+                return result.Data;
+            }
+            else
+            {
+                throw new InvalidOperationException(result.Message);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Update an existing family entity in the database
+    /// </summary>
+    public async Task<Family> UpdateAsync(Family family)
+    {
+        using (this.LogPerformance("Update Family"))
+        {
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                this.LogDataOperation("Updating", "Family", $"{family.Name} (ID: {family.Id})");
+
+                family.UpdatedAt = DateTime.UtcNow;
+                var supabaseFamily = SupabaseFamily.FromFamily(family);
+
+                await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Where(f => f.Id == family.Id)
+                    .Update(supabaseFamily);
+
+                this.LogDataOperation("Updated", "Family", family.Name);
+
+                return family;
+            }, "Family");
+
+            if (result.Success && result.Data != null)
+            {
+                return result.Data;
+            }
+            else
+            {
+                throw new InvalidOperationException(result.Message);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Delete a family entity from the database
+    /// </summary>
+    public async Task<bool> DeleteAsync(Guid id)
+    {
+        using (this.LogPerformance("Delete Family"))
+        {
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                this.LogDataOperation("Deleting", "Family", id);
+
+                await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Where(f => f.Id == id)
+                    .Delete();
+
+                this.LogDataOperation("Deleted", "Family", id);
+
+                return true;
+            }, "Family");
+
+            if (result.Success)
+            {
+                return result.Data;
+            }
+            else
+            {
+                throw new InvalidOperationException(result.Message);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Retrieve a specific family by its unique identifier
+    /// </summary>
+    public async Task<Family?> GetByIdAsync(Guid id)
+    {
+        using (this.LogPerformance("Get Family By ID"))
+        {
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                this.LogDataOperation("Getting", "Family", $"ID: {id}");
+
+                var response = await _supabaseService.Client
+                    .From<SupabaseFamily>()
+                    .Select("*")
+                    .Where(f => f.Id == id)
+                    .Single();
+
+                if (response == null)
+                {
+                    this.LogWarning($"Family not found: {id}");
+                    return null;
+                }
+
+                var family = response.ToFamily();
+                this.LogDataOperation("Found", "Family", family.Name);
+
+                return family;
+            }, "Family");
+
+            if (result.Success)
+            {
+                return result.Data;
+            }
+            else
+            {
+                this.LogWarning($"GetByIdAsync failed: {result.Message}");
+                return null;
+            }
         }
     }
 }

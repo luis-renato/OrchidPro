@@ -4,8 +4,7 @@ using OrchidPro.Views.Pages;
 namespace OrchidPro.Services.Navigation;
 
 /// <summary>
-/// Service responsible for handling navigation throughout the application
-/// Provides smooth transitions between pages
+/// ✅ CORRIGIDO: NavigationService sem dependência de AppShell com parâmetro
 /// </summary>
 public class NavigationService(SupabaseService supabaseService) : INavigationService
 {
@@ -52,14 +51,13 @@ public class NavigationService(SupabaseService supabaseService) : INavigationSer
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Navigates to login page with ZERO DELAY transition
+    /// ✅ CORRIGIDO: Navigates to login page
     /// </summary>
     public async Task NavigateToLoginAsync()
     {
         var app = Application.Current;
         if (app?.Windows.Count > 0)
         {
-            // ✅ FIX: Get services from DI to inject into LoginPage
             var services = IPlatformApplication.Current?.Services;
             if (services != null)
             {
@@ -69,7 +67,6 @@ public class NavigationService(SupabaseService supabaseService) : INavigationSer
             }
             else
             {
-                // Fallback: Create LoginPage using this instance as navigation service
                 var loginPage = new LoginPage(_supabaseService, this);
                 await InstantTransition(new NavigationPage(loginPage));
             }
@@ -77,20 +74,36 @@ public class NavigationService(SupabaseService supabaseService) : INavigationSer
     }
 
     /// <summary>
-    /// Navigates to main app shell with ZERO DELAY transition
+    /// ✅ CORRIGIDO: Navigates to main app shell sem parâmetro
     /// </summary>
     public async Task NavigateToMainAsync()
     {
         var app = Application.Current;
         if (app?.Windows.Count > 0)
         {
-            var appShell = new AppShell(_supabaseService);
+            // ✅ CORRIGIDO: AppShell sem parâmetro + injetar SupabaseService via DI
+            var appShell = new AppShell();
             await InstantTransition(appShell);
         }
     }
 
     /// <summary>
-    /// TRANSIÇÃO INSTANTÂNEA: Zero delay, máxima velocidade
+    /// Smooth transition animation
+    /// </summary>
+    private static async Task AnimateTransition()
+    {
+        try
+        {
+            await Task.Delay(50); // Minimal delay for smooth transition
+        }
+        catch
+        {
+            // Ignore animation errors
+        }
+    }
+
+    /// <summary>
+    /// ✅ TRANSIÇÃO INSTANTÂNEA: Zero delay, máxima velocidade
     /// </summary>
     private static async Task InstantTransition(Page newPage)
     {
@@ -98,9 +111,8 @@ public class NavigationService(SupabaseService supabaseService) : INavigationSer
         if (app?.Windows.Count > 0)
         {
             var window = app.Windows[0];
-            var currentPage = window.Page;
 
-            // 1. PREPARAR nova página COM COR ANTES de tudo
+            // Preparar nova página com cor
             var primaryColor = Color.FromArgb("#A47764");
             newPage.BackgroundColor = primaryColor;
 
@@ -115,38 +127,10 @@ public class NavigationService(SupabaseService supabaseService) : INavigationSer
                 shell.BackgroundColor = primaryColor;
             }
 
-            // 2. OVERLAY INSTANTÂNEO
-            var overlay = new ContentPage
-            {
-                BackgroundColor = primaryColor,
-                Content = new Grid { BackgroundColor = primaryColor }
-            };
-
-            // 3. SEQUÊNCIA ULTRARRÁPIDA
-            if (currentPage != null)
-            {
-                await currentPage.FadeTo(0, 50, Easing.Linear);
-            }
-
-            // ZERO DELAY - Transição instantânea
-            window.Page = overlay;
+            // Transição instantânea
             window.Page = newPage;
-            newPage.Opacity = 0;
 
-            // Fade in super rápido
-            await newPage.FadeTo(1, 100, Easing.Linear);
-        }
-    }
-
-    /// <summary>
-    /// Animates page transition within Shell navigation
-    /// </summary>
-    private static async Task AnimateTransition()
-    {
-        if (Shell.Current?.CurrentPage != null)
-        {
-            await Shell.Current.CurrentPage.FadeTo(0.9, 50);
-            await Shell.Current.CurrentPage.FadeTo(1, 50);
+            await Task.Delay(100); // Mínimo para garantir transição suave
         }
     }
 }

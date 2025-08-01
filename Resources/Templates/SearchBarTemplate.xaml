@@ -1,0 +1,82 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- ✅ TEMPLATE 5: SEARCH BAR TEMPLATE -->
+    <!-- Código CORRIGIDO para evitar sobreposição do ícone quando Entry ganha foco -->
+
+    <!-- ✅ CONTAINER STYLE PARA SEARCH BAR -->
+    <Style x:Key="SearchBarContainerStyle" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}" />
+        <Setter Property="Padding" Value="20,15" />
+    </Style>
+
+    <!-- ✅ STYLE PARA SEARCH FIELD BORDER -->
+    <Style x:Key="SearchFieldBorderStyle" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="HeightRequest" Value="44" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="22" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ✅ STYLE PARA ENTRY DENTRO DO SEARCH (corrigido padding) -->
+    <Style x:Key="SearchEntryStyle" TargetType="Entry">
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <!-- ✅ CORREÇÃO: Adicionar margin para não sobrepor o ícone -->
+        <Setter Property="Margin" Value="5,0,5,0" />
+    </Style>
+
+    <!-- ✅ STYLE PARA SEARCH ICON (corrigido posicionamento) -->
+    <Style x:Key="SearchIconStyle" TargetType="Label">
+        <Setter Property="Text" Value="🔍" />
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+        <!-- ✅ CORREÇÃO: Garantir que o ícone não seja sobreposto -->
+        <Setter Property="Margin" Value="0,0,5,0" />
+    </Style>
+
+    <!-- ✅ STYLE PARA CLEAR BUTTON (corrigido posicionamento) -->
+    <Style x:Key="SearchClearButtonStyle" TargetType="Button">
+        <Setter Property="Text" Value="✕" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="WidthRequest" Value="24" />
+        <Setter Property="HeightRequest" Value="24" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BackgroundColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray400}}" />
+        <!-- ✅ CORREÇÃO: Margin para melhor posicionamento -->
+        <Setter Property="Margin" Value="5,0,0,0" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- ✅ STYLE PARA ACTION BUTTONS (Filter/Sort) -->
+    <Style x:Key="SearchActionButtonStyle" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource Primary}}" />
+        <Setter Property="Stroke" Value="Transparent" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="HeightRequest" Value="44" />
+        <Setter Property="WidthRequest" Value="44" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="22" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- ✅ STYLE PARA ICON DOS ACTION BUTTONS -->
+    <Style x:Key="SearchActionIconStyle" TargetType="Label">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+    </Style>
+
+</ResourceDictionary>
