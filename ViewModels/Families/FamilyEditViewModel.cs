@@ -2,31 +2,32 @@
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
-using System.Diagnostics;
+using OrchidPro.Extensions;
 
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamilyEditViewModel com commands e título funcionais
+/// ViewModel for editing and creating botanical family records.
+/// Provides family-specific functionality while leveraging enhanced base edit operations.
 /// </summary>
 public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttributable
 {
-    #region ✅ Overrides obrigatórios
+    #region Required Base Class Overrides
 
     public override string EntityName => "Family";
     public override string EntityNamePlural => "Families";
 
     #endregion
 
-    #region ✅ CORRIGIDO: Page Title dinâmico
+    #region Page Title Management
 
     /// <summary>
-    /// ✅ CORRIGIDO: Page title que realmente muda baseado no modo
+    /// Dynamic page title based on edit mode state
     /// </summary>
     public new string PageTitle => IsEditMode ? "Edit Family" : "New Family";
 
     /// <summary>
-    /// ✅ CORRIGIDO: Propriedade IsEditMode que notifica mudanças
+    /// Current edit mode state for UI binding
     /// </summary>
     public bool IsEditMode => _isEditMode;
 
@@ -34,41 +35,46 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
 
     #region Constructor
 
+    /// <summary>
+    /// Initialize family edit ViewModel with enhanced base functionality
+    /// </summary>
     public FamilyEditViewModel(IFamilyRepository familyRepository, INavigationService navigationService)
         : base(familyRepository, navigationService)
     {
-        Debug.WriteLine("✅ [FAMILY_EDIT_VM] Initialized - using base functionality with corrections");
+        this.LogInfo("Initialized - using base functionality with corrections");
     }
 
     #endregion
 
-    #region ✅ CORRIGIDO: Sobrescrever ApplyQueryAttributes para setar IsEditMode
+    #region Query Attributes Handling
 
     /// <summary>
-    /// ✅ CORRIGIDO: Aplica parâmetros e seta modo de edição corretamente
+    /// Handle navigation parameters and update edit mode state
     /// </summary>
     public new void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        // Chamar o base primeiro
-        base.ApplyQueryAttributes(query);
+        this.SafeExecute(() =>
+        {
+            this.LogInfo($"ApplyQueryAttributes called with {query.Count} parameters");
 
-        // Notificar mudança no título
-        OnPropertyChanged(nameof(PageTitle));
-        OnPropertyChanged(nameof(IsEditMode));
+            // Log all parameters for debugging
+            foreach (var param in query)
+            {
+                this.LogInfo($"Parameter: {param.Key} = {param.Value} ({param.Value?.GetType().Name})");
+            }
 
-        Debug.WriteLine($"✅ [FAMILY_EDIT_VM] IsEditMode: {IsEditMode}, PageTitle: {PageTitle}");
+            // Call base implementation first
+            base.ApplyQueryAttributes(query);
+
+            // Notify UI of title and mode changes
+            OnPropertyChanged(nameof(PageTitle));
+            OnPropertyChanged(nameof(IsEditMode));
+
+            this.LogSuccess($"Query attributes applied - IsEditMode: {IsEditMode}, PageTitle: {PageTitle}");
+
+        }, "ApplyQueryAttributes");
     }
 
     #endregion
-
-    // ✅ FUNCIONALIDADES AGORA NA BASE:
-    // ✅ SaveCommand - funciona automaticamente via base
-    // ✅ CancelCommand - funciona automaticamente via base  
-    // ✅ IsFavorite toggle - funciona automaticamente
-    // ✅ Validação de nome único - funciona automaticamente
-    // ✅ Progress calculation - funciona automaticamente
-    // ✅ Loading states + toasts - funcionam automaticamente
-    // ✅ Navigation + interceptação - funciona automaticamente
-
-    // ✅ RESULTADO: Family deve salvar/atualizar normalmente agora
+    
 }

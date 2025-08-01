@@ -1,84 +1,103 @@
 ﻿using OrchidPro.Services;
 using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
-using System.Diagnostics;
+using OrchidPro.Extensions;
+using OrchidPro.Constants;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// CORRIGIDO: SplashPage que GARANTE inicialização dos singleton services
+/// Splash screen page that handles application initialization and singleton service setup.
+/// Provides smooth animations while initializing core services and checking authentication state.
 /// </summary>
 public partial class SplashPage : ContentPage
 {
+    /// <summary>
+    /// Initialize splash page with default setup
+    /// </summary>
     public SplashPage()
     {
         InitializeComponent();
-        Debug.WriteLine("📱 SplashPage created");
+        this.LogInfo("SplashPage created");
     }
 
+    /// <summary>
+    /// Handle page appearing with animation and app initialization
+    /// </summary>
     protected override async void OnAppearing()
     {
         base.OnAppearing();
 
-        // Start entrance animation
+        // Start entrance animation and app initialization
         await PerformEntranceAnimation();
-
-        // ✅ CRÍTICO: Garantir inicialização ANTES de navegar
         await InitializeAppWithSingletonsAsync();
     }
 
     /// <summary>
-    /// Performs enhanced entrance animation for splash screen elements
+    /// Perform enhanced entrance animation for splash screen elements
     /// </summary>
     private async Task PerformEntranceAnimation()
     {
-        // Start with full transparency
-        RootGrid.Opacity = 0;
-        LogoImage.Scale = 0.8;
+        await this.SafeAnimationExecuteAsync(async () =>
+        {
+            // Set initial states using constants
+            RootGrid.Opacity = AnimationConstants.INITIAL_OPACITY;
+            LogoImage.Scale = AnimationConstants.PAGE_ENTRANCE_INITIAL_SCALE;
 
-        // Fade in the root grid smoothly
-        await RootGrid.FadeTo(1, 500, Easing.CubicOut);
+            // Fade in the root grid smoothly
+            await RootGrid.FadeTo(
+                AnimationConstants.FULL_OPACITY,
+                AnimationConstants.SPLASH_FADE_IN_DURATION,
+                AnimationConstants.ENTRANCE_EASING);
 
-        // Scale and fade in logo with spring effect
-        var logoAnimation = LogoImage.ScaleTo(1, 600, Easing.SpringOut);
+            // Scale logo with spring effect
+            var logoAnimation = LogoImage.ScaleTo(
+                AnimationConstants.FEEDBACK_SCALE_NORMAL,
+                AnimationConstants.SPLASH_LOGO_SCALE_DURATION,
+                AnimationConstants.SPRING_EASING);
 
-        // Start pulse animation for loading indicator
-        _ = AnimateLoadingIndicatorAsync();
+            // Start pulse animation for loading indicator
+            _ = AnimateLoadingIndicatorAsync();
 
-        await logoAnimation;
+            await logoAnimation;
+
+            this.LogSuccess("Splash entrance animation completed");
+        }, "Splash entrance animation");
     }
 
     /// <summary>
-    /// Continuously animates the loading indicator with a pulse effect
+    /// Continuously animate loading indicator with pulse effect using constants
     /// </summary>
     private async Task AnimateLoadingIndicatorAsync()
     {
-        try
+        await this.SafeAnimationExecuteAsync(async () =>
         {
             while (LoadingIndicator.IsRunning)
             {
-                await LoadingIndicator.ScaleTo(1.2, 500, Easing.SinInOut);
-                await LoadingIndicator.ScaleTo(1.0, 500, Easing.SinInOut);
+                await LoadingIndicator.ScaleTo(1.2,
+                    AnimationConstants.SPLASH_LOADING_PULSE_DURATION,
+                    AnimationConstants.LOADING_PULSE_EASING);
+
+                await LoadingIndicator.ScaleTo(
+                    AnimationConstants.FEEDBACK_SCALE_NORMAL,
+                    AnimationConstants.SPLASH_LOADING_PULSE_DURATION,
+                    AnimationConstants.LOADING_PULSE_EASING);
             }
-        }
-        catch
-        {
-            // Page was destroyed during animation
-        }
+        }, "Loading indicator pulse animation");
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Inicializa app GARANTINDO que singletons sejam criados e inicializados
+    /// Initialize application ensuring singleton services are created and configured
     /// </summary>
     private async Task InitializeAppWithSingletonsAsync()
     {
         try
         {
-            Debug.WriteLine("🚀 === APP INITIALIZATION WITH SINGLETONS ===");
+            this.LogInfo("=== APP INITIALIZATION WITH SINGLETONS ===");
 
-            // Step 1: Get services from DI
+            // Step 1: Get services from dependency injection
             UpdateStatus("Getting services...");
-            Debug.WriteLine("🔄 Getting services from DI container...");
+            this.LogInfo("Getting services from DI container...");
 
             var services = IPlatformApplication.Current?.Services;
             if (services == null)
@@ -86,105 +105,111 @@ public partial class SplashPage : ContentPage
                 throw new InvalidOperationException("Service provider not available");
             }
 
-            Debug.WriteLine("✅ Service provider obtained");
+            this.LogSuccess("Service provider obtained");
 
-            // Step 2: ✅ CRÍTICO - Forçar criação e inicialização dos singletons
+            // Step 2: Force creation and initialization of singleton services
             UpdateStatus("Initializing core services...");
-            Debug.WriteLine("🔧 Creating and initializing singleton services...");
+            this.LogInfo("Creating and initializing singleton services...");
 
-            // ✅ FORÇAR criação do SupabaseService singleton e inicializar
+            // Force creation of SupabaseService singleton and initialize
             var supabaseService = services.GetRequiredService<SupabaseService>();
-            Debug.WriteLine("✅ SupabaseService singleton obtained");
+            this.LogSuccess("SupabaseService singleton obtained");
 
-            // ✅ GARANTIR que está inicializado
+            // Ensure service is initialized
             if (!supabaseService.IsInitialized)
             {
-                Debug.WriteLine("🔄 SupabaseService not initialized - initializing now...");
+                this.LogInfo("SupabaseService not initialized - initializing now...");
                 await supabaseService.InitializeAsync();
-                Debug.WriteLine("✅ SupabaseService initialized successfully");
+                this.LogSuccess("SupabaseService initialized successfully");
             }
             else
             {
-                Debug.WriteLine("✅ SupabaseService already initialized");
+                this.LogSuccess("SupabaseService already initialized");
             }
 
-            // ✅ FORÇAR criação dos outros singletons
+            // Force creation of other singleton services
             var familyService = services.GetRequiredService<SupabaseFamilyService>();
             var familyRepo = services.GetRequiredService<IFamilyRepository>();
             var navigationService = services.GetRequiredService<INavigationService>();
 
-            Debug.WriteLine("✅ All singleton services created and available");
+            this.LogSuccess("All singleton services created and available");
 
-            // Step 3: ✅ VERIFICAR estado após inicialização
+            // Step 3: Verify state after initialization
             UpdateStatus("Verifying initialization...");
-            Debug.WriteLine("🔍 Verifying singleton initialization...");
+            this.LogInfo("Verifying singleton initialization...");
 
-            Debug.WriteLine($"🔧 SupabaseService.IsInitialized: {supabaseService.IsInitialized}");
-            Debug.WriteLine($"🔐 SupabaseService.IsAuthenticated: {supabaseService.IsAuthenticated}");
+            this.LogInfo($"SupabaseService.IsInitialized: {supabaseService.IsInitialized}");
+            this.LogInfo($"SupabaseService.IsAuthenticated: {supabaseService.IsAuthenticated}");
 
             if (!supabaseService.IsInitialized)
             {
                 throw new InvalidOperationException("SupabaseService failed to initialize");
             }
 
-            // Step 4: Check for existing session
+            // Step 4: Check for existing authentication session
             UpdateStatus("Checking authentication...");
-            Debug.WriteLine("🔐 Checking for existing session...");
+            this.LogInfo("Checking for existing session...");
 
             bool hasValidSession = await supabaseService.RestoreSessionAsync();
-            Debug.WriteLine($"🔐 Session restore result: {hasValidSession}");
+            this.LogInfo($"Session restore result: {hasValidSession}");
 
             if (hasValidSession)
             {
                 var user = supabaseService.GetCurrentUser();
-                Debug.WriteLine($"✅ Valid session found for user: {user?.Email}");
-                Debug.WriteLine($"✅ User ID: {user?.Id}");
+                this.LogSuccess($"Valid session found for user: {user?.Email}");
+                this.LogInfo($"User ID: {user?.Id}");
             }
             else
             {
-                Debug.WriteLine("❌ No valid session found - user needs to login");
+                this.LogWarning("No valid session found - user needs to login");
             }
 
-            // Step 5: ✅ VERIFICAÇÃO FINAL antes de navegar
-            Debug.WriteLine("🧪 === FINAL VERIFICATION BEFORE NAVIGATION ===");
-            Debug.WriteLine($"✅ SupabaseService initialized: {supabaseService.IsInitialized}");
-            Debug.WriteLine($"✅ SupabaseService authenticated: {supabaseService.IsAuthenticated}");
-            Debug.WriteLine($"✅ Services available for dependency injection");
+            // Step 5: Final verification before navigation
+            this.LogInfo("=== FINAL VERIFICATION BEFORE NAVIGATION ===");
+            this.LogInfo($"SupabaseService initialized: {supabaseService.IsInitialized}");
+            this.LogInfo($"SupabaseService authenticated: {supabaseService.IsAuthenticated}");
+            this.LogInfo("Services available for dependency injection");
 
-            // Add delay to ensure smooth transition
+            // Add delay for smooth transition using constants
             await Task.Delay(700);
 
-            // Step 6: Perform enhanced exit animation
+            // Step 6: Perform exit animation
             await PerformExitAnimation();
 
-            // Step 7: Navigate based on session status
-            Debug.WriteLine("🧭 Navigating based on session status...");
+            // Step 7: Navigate based on authentication status
+            this.LogInfo("Navigating based on session status...");
 
             if (hasValidSession)
             {
-                Debug.WriteLine("🧭 Navigating to main app...");
-                await navigationService.NavigateToMainAsync();
+                this.LogInfo("Navigating to main app...");
+                await this.SafeNavigationExecuteAsync(async () =>
+                {
+                    await navigationService.NavigateToMainAsync();
+                }, "Main app navigation");
             }
             else
             {
-                Debug.WriteLine("🧭 Navigating to login...");
-                await navigationService.NavigateToLoginAsync();
+                this.LogInfo("Navigating to login...");
+                await this.SafeNavigationExecuteAsync(async () =>
+                {
+                    await navigationService.NavigateToLoginAsync();
+                }, "Login navigation");
             }
 
-            Debug.WriteLine("🚀 === APP INITIALIZATION WITH SINGLETONS COMPLETED ===");
+            this.LogSuccess("=== APP INITIALIZATION WITH SINGLETONS COMPLETED ===");
+
         }
         catch (Exception ex)
         {
-            Debug.WriteLine($"❌ Initialization failed: {ex.Message}");
-            Debug.WriteLine($"❌ Stack trace: {ex.StackTrace}");
+            this.LogError(ex, "App initialization failed");
 
+            // Enhanced error handling with user feedback
             UpdateStatus("Initialization failed...");
             await Task.Delay(1000);
 
-            try
+            var errorHandled = await this.SafeExecuteAsync(async () =>
             {
-                await DisplayAlert("Initialization Error",
-                    $"Failed to initialize the app: {ex.Message}", "OK");
+                await this.ShowErrorToast("Failed to initialize the app");
 
                 // Try to navigate to login as fallback
                 var services = IPlatformApplication.Current?.Services;
@@ -193,57 +218,69 @@ public partial class SplashPage : ContentPage
                     var navigationService = services.GetRequiredService<INavigationService>();
                     await navigationService.NavigateToLoginAsync();
                 }
-            }
-            catch (Exception navEx)
+            }, "Fallback navigation");
+
+            if (!errorHandled)
             {
-                Debug.WriteLine($"❌ Even fallback navigation failed: {navEx.Message}");
-                // Last resort - close app
+                this.LogError("Even fallback navigation failed - closing app");
                 Application.Current?.Quit();
             }
         }
     }
 
     /// <summary>
-    /// Updates the status label with enhanced fade animation
+    /// Update status label with smooth fade animation using constants
     /// </summary>
     private async void UpdateStatus(string message)
     {
-        try
+        await this.SafeAnimationExecuteAsync(async () =>
         {
-            await StatusLabel.FadeTo(0.3, 150);
-            StatusLabel.Text = message;
-            await StatusLabel.FadeTo(0.8, 150);
+            await StatusLabel.FadeTo(
+                AnimationConstants.STATUS_FADE_OPACITY,
+                AnimationConstants.STATUS_LABEL_FADE_DURATION);
 
-            Debug.WriteLine($"📱 Status: {message}");
-        }
-        catch
-        {
-            // Ignore animation errors during page destruction
-        }
+            StatusLabel.Text = message;
+
+            await StatusLabel.FadeTo(
+                AnimationConstants.FULL_OPACITY,
+                AnimationConstants.STATUS_LABEL_FADE_DURATION);
+
+            this.LogInfo($"Status: {message}");
+        }, "Status update animation");
     }
 
     /// <summary>
-    /// Performs enhanced exit animation before navigation
+    /// Perform enhanced exit animation before navigation using constants
     /// </summary>
     private async Task PerformExitAnimation()
     {
-        try
+        await this.SafeAnimationExecuteAsync(async () =>
         {
             LoadingIndicator.IsRunning = false;
 
-            // Enhanced exit with multiple elements fading
+            // Enhanced exit with multiple elements fading using constants
             await Task.WhenAll(
-                LogoImage.ScaleTo(0.9, 300, Easing.CubicIn),
-                StatusLabel.FadeTo(0, 200, Easing.CubicIn),
-                LoadingIndicator.FadeTo(0, 200, Easing.CubicIn)
+                LogoImage.ScaleTo(
+                    AnimationConstants.PAGE_ENTRANCE_INITIAL_SCALE,
+                    AnimationConstants.PAGE_EXIT_DURATION,
+                    AnimationConstants.EXIT_EASING),
+                StatusLabel.FadeTo(
+                    AnimationConstants.INITIAL_OPACITY,
+                    AnimationConstants.PAGE_EXIT_DURATION,
+                    AnimationConstants.EXIT_EASING),
+                LoadingIndicator.FadeTo(
+                    AnimationConstants.INITIAL_OPACITY,
+                    AnimationConstants.PAGE_EXIT_DURATION,
+                    AnimationConstants.EXIT_EASING)
             );
 
             // Final fade out of entire screen
-            await RootGrid.FadeTo(0, 300, Easing.CubicIn);
-        }
-        catch
-        {
-            // Ignore animation errors during page destruction
-        }
+            await RootGrid.FadeTo(
+                AnimationConstants.INITIAL_OPACITY,
+                AnimationConstants.PAGE_EXIT_DURATION,
+                AnimationConstants.EXIT_EASING);
+
+            this.LogSuccess("Splash exit animation completed");
+        }, "Splash exit animation");
     }
 }

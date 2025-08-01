@@ -1,14 +1,16 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using System.Diagnostics;
+using OrchidPro.Extensions;
 
 namespace OrchidPro.ViewModels;
 
 /// <summary>
-/// Base ViewModel with common functionality for all ViewModels
-/// ✅ CORRIGIDO: Device e Application.MainPage obsoletos
+/// Base ViewModel providing common functionality for all ViewModels in the application.
+/// Implements MVVM pattern with observable properties and lifecycle management.
 /// </summary>
 public abstract partial class BaseViewModel : ObservableObject
 {
+    #region Observable Properties
+
     [ObservableProperty]
     private bool isBusy;
 
@@ -21,146 +23,150 @@ public abstract partial class BaseViewModel : ObservableObject
     [ObservableProperty]
     private bool isInitialized;
 
+    #endregion
+
+    #region Lifecycle Methods
+
     /// <summary>
-    /// Called when the view appears
+    /// Called when the view appears. Handles initialization on first appearance.
     /// </summary>
     public virtual async Task OnAppearingAsync()
     {
-        if (!IsInitialized)
+        await this.SafeExecuteAsync(async () =>
         {
-            await InitializeAsync();
-            IsInitialized = true;
-        }
+            if (!IsInitialized)
+            {
+                this.LogInfo("Initializing ViewModel for first appearance");
+                await InitializeAsync();
+                IsInitialized = true;
+                this.LogSuccess("ViewModel initialization completed successfully");
+            }
+            else
+            {
+                this.LogDebug("ViewModel already initialized, skipping initialization");
+            }
+        }, "ViewModel Appearing");
     }
 
     /// <summary>
-    /// Called when the view disappears
+    /// Called when the view disappears. Override in derived classes for cleanup.
     /// </summary>
     public virtual Task OnDisappearingAsync()
     {
+        this.LogDebug("ViewModel disappearing");
         return Task.CompletedTask;
     }
 
     /// <summary>
-    /// Initialize the ViewModel
+    /// Initialize the ViewModel. Override in derived classes for specific initialization logic.
     /// </summary>
     protected virtual Task InitializeAsync()
     {
+        this.LogDebug("Base ViewModel initialization (override in derived classes)");
         return Task.CompletedTask;
     }
 
+    #endregion
+
+    #region User Interface Methods
+
     /// <summary>
-    /// ✅ CORRIGIDO: Shows an error message to the user
+    /// Shows an error message to the user using platform-specific alert dialogs.
     /// </summary>
+    /// <param name="title">The title of the error dialog</param>
+    /// <param name="message">The error message to display</param>
     protected virtual async Task ShowErrorAsync(string title, string message = "")
     {
-        try
+        await this.SafeExecuteAsync(async () =>
         {
-            // ✅ CORRIGIDO: Usar Windows[0].Page ao invés de MainPage obsoleto
             var mainPage = GetCurrentPage();
             if (mainPage != null)
             {
                 await mainPage.DisplayAlert(title, message, "OK");
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error showing alert: {ex.Message}");
-        }
+        }, "Show Error Dialog");
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Shows a success message to the user
+    /// Shows a success message to the user using platform-specific alert dialogs.
     /// </summary>
+    /// <param name="message">The success message to display</param>
     protected virtual async Task ShowSuccessAsync(string message)
     {
-        try
+        await this.SafeExecuteAsync(async () =>
         {
-            // ✅ CORRIGIDO: Usar Windows[0].Page ao invés de MainPage obsoleto
             var mainPage = GetCurrentPage();
             if (mainPage != null)
             {
                 await mainPage.DisplayAlert("Success", message, "OK");
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error showing success alert: {ex.Message}");
-        }
+        }, "Show Success Dialog");
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Shows a confirmation dialog
+    /// Shows a confirmation dialog to the user with Yes/No options.
     /// </summary>
+    /// <param name="title">The title of the confirmation dialog</param>
+    /// <param name="message">The confirmation message</param>
+    /// <returns>True if user confirmed, false otherwise</returns>
     public virtual async Task<bool> ShowConfirmAsync(string title, string message)
     {
-        try
+        return await this.SafeExecuteAsync(async () =>
         {
-            // ✅ CORRIGIDO: Usar Windows[0].Page ao invés de MainPage obsoleto
             var mainPage = GetCurrentPage();
             if (mainPage != null)
             {
                 return await mainPage.DisplayAlert(title, message, "Yes", "No");
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error showing confirmation: {ex.Message}");
-        }
-        return false;
+            return false;
+        }, fallbackValue: false, "Show Confirmation Dialog");
     }
 
+    #endregion
+
+    #region Helper Methods
+
     /// <summary>
-    /// ✅ NOVO: Helper method para obter a página atual sem usar MainPage obsoleto
+    /// Gets the current active page from the application window hierarchy.
     /// </summary>
+    /// <returns>The current page or null if not available</returns>
     private static Page? GetCurrentPage()
     {
-        try
+        return new object().SafeExecute(() =>
         {
-            // ✅ CORRIGIDO: Usar Windows[0].Page ao invés de MainPage obsoleto
             return Application.Current?.Windows?.FirstOrDefault()?.Page;
-        }
-        catch
-        {
-            return null;
-        }
+        }, fallbackValue: null, "Get Current Page");
     }
 
     /// <summary>
-    /// ✅ NOVO: Helper method para executar ações na UI thread
+    /// Executes an action on the main UI thread safely.
     /// </summary>
+    /// <param name="action">The action to execute on the main thread</param>
     protected void DispatchOnMainThread(Action action)
     {
-        try
+        this.SafeExecute(() =>
         {
-            // ✅ CORRIGIDO: Usar Dispatcher.Dispatch ao invés de Device.BeginInvokeOnMainThread obsoleto
             if (Application.Current != null)
             {
                 Application.Current.Dispatcher.Dispatch(action);
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error dispatching to main thread: {ex.Message}");
-        }
+        }, "Dispatch On Main Thread");
     }
 
     /// <summary>
-    /// ✅ NOVO: Helper method async para executar ações na UI thread
+    /// Executes an async action on the main UI thread safely.
     /// </summary>
+    /// <param name="action">The async action to execute on the main thread</param>
     protected async Task DispatchOnMainThreadAsync(Func<Task> action)
     {
-        try
+        await this.SafeExecuteAsync(async () =>
         {
-            // ✅ CORRIGIDO: Usar Dispatcher.DispatchAsync ao invés de Device.BeginInvokeOnMainThread obsoleto
             if (Application.Current != null)
             {
                 await Application.Current.Dispatcher.DispatchAsync(action);
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Error dispatching async to main thread: {ex.Message}");
-        }
+        }, "Dispatch Async On Main Thread");
     }
+
+    #endregion
 }

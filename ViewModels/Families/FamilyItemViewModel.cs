@@ -1,159 +1,231 @@
 ﻿using OrchidPro.Models;
 using OrchidPro.ViewModels.Base;
-using System.Diagnostics;
+using OrchidPro.Extensions;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamilyItemViewModel compatível com BaseItemViewModel existente
+/// Item ViewModel for botanical family entities with family-specific properties and behaviors.
+/// Extends base functionality with favorites, orchid family detection, and enhanced UI binding.
 /// </summary>
 public partial class FamilyItemViewModel : BaseItemViewModel<Family>
 {
+    #region Base Class Implementation
+
     public override string EntityName => "Family";
 
+    #endregion
+
+    #region Family-Specific Properties
+
     /// <summary>
-    /// ✅ Propriedade IsFavorite específica de Family
+    /// Favorite status specific to Family entities
     /// </summary>
     public bool IsFavorite { get; }
 
+    #endregion
+
+    #region Constructor
+
+    /// <summary>
+    /// Initialize family item ViewModel with family-specific data
+    /// </summary>
     public FamilyItemViewModel(Family family) : base(family)
     {
         IsFavorite = family.IsFavorite;
-        Debug.WriteLine($"✅ [FAMILY_ITEM_VM] Created: {family.Name} (Favorite: {IsFavorite}, ID: {family.Id})");
+        this.LogInfo($"Created: {family.Name} (Favorite: {IsFavorite}, ID: {family.Id})");
     }
 
+    #endregion
+
+    #region Enhanced UI Properties
+
     /// <summary>
-    /// ✅ Preview personalizado para famílias botânicas
+    /// Customized description preview for botanical families
     /// </summary>
     public override string DescriptionPreview
     {
         get
         {
-            if (string.IsNullOrWhiteSpace(Description))
-                return "No botanical description available";
+            return this.SafeExecute(() =>
+            {
+                if (string.IsNullOrWhiteSpace(Description))
+                    return "No botanical description available";
 
-            return Description.Length > 120
-                ? $"{Description.Substring(0, 117)}..."
-                : Description;
+                return Description.Length > 120
+                    ? $"{Description.Substring(0, 117)}..."
+                    : Description;
+            }, fallbackValue: "Description unavailable", operationName: "DescriptionPreview");
         }
     }
 
     /// <summary>
-    /// ✅ Indicador específico para famílias com favorito
+    /// Recent indicator with family-specific icons including favorites
     /// </summary>
-    public override string RecentIndicator => IsRecent ? "🌿" : (IsFavorite ? "⭐" : "");
+    public override string RecentIndicator =>
+        this.SafeExecute(() => IsRecent ? "🌿" : (IsFavorite ? "⭐" : ""),
+                        fallbackValue: "",
+                        operationName: "RecentIndicator");
 
     /// <summary>
-    /// ✅ Propriedades específicas de Family
-    /// </summary>
-    public bool IsOrchidaceae => Name.Contains("Orchidaceae", StringComparison.OrdinalIgnoreCase);
-    public string FamilyTypeIndicator => IsOrchidaceae ? "🌺" : "🌿";
-
-    /// <summary>
-    /// ✅ Status display estendido para famílias com favorito
+    /// Extended status display including family-specific indicators
     /// </summary>
     public override string FullStatusDisplay
     {
         get
         {
-            var status = StatusDisplay;
-            if (IsSystemDefault) status += " • System";
-            if (IsRecent) status += " • New";
-            if (IsOrchidaceae) status += " • Orchid";
-            if (IsFavorite) status += " • Favorite";
-            return status;
+            return this.SafeExecute(() =>
+            {
+                var status = StatusDisplay;
+                if (IsSystemDefault) status += " • System";
+                if (IsRecent) status += " • New";
+                if (IsOrchidaceae) status += " • Orchid";
+                if (IsFavorite) status += " • Favorite";
+                return status;
+            }, fallbackValue: StatusDisplay, operationName: "FullStatusDisplay");
         }
     }
 
     /// <summary>
-    /// ✅ Cor do badge considerando favorito
+    /// Status badge color with special handling for favorites
     /// </summary>
     public override Color StatusBadgeColor
     {
         get
         {
-            if (IsFavorite)
-                return Color.FromArgb("#FF9800"); // Cor especial para favoritos
+            return this.SafeExecute(() =>
+            {
+                if (IsFavorite)
+                    return Color.FromArgb("#FF9800"); // Special color for favorites
 
-            return base.StatusBadgeColor;
+                return base.StatusBadgeColor;
+            }, fallbackValue: base.StatusBadgeColor, operationName: "StatusBadgeColor");
         }
     }
 
     /// <summary>
-    /// ✅ Display name com indicadores visuais
+    /// Enhanced display name with visual indicators
     /// </summary>
-    public new string DisplayName => $"{Name}{(IsSystemDefault ? " (System)" : "")}{(IsFavorite ? " ⭐" : "")}";
+    public new string DisplayName =>
+        this.SafeExecute(() => $"{Name}{(IsSystemDefault ? " (System)" : "")}{(IsFavorite ? " ⭐" : "")}",
+                        fallbackValue: Name,
+                        operationName: "DisplayName");
+
+    #endregion
+
+    #region Family-Specific Properties
 
     /// <summary>
-    /// ✅ Propriedades para UI binding otimizado
+    /// Detect if this is an orchid family based on name
+    /// </summary>
+    public bool IsOrchidaceae =>
+        this.SafeExecute(() => Name.Contains("Orchidaceae", StringComparison.OrdinalIgnoreCase),
+                        fallbackValue: false,
+                        operationName: "IsOrchidaceae");
+
+    /// <summary>
+    /// Family type indicator icon
+    /// </summary>
+    public string FamilyTypeIndicator => IsOrchidaceae ? "🌺" : "🌿";
+
+    /// <summary>
+    /// Selection state visual indicators for UI binding
     /// </summary>
     public string SelectionIcon => IsSelected ? "☑️" : "☐";
     public Color SelectionColor => IsSelected ? Color.FromArgb("#2196F3") : Color.FromArgb("#E0E0E0");
 
     /// <summary>
-    /// ✅ Indicador de status visual combinado
+    /// Combined status icon with priority-based selection
     /// </summary>
     public string StatusIcon
     {
         get
         {
-            if (!IsActive) return "⏸️";
-            if (IsFavorite) return "⭐";
-            if (IsOrchidaceae) return "🌺";
-            if (IsSystemDefault) return "🔒";
-            return "🌿";
+            return this.SafeExecute(() =>
+            {
+                if (!IsActive) return "⏸️";
+                if (IsFavorite) return "⭐";
+                if (IsOrchidaceae) return "🌺";
+                if (IsSystemDefault) return "🔒";
+                return "🌿";
+            }, fallbackValue: "🌿", operationName: "StatusIcon");
         }
     }
 
     /// <summary>
-    /// ✅ Tooltip text para informações adicionais
+    /// Comprehensive tooltip information for enhanced UX
     /// </summary>
     public string TooltipText
     {
         get
         {
-            var parts = new List<string>();
+            return this.SafeExecute(() =>
+            {
+                var parts = new List<string>();
 
-            if (IsFavorite) parts.Add("Favorite family");
-            if (IsOrchidaceae) parts.Add("Orchid family");
-            if (IsSystemDefault) parts.Add("System default");
-            if (!IsActive) parts.Add("Inactive");
+                if (IsFavorite) parts.Add("Favorite family");
+                if (IsOrchidaceae) parts.Add("Orchid family");
+                if (IsSystemDefault) parts.Add("System default");
+                if (!IsActive) parts.Add("Inactive");
 
-            parts.Add($"Created {CreatedAt:dd/MM/yyyy}");
+                parts.Add($"Created {CreatedAt:dd/MM/yyyy}");
 
-            return string.Join(" • ", parts);
+                return string.Join(" • ", parts);
+            }, fallbackValue: $"Family: {Name}", operationName: "TooltipText");
         }
     }
 
+    #endregion
+
+    #region Data Access and Utility Methods
+
     /// <summary>
-    /// ✅ Método para obter o modelo atualizado
+    /// Get the underlying Family model with proper typing
     /// </summary>
     public new Family ToModel()
     {
-        return base.ToModel();
+        return this.SafeExecute(() =>
+        {
+            var model = base.ToModel();
+            this.LogInfo($"Retrieved Family model for: {Name}");
+            return model;
+        }, fallbackValue: base.ToModel(), operationName: "ToModel");
     }
 
     /// <summary>
-    /// ✅ Método para comparação (útil para sorting)
+    /// Compare families for sorting with favorites-first logic
     /// </summary>
     public int CompareTo(FamilyItemViewModel? other)
     {
-        if (other == null) return 1;
+        return this.SafeExecute(() =>
+        {
+            if (other == null) return 1;
 
-        // Favoritos primeiro
-        if (IsFavorite && !other.IsFavorite) return -1;
-        if (!IsFavorite && other.IsFavorite) return 1;
+            this.LogInfo($"Comparing {Name} with {other.Name}");
 
-        // Depois por nome
-        return string.Compare(Name, other.Name, StringComparison.OrdinalIgnoreCase);
+            // Favorites first
+            if (IsFavorite && !other.IsFavorite) return -1;
+            if (!IsFavorite && other.IsFavorite) return 1;
+
+            // Then by name
+            var result = string.Compare(Name, other.Name, StringComparison.OrdinalIgnoreCase);
+            this.LogInfo($"Comparison result: {result}");
+            return result;
+
+        }, fallbackValue: 0, operationName: "CompareTo");
     }
 
     /// <summary>
-    /// ✅ Override ToString para debug
+    /// Enhanced string representation for debugging
     /// </summary>
     public override string ToString()
     {
-        return $"FamilyItemVM: {Name} (ID: {Id}, Selected: {IsSelected}, Favorite: {IsFavorite})";
+        return this.SafeExecute(() =>
+            $"FamilyItemVM: {Name} (ID: {Id}, Selected: {IsSelected}, Favorite: {IsFavorite})",
+            fallbackValue: $"FamilyItemVM: [Error getting details]",
+            operationName: "ToString");
     }
+
+    #endregion
 }

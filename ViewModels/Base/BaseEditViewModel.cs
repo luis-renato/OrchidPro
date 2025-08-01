@@ -5,30 +5,31 @@ using OrchidPro.Services.Navigation;
 using OrchidPro.Services;
 using OrchidPro.Constants;
 using OrchidPro.Extensions;
-using System.Diagnostics;
 using CommunityToolkit.Maui.Alerts;
 using CommunityToolkit.Maui.Core;
 
 namespace OrchidPro.ViewModels.Base;
 
 /// <summary>
-/// ✅ ENHANCED: BaseEditViewModel com todas as funcionalidades extraídas do Family
+/// Base ViewModel for entity editing providing comprehensive CRUD operations, validation, and form management.
+/// Implements generic patterns for create/edit workflows across different entity types.
 /// </summary>
 public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttributable
     where T : class, IBaseEntity, new()
 {
+    #region Protected Fields
+
     protected readonly IBaseRepository<T> _repository;
     protected readonly INavigationService _navigationService;
 
     private T? _originalEntity;
-    protected bool _isEditMode; // ✅ CORRIGIDO: protected para classes filhas acessarem
+    protected bool _isEditMode;
     private Timer? _validationTimer;
-    private readonly int _validationDelay = ValidationConstants.NAME_VALIDATION_DEBOUNCE_DELAY; // ✅ USANDO CONSTANTE: era 800
-    /// <summary>
-    /// ✅ NOVO: Lista genérica para validação de nomes únicos
-    /// </summary>
+    private readonly int _validationDelay = ValidationConstants.NAME_VALIDATION_DEBOUNCE_DELAY;
     private List<T> _allEntities = new();
     private bool _isInitializing = true;
+
+    #endregion
 
     #region Observable Properties
 
@@ -56,7 +57,6 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     [ObservableProperty]
     private bool hasUnsavedChanges;
 
-    // ✅ NOVO: Validation framework genérico
     [ObservableProperty]
     private bool isNameValid = true;
 
@@ -75,11 +75,9 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     [ObservableProperty]
     private bool isValidatingName;
 
-    // ✅ NOVO: Form progress calculation genérico
     [ObservableProperty]
     private double formCompletionProgress;
 
-    // ✅ NOVO: Save/Cancel framework genérico
     [ObservableProperty]
     private bool canSave;
 
@@ -90,17 +88,16 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     private bool isSaving;
 
     [ObservableProperty]
-    private string saveButtonText = TextConstants.SAVE_CHANGES; // ✅ USANDO CONSTANTE: era "Save"
+    private string saveButtonText = TextConstants.SAVE_CHANGES;
 
     [ObservableProperty]
     private Color saveButtonColor = Colors.Green;
 
-    // ✅ NOVO: Connection testing framework
     [ObservableProperty]
-    private string connectionStatus = TextConstants.STATUS_CONNECTED; // ✅ USANDO CONSTANTE: era "Connected"
+    private string connectionStatus = TextConstants.STATUS_CONNECTED;
 
     [ObservableProperty]
-    private Color connectionStatusColor = ColorConstants.CONNECTED_COLOR; // ✅ USANDO CONSTANTE: era Colors.Green
+    private Color connectionStatusColor = ColorConstants.CONNECTED_COLOR;
 
     [ObservableProperty]
     private bool isConnected = true;
@@ -108,9 +105,8 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     [ObservableProperty]
     private string connectionTestResult = "";
 
-    // ✅ NOVO: Loading framework
     [ObservableProperty]
-    private string loadingMessage = TextConstants.LOADING_DEFAULT; // ✅ USANDO CONSTANTE: era "Loading..."
+    private string loadingMessage = TextConstants.LOADING_DEFAULT;
 
     [ObservableProperty]
     private bool isNameFocused;
@@ -118,7 +114,6 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     [ObservableProperty]
     private bool isDescriptionFocused;
 
-    // ✅ NOVO: IsFavorite genérico para todas entidades
     [ObservableProperty]
     private bool isFavorite;
 
@@ -127,89 +122,94 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     #region Abstract Properties
 
     /// <summary>
-    /// Nome da entidade (ex: "Family", "Species")
+    /// Entity name for display purposes (e.g., "Family", "Species")
     /// </summary>
     public abstract string EntityName { get; }
 
     /// <summary>
-    /// Nome da entidade no plural (ex: "Families", "Species")
+    /// Plural entity name for display purposes (e.g., "Families", "Species")
     /// </summary>
     public abstract string EntityNamePlural { get; }
 
     #endregion
 
-    #region ✅ NOVO: Generic Commands Framework
+    #region Generic Commands Framework
 
     /// <summary>
-    /// ✅ NOVO: Comando genérico de salvar - pode ser overridden
+    /// Generic save command with comprehensive validation and error handling
     /// </summary>
     [RelayCommand]
     public virtual async Task SaveAsync()
     {
         if (!CanSave || IsSaving) return;
 
-        try
+        using (this.LogPerformance($"Save {EntityName}"))
         {
-            IsSaving = true;
-            LoadingMessage = IsEditMode ? $"Updating {EntityName.ToLower()}..." : $"Creating {EntityName.ToLower()}...";
-            IsBusy = true;
-
-            // Validar antes de salvar
-            if (!await ValidateEntityAsync())
+            var result = await this.SafeDataExecuteAsync(async () =>
             {
-                await ShowValidationErrorsAsync();
-                return;
-            }
+                IsSaving = true;
+                LoadingMessage = IsEditMode ? $"Updating {EntityName.ToLower()}..." : $"Creating {EntityName.ToLower()}...";
+                IsBusy = true;
 
-            // Criar/atualizar entidade
-            T entity = await PrepareEntityForSaveAsync();
-            T savedEntity;
+                // Validate before saving
+                if (!await ValidateEntityAsync())
+                {
+                    await ShowValidationErrorsAsync();
+                    return null;
+                }
 
-            if (IsEditMode && EntityId.HasValue)
+                // Create/update entity
+                T entity = await PrepareEntityForSaveAsync();
+                T savedEntity;
+
+                if (IsEditMode && EntityId.HasValue)
+                {
+                    savedEntity = await _repository.UpdateAsync(entity);
+                    this.LogDataOperation("Updated", EntityName, savedEntity.Name);
+                }
+                else
+                {
+                    savedEntity = await _repository.CreateAsync(entity);
+                    this.LogDataOperation("Created", EntityName, savedEntity.Name);
+                }
+
+                // Update local data
+                await UpdateLocalDataFromSavedEntity(savedEntity);
+
+                // Mark as saved
+                HasUnsavedChanges = false;
+                _originalEntity = (T)savedEntity.Clone();
+
+                // Notify success
+                await OnSaveSuccessAsync(savedEntity);
+
+                return savedEntity;
+            }, EntityName);
+
+            if (result.Success && result.Data != null)
             {
-                savedEntity = await _repository.UpdateAsync(entity);
-                await ShowSuccessAsync("Success", $"{EntityName} updated successfully");
+                await ShowSuccessAsync("Success", $"{EntityName} {(IsEditMode ? "updated" : "created")} successfully");
+                await NavigateBackAsync();
             }
             else
             {
-                savedEntity = await _repository.CreateAsync(entity);
-                await ShowSuccessAsync("Success", $"{EntityName} created successfully");
+                await ShowErrorAsync("Save Error", result.Message);
             }
 
-            // Atualizar dados locais
-            await UpdateLocalDataFromSavedEntity(savedEntity);
-
-            // Marcar como salvo
-            HasUnsavedChanges = false;
-            _originalEntity = (T)savedEntity.Clone();
-
-            // Notificar sucesso
-            await OnSaveSuccessAsync(savedEntity);
-
-            // Navegar de volta
-            await NavigateBackAsync();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Save error: {ex.Message}");
-            await ShowErrorAsync("Save Error", ex.Message);
-        }
-        finally
-        {
             IsSaving = false;
             IsBusy = false;
         }
     }
 
     /// <summary>
-    /// ✅ NOVO: Comando genérico de cancelar - pode ser overridden
+    /// Generic cancel command with unsaved changes confirmation
     /// </summary>
     [RelayCommand]
     public virtual async Task CancelAsync()
     {
-        try
+        await this.SafeExecuteAsync(async () =>
         {
-            Debug.WriteLine($"🔄 [BASE_EDIT_VM] Cancel command - HasUnsavedChanges: {HasUnsavedChanges}");
+            this.LogInfo($"Cancel command - HasUnsavedChanges: {HasUnsavedChanges}");
 
             if (HasUnsavedChanges)
             {
@@ -222,287 +222,288 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
                 if (!shouldDiscard)
                 {
-                    Debug.WriteLine("✅ [BASE_EDIT_VM] User chose to keep editing");
+                    this.LogInfo("User chose to keep editing");
                     return;
                 }
 
-                Debug.WriteLine("✅ [BASE_EDIT_VM] User chose to discard changes");
+                this.LogInfo("User chose to discard changes");
             }
 
-            // Limpar mudanças não salvas
             HasUnsavedChanges = false;
-
-            // Navegar de volta
             await NavigateBackAsync();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Cancel error: {ex.Message}");
-            await ShowErrorAsync("Error", "An error occurred while canceling");
-        }
+        }, "Cancel Operation");
     }
 
     /// <summary>
-    /// ✅ NOVO: Comando de teste de conexão genérico
+    /// Generic connection test command with status updates
     /// </summary>
     [RelayCommand]
     public virtual async Task TestConnectionAsync()
     {
-        try
+        using (this.LogPerformance("Connection Test"))
         {
             ConnectionTestResult = "Testing...";
             IsConnected = false;
-            ConnectionStatus = TextConstants.STATUS_CONNECTING; // ✅ USANDO CONSTANTE: era "Testing..."
-            ConnectionStatusColor = ColorConstants.CONNECTING_COLOR; // ✅ USANDO CONSTANTE: era Colors.Orange
+            ConnectionStatus = TextConstants.STATUS_CONNECTING;
+            ConnectionStatusColor = ColorConstants.CONNECTING_COLOR;
 
-            // Simular teste de conexão
-            await Task.Delay(PerformanceConstants.MIN_LOADING_DISPLAY_TIME); // ✅ USANDO CONSTANTE: era 1000
+            // Simulate connection delay for better UX
+            await Task.Delay(PerformanceConstants.MIN_LOADING_DISPLAY_TIME);
 
-            // Testar com repository
-            var testResult = await _repository.GetAllAsync();
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                return await _repository.GetAllAsync();
+            }, "Connection Test");
 
-            IsConnected = true;
-            ConnectionStatus = TextConstants.STATUS_CONNECTED; // ✅ USANDO CONSTANTE: era "Connected"
-            ConnectionStatusColor = ColorConstants.CONNECTED_COLOR; // ✅ USANDO CONSTANTE: era Colors.Green
-            ConnectionTestResult = "Connection successful";
-
-            await ShowSuccessAsync("Connection", "Connection test successful");
-        }
-        catch (Exception ex)
-        {
-            IsConnected = false;
-            ConnectionStatus = TextConstants.STATUS_DISCONNECTED; // ✅ USANDO CONSTANTE: era "Disconnected"
-            ConnectionStatusColor = ColorConstants.DISCONNECTED_COLOR; // ✅ USANDO CONSTANTE: era Colors.Red
-            ConnectionTestResult = $"Connection failed: {ex.Message}";
-
-            await ShowErrorAsync("Connection Error", ex.Message);
+            if (result.Success)
+            {
+                IsConnected = true;
+                ConnectionStatus = TextConstants.STATUS_CONNECTED;
+                ConnectionStatusColor = ColorConstants.CONNECTED_COLOR;
+                ConnectionTestResult = "Connection successful";
+                await ShowSuccessAsync("Connection", "Connection test successful");
+            }
+            else
+            {
+                IsConnected = false;
+                ConnectionStatus = TextConstants.STATUS_DISCONNECTED;
+                ConnectionStatusColor = ColorConstants.DISCONNECTED_COLOR;
+                ConnectionTestResult = $"Connection failed: {result.Message}";
+                await ShowErrorAsync("Connection Error", result.Message);
+            }
         }
     }
 
     #endregion
 
-    #region ✅ NOVO: Generic Validation Framework
+    #region Generic Validation Framework
 
     /// <summary>
-    /// ✅ NOVO: Setup do framework de validação
+    /// Setup validation event handlers and timers
     /// </summary>
     protected virtual void SetupValidation()
     {
-        PropertyChanged += OnPropertyChangedForValidation;
-        Debug.WriteLine($"✅ [BASE_EDIT_VM] Validation framework setup for {EntityName}");
+        this.SafeExecute(() =>
+        {
+            PropertyChanged += OnPropertyChangedForValidation;
+            this.LogInfo($"Validation framework setup for {EntityName}");
+        }, "Setup Validation");
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Handler de mudanças para validação + atualização do botão
+    /// Handle property changes for validation and unsaved change tracking
     /// </summary>
     private void OnPropertyChangedForValidation(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        if (_isInitializing) return;
-
-        // Detectar mudanças e marcar como não salvo
-        if (e.PropertyName is nameof(Name) or nameof(Description) or nameof(IsActive) or nameof(IsFavorite))
+        this.SafeExecute(() =>
         {
-            HasUnsavedChanges = true;
-            UpdateFormCompletionProgress();
+            if (_isInitializing) return;
 
-            // Validação com debounce para Name
-            if (e.PropertyName == nameof(Name))
+            // Detect changes and mark as unsaved
+            if (e.PropertyName is nameof(Name) or nameof(Description) or nameof(IsActive) or nameof(IsFavorite))
             {
-                ScheduleNameValidation();
+                HasUnsavedChanges = true;
+                UpdateFormCompletionProgress();
+
+                // Validation with debounce for Name
+                if (e.PropertyName == nameof(Name))
+                {
+                    ScheduleNameValidation();
+                }
+                else
+                {
+                    UpdateSaveButton();
+                }
             }
-            else
-            {
-                // ✅ IMPORTANTE: Para outras propriedades, atualizar botão imediatamente
-                UpdateSaveButton();
-            }
-        }
+        }, "Property Change Validation");
     }
 
     /// <summary>
-    /// ✅ NOVO: Agenda validação do nome com debounce
+    /// Schedule name validation with debounce to avoid excessive API calls
     /// </summary>
     protected virtual void ScheduleNameValidation()
     {
-        _validationTimer?.Dispose();
-        _validationTimer = new Timer(async _ => await ValidateNameWithDebounce(), null, _validationDelay, Timeout.Infinite);
+        this.SafeExecute(() =>
+        {
+            _validationTimer?.Dispose();
+            _validationTimer = new Timer(async _ => await ValidateNameWithDebounce(), null, _validationDelay, Timeout.Infinite);
+        }, "Schedule Name Validation");
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Validação do nome com debounce + atualização do botão
+    /// Validate name with debounce and thread-safe UI updates
     /// </summary>
     private async Task ValidateNameWithDebounce()
     {
-        try
+        await this.SafeExecuteAsync(async () =>
         {
             await MainThread.InvokeOnMainThreadAsync(async () =>
             {
                 IsValidatingName = true;
-                UpdateSaveButton(); // ✅ Atualizar botão durante validação
+                UpdateSaveButton();
 
                 await ValidateNameAsync();
 
                 IsValidatingName = false;
-                UpdateSaveButton(); // ✅ Atualizar botão após validação
+                UpdateSaveButton();
             });
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Name validation error: {ex.Message}");
-            await MainThread.InvokeOnMainThreadAsync(() =>
-            {
-                IsValidatingName = false;
-                IsNameValid = false;
-                NameValidationMessage = ValidationConstants.VALIDATION_ERROR_GENERIC; // ✅ USANDO CONSTANTE: era "Validation error"
-                UpdateSaveButton(); // ✅ Atualizar botão em caso de erro
-            });
-        }
+        }, "Validate Name With Debounce");
     }
 
     /// <summary>
-    /// ✅ GENÉRICO: Validação de nome único contra todas entidades + atualização botão
+    /// Validate name uniqueness against all entities
     /// </summary>
     protected virtual async Task ValidateNameAsync()
     {
-        if (string.IsNullOrWhiteSpace(Name))
+        await this.SafeValidateAsync(async () =>
         {
-            IsNameValid = false;
-            NameValidationMessage = string.Format(ValidationConstants.NAME_REQUIRED_TEMPLATE, EntityName); // ✅ USANDO CONSTANTE
+            if (string.IsNullOrWhiteSpace(Name))
+            {
+                IsNameValid = false;
+                NameValidationMessage = string.Format(ValidationConstants.NAME_REQUIRED_TEMPLATE, EntityName);
+                UpdateSaveButton();
+                return false;
+            }
+
+            if (Name.Length < ValidationConstants.NAME_OPTIMAL_MIN_LENGTH)
+            {
+                IsNameValid = false;
+                NameValidationMessage = string.Format(ValidationConstants.NAME_TOO_SHORT_TEMPLATE, EntityName, ValidationConstants.NAME_OPTIMAL_MIN_LENGTH);
+                UpdateSaveButton();
+                return false;
+            }
+
+            // Check for duplicate names
+            var existingEntity = _allEntities.FirstOrDefault(e =>
+                e.Name.Equals(Name.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                e.Id != EntityId);
+
+            if (existingEntity != null)
+            {
+                IsNameValid = false;
+                NameValidationMessage = string.Format(ValidationConstants.NAME_DUPLICATE_TEMPLATE, EntityName.ToLower());
+                UpdateSaveButton();
+                return false;
+            }
+
+            IsNameValid = true;
+            NameValidationMessage = string.Empty;
             UpdateSaveButton();
-            return;
-        }
-
-        if (Name.Length < ValidationConstants.NAME_OPTIMAL_MIN_LENGTH) // ✅ USANDO CONSTANTE: era 2
-        {
-            IsNameValid = false;
-            NameValidationMessage = string.Format(ValidationConstants.NAME_TOO_SHORT_TEMPLATE, EntityName, ValidationConstants.NAME_OPTIMAL_MIN_LENGTH); // ✅ USANDO CONSTANTE
-            UpdateSaveButton();
-            return;
-        }
-
-        // ✅ GENÉRICO: Verificar duplicação de nome
-        var existingEntity = _allEntities.FirstOrDefault(e =>
-            e.Name.Equals(Name.Trim(), StringComparison.OrdinalIgnoreCase) &&
-            e.Id != EntityId);
-
-        if (existingEntity != null)
-        {
-            IsNameValid = false;
-            NameValidationMessage = string.Format(ValidationConstants.NAME_DUPLICATE_TEMPLATE, EntityName.ToLower()); // ✅ USANDO CONSTANTE
-            UpdateSaveButton();
-            return;
-        }
-
-        IsNameValid = true;
-        NameValidationMessage = string.Empty;
-        UpdateSaveButton(); // ✅ IMPORTANTE: Sempre atualizar botão após validação
-        Debug.WriteLine($"✅ [BASE_EDIT_VM] Name validation passed: {Name}");
+            this.LogSuccess($"Name validation passed: {Name}");
+            return true;
+        }, "Name Validation");
     }
 
     /// <summary>
-    /// ✅ VIRTUAL: Validação completa da entidade
+    /// Comprehensive entity validation before save operations
     /// </summary>
     protected virtual async Task<bool> ValidateEntityAsync()
     {
-        await ValidateNameAsync();
-
-        // Validação genérica básica
-        bool isValid = IsNameValid && !string.IsNullOrWhiteSpace(Name);
-
-        return isValid;
+        return await this.SafeValidateAsync(async () =>
+        {
+            await ValidateNameAsync();
+            return IsNameValid && !string.IsNullOrWhiteSpace(Name);
+        }, "Entity Validation");
     }
 
     /// <summary>
-    /// ✅ NOVO: Mostra erros de validação
+    /// Display validation errors to user
     /// </summary>
     protected virtual async Task ShowValidationErrorsAsync()
     {
-        if (!IsNameValid)
+        await this.SafeExecuteAsync(async () =>
         {
-            await ShowErrorAsync("Validation Error", NameValidationMessage);
-        }
+            if (!IsNameValid)
+            {
+                await ShowErrorAsync("Validation Error", NameValidationMessage);
+            }
+        }, "Show Validation Errors");
     }
 
     #endregion
 
-    #region ✅ NOVO: Form Progress Framework
+    #region Form Progress Framework
 
     /// <summary>
-    /// ✅ NOVO: Atualiza progresso do formulário
+    /// Update form completion progress for UI feedback
     /// </summary>
     protected virtual void UpdateFormCompletionProgress()
     {
-        int totalFields = GetTotalFormFields();
-        int completedFields = GetCompletedFormFields();
+        this.SafeExecute(() =>
+        {
+            int totalFields = GetTotalFormFields();
+            int completedFields = GetCompletedFormFields();
 
-        FormCompletionProgress = totalFields > 0 ? (double)completedFields / totalFields : 0;
+            FormCompletionProgress = totalFields > 0 ? (double)completedFields / totalFields : 0;
 
-        Debug.WriteLine($"📊 [BASE_EDIT_VM] Form progress: {completedFields}/{totalFields} = {FormCompletionProgress:P0}");
+            this.LogDebug($"Form progress: {completedFields}/{totalFields} = {FormCompletionProgress:P0}");
+        }, "Update Form Progress");
     }
 
     /// <summary>
-    /// ✅ GENÉRICO: Total de campos do formulário padrão
+    /// Get total number of form fields for progress calculation
     /// </summary>
     protected virtual int GetTotalFormFields()
     {
-        return 3; // Name + Description + IsFavorite por padrão
+        return 3; // Name + Description + IsFavorite by default
     }
 
     /// <summary>
-    /// ✅ GENÉRICO: Campos completados padrão
+    /// Get number of completed form fields
     /// </summary>
     protected virtual int GetCompletedFormFields()
     {
-        int completed = 0;
+        return this.SafeExecute(() =>
+        {
+            int completed = 0;
 
-        if (!string.IsNullOrWhiteSpace(Name)) completed++;
-        if (!string.IsNullOrWhiteSpace(Description)) completed++;
-        if (IsFavorite) completed++; // IsFavorite conta se estiver marcado
+            if (!string.IsNullOrWhiteSpace(Name)) completed++;
+            if (!string.IsNullOrWhiteSpace(Description)) completed++;
+            if (IsFavorite) completed++;
 
-        return completed;
+            return completed;
+        }, fallbackValue: 0, "Get Completed Fields");
     }
 
     /// <summary>
-    /// ✅ CORRIGIDO: Atualiza estado do botão salvar considerando TODAS as validações
+    /// Update save button state based on validation and form completion
     /// </summary>
     protected virtual void UpdateSaveButton()
     {
-        // ✅ CORRIGIDO: CanSave deve considerar IsNameValid também
-        CanSave = IsNameValid &&
-                 IsDescriptionValid &&
-                 !string.IsNullOrWhiteSpace(Name) &&
-                 !IsSaving &&
-                 !IsBusy &&
-                 !IsValidatingName; // ✅ NOVO: Não permitir save durante validação
+        this.SafeExecute(() =>
+        {
+            CanSave = IsNameValid &&
+                     IsDescriptionValid &&
+                     !string.IsNullOrWhiteSpace(Name) &&
+                     !IsSaving &&
+                     !IsBusy &&
+                     !IsValidatingName;
 
-        SaveButtonColor = CanSave ? Colors.Green : Colors.Gray;
-        SaveButtonText = IsEditMode ? "Update" : "Create";
+            SaveButtonColor = CanSave ? Colors.Green : Colors.Gray;
+            SaveButtonText = IsEditMode ? "Update" : "Create";
 
-        Debug.WriteLine($"🔘 [BASE_EDIT_VM] UpdateSaveButton - CanSave: {CanSave}");
-        Debug.WriteLine($"    - IsNameValid: {IsNameValid}");
-        Debug.WriteLine($"    - IsDescriptionValid: {IsDescriptionValid}");
-        Debug.WriteLine($"    - Name not empty: {!string.IsNullOrWhiteSpace(Name)}");
-        Debug.WriteLine($"    - Not saving: {!IsSaving}");
-        Debug.WriteLine($"    - Not busy: {!IsBusy}");
-        Debug.WriteLine($"    - Not validating: {!IsValidatingName}");
+            this.LogDebug($"UpdateSaveButton - CanSave: {CanSave} (Name: {IsNameValid}, Desc: {IsDescriptionValid}, " +
+                         $"NotEmpty: {!string.IsNullOrWhiteSpace(Name)}, NotSaving: {!IsSaving}, NotBusy: {!IsBusy}, NotValidating: {!IsValidatingName})");
+        }, "Update Save Button");
     }
 
     #endregion
 
-    #region ✅ NOVO: Navigation Framework
+    #region Navigation Framework
 
     /// <summary>
-    /// ✅ NOVO: Navega de volta
+    /// Navigate back to previous page with safe execution
     /// </summary>
     protected virtual async Task NavigateBackAsync()
     {
-        try
+        var success = await this.SafeNavigationExecuteAsync(async () =>
         {
-            Debug.WriteLine($"🔙 [BASE_EDIT_VM] Navigating back from {EntityName}");
             await _navigationService.GoBackAsync();
-        }
-        catch (Exception ex)
+        }, $"Navigate Back from {EntityName}");
+
+        if (!success)
         {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] Navigation error: {ex.Message}");
+            this.LogWarning("Navigation back failed, attempting fallback");
         }
     }
 
@@ -513,10 +514,6 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     public string PageTitle => IsEditMode ? $"Edit {EntityName}" : $"Add {EntityName}";
     public string PageSubtitle => IsEditMode ? $"Modify {EntityName.ToLower()} information" : $"Create a new {EntityName.ToLower()}";
     public bool IsEditMode => _isEditMode;
-
-    /// <summary>
-    /// ✅ NOVO: Propriedade para acessar o NavigationService
-    /// </summary>
     public INavigationService NavigationService => _navigationService;
 
     #endregion
@@ -531,54 +528,58 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
         Title = $"{EntityName} Details";
         SaveButtonColor = Colors.Green;
 
-        // Assume conectado inicialmente
+        // Initialize connection status
         IsConnected = true;
-        ConnectionStatus = TextConstants.STATUS_CONNECTED; // ✅ USANDO CONSTANTE: era "Connected"
-        ConnectionStatusColor = ColorConstants.CONNECTED_COLOR; // ✅ USANDO CONSTANTE: era Colors.Green
+        ConnectionStatus = TextConstants.STATUS_CONNECTED;
+        ConnectionStatusColor = ColorConstants.CONNECTED_COLOR;
 
-        // ✅ GENÉRICO: Carregar todas entidades para validação
+        // Load entities for validation
         _ = LoadAllEntitiesForValidationAsync();
 
         SetupValidation();
 
-        Debug.WriteLine($"✅ [BASE_EDIT_VM] Enhanced initialized for {EntityName}");
+        this.LogInfo($"Enhanced initialized for {EntityName}");
     }
 
     /// <summary>
-    /// ✅ GENÉRICO: Carrega todas as entidades para validação de nome único
+    /// Load all entities for name uniqueness validation
     /// </summary>
     protected virtual async Task LoadAllEntitiesForValidationAsync()
     {
-        try
+        var result = await this.SafeDataExecuteAsync(async () =>
         {
-            var entities = await _repository.GetAllAsync();
-            _allEntities = entities?.ToList() ?? new List<T>();
-            Debug.WriteLine($"📋 [BASE_EDIT_VM] Loaded {_allEntities.Count} {EntityNamePlural.ToLower()} for validation");
+            return await _repository.GetAllAsync();
+        }, "Validation Entities");
+
+        if (result.Success && result.Data != null)
+        {
+            _allEntities = result.Data.ToList();
+            this.LogInfo($"Loaded {_allEntities.Count} {EntityNamePlural.ToLower()} for validation");
         }
-        catch (Exception ex)
+        else
         {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] LoadAllEntitiesForValidation error: {ex.Message}");
             _allEntities = new List<T>();
+            this.LogWarning("Failed to load entities for validation, using empty list");
         }
     }
 
     #endregion
 
-    #region ✅ Navigation and Query Attributes
+    #region Navigation and Query Attributes
 
     /// <summary>
-    /// ✅ Aplica parâmetros de navegação de forma flexível
+    /// Apply navigation parameters for edit mode initialization
     /// </summary>
     public virtual void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        try
+        this.SafeExecute(() =>
         {
-            Debug.WriteLine($"🔍 [BASE_EDIT_VM] ApplyQueryAttributes for {EntityName} with {query.Count} parameters");
+            this.LogInfo($"ApplyQueryAttributes for {EntityName} with {query.Count} parameters");
 
-            // Verificar múltiplas variações de chave
+            // Check multiple key variations
             Guid? entityId = null;
-
             var possibleKeys = new[] { $"{EntityName}Id", "Id", "EntityId", "id" };
+
             foreach (var key in possibleKeys)
             {
                 if (query.TryGetValue(key, out var value))
@@ -586,7 +587,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
                     entityId = ConvertToGuid(value);
                     if (entityId.HasValue)
                     {
-                        Debug.WriteLine($"📝 [BASE_EDIT_VM] Found {key} parameter: {entityId}");
+                        this.LogInfo($"Found {key} parameter: {entityId}");
                         break;
                     }
                 }
@@ -598,9 +599,9 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
                 _isEditMode = true;
                 Title = $"Edit {EntityName}";
                 SaveButtonText = "Update";
-                Debug.WriteLine($"✅ [BASE_EDIT_VM] EDIT MODE for {EntityName} ID: {entityId}");
+                this.LogInfo($"EDIT MODE for {EntityName} ID: {entityId}");
 
-                // Carregar dados da entidade
+                // Load entity data
                 _ = LoadEntityAsync();
             }
             else
@@ -609,171 +610,171 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
                 _isEditMode = false;
                 Title = $"New {EntityName}";
                 SaveButtonText = "Create";
-                Debug.WriteLine($"✅ [BASE_EDIT_VM] CREATE MODE for {EntityName}");
+                this.LogInfo($"CREATE MODE for {EntityName}");
 
-                // Finalizar inicialização para modo criação
+                // Finish initialization for creation mode
                 _isInitializing = false;
                 HasUnsavedChanges = false;
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] ApplyQueryAttributes error: {ex.Message}");
-            // Em caso de erro, assumir modo criação
-            _isEditMode = false;
-            Title = $"New {EntityName}";
-        }
+        }, "Apply Query Attributes");
     }
 
     /// <summary>
-    /// ✅ NOVO: Converte object para Guid de forma segura
+    /// Safely convert object to Guid
     /// </summary>
     private Guid? ConvertToGuid(object obj)
     {
-        if (obj == null) return null;
+        return this.SafeExecute(() =>
+        {
+            if (obj == null) return (Guid?)null;
 
-        if (obj is Guid guid)
-            return guid;
+            if (obj is Guid guid)
+                return guid;
 
-        if (obj is string str && Guid.TryParse(str, out var parsedGuid))
-            return parsedGuid;
+            if (obj is string str && Guid.TryParse(str, out var parsedGuid))
+                return parsedGuid;
 
-        Debug.WriteLine($"⚠️ [BASE_EDIT_VM] Cannot convert {obj} ({obj.GetType().Name}) to Guid");
-        return null;
+            this.LogWarning($"Cannot convert {obj} ({obj.GetType().Name}) to Guid");
+            return (Guid?)null;
+        }, fallbackValue: (Guid?)null, "Convert To Guid");
     }
 
     #endregion
 
-    #region ✅ VIRTUAL: Entity Loading and Preparation
+    #region Entity Loading and Preparation
 
     /// <summary>
-    /// ✅ VIRTUAL: Carrega dados da entidade para edição
+    /// Load entity data for edit mode
     /// </summary>
     protected virtual async Task LoadEntityAsync()
     {
-        try
-        {
-            if (!EntityId.HasValue) return;
+        if (!EntityId.HasValue) return;
 
+        using (this.LogPerformance($"Load {EntityName}"))
+        {
             LoadingMessage = $"Loading {EntityName.ToLower()}...";
             IsBusy = true;
 
-            var entity = await _repository.GetByIdAsync(EntityId.Value);
-            if (entity != null)
+            var result = await this.SafeDataExecuteAsync(async () =>
             {
-                _originalEntity = entity;
-                await PopulateFromEntityAsync(entity);
-                Debug.WriteLine($"✅ [BASE_EDIT_VM] Loaded {EntityName}: {Name}");
+                return await _repository.GetByIdAsync(EntityId.Value);
+            }, EntityName);
+
+            if (result.Success && result.Data != null)
+            {
+                _originalEntity = result.Data;
+                await PopulateFromEntityAsync(result.Data);
+                this.LogSuccess($"Loaded {EntityName}: {Name}");
             }
             else
             {
-                Debug.WriteLine($"❌ [BASE_EDIT_VM] {EntityName} not found: {EntityId}");
+                this.LogError($"{EntityName} not found: {EntityId}");
                 await ShowErrorAsync("Not Found", $"{EntityName} not found");
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [BASE_EDIT_VM] LoadEntity error: {ex.Message}");
-            await ShowErrorAsync("Load Error", ex.Message);
-        }
-        finally
-        {
+
             IsBusy = false;
         }
     }
 
     /// <summary>
-    /// ✅ VIRTUAL: Popula propriedades a partir da entidade
+    /// Populate form fields from loaded entity
     /// </summary>
     protected virtual async Task PopulateFromEntityAsync(T entity)
     {
-        // Desabilitar processamento de mudanças durante carregamento
-        _isInitializing = true;
+        await this.SafeExecuteAsync(async () =>
+        {
+            // Disable change processing during loading
+            _isInitializing = true;
 
-        Name = entity.Name;
-        Description = entity.Description ?? string.Empty;
-        IsActive = entity.IsActive;
-        IsFavorite = entity.IsFavorite;
-        IsSystemDefault = entity.IsSystemDefault;
-        CreatedAt = entity.CreatedAt;
-        UpdatedAt = entity.UpdatedAt;
+            Name = entity.Name;
+            Description = entity.Description ?? string.Empty;
+            IsActive = entity.IsActive;
+            IsFavorite = entity.IsFavorite;
+            IsSystemDefault = entity.IsSystemDefault;
+            CreatedAt = entity.CreatedAt;
+            UpdatedAt = entity.UpdatedAt;
 
-        // Finalizar inicialização
-        _isInitializing = false;
-        HasUnsavedChanges = false;
+            // Finish initialization
+            _isInitializing = false;
+            HasUnsavedChanges = false;
 
-        // Atualizar UI
-        UpdateFormCompletionProgress();
-        UpdateSaveButton();
+            // Update UI
+            UpdateFormCompletionProgress();
+            UpdateSaveButton();
 
-        Debug.WriteLine($"✅ [BASE_EDIT_VM] Populated from {EntityName}: {Name}");
+            this.LogSuccess($"Populated from {EntityName}: {Name}");
+        }, "Populate From Entity");
     }
 
     /// <summary>
-    /// ✅ VIRTUAL: Prepara entidade para salvar
+    /// Prepare entity object for save operation
     /// </summary>
     protected virtual async Task<T> PrepareEntityForSaveAsync()
     {
-        T entity = new T
+        return this.SafeExecute(() =>
         {
-            Id = EntityId ?? Guid.NewGuid(),
-            Name = Name.Trim(),
-            Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
-            IsActive = IsActive,
-            IsFavorite = IsFavorite,
-            UserId = null, // Será definido pelo repository se necessário
-            CreatedAt = IsEditMode ? CreatedAt : DateTime.UtcNow,
-            UpdatedAt = DateTime.UtcNow
-        };
+            T entity = new T
+            {
+                Id = EntityId ?? Guid.NewGuid(),
+                Name = Name.Trim(),
+                Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
+                IsActive = IsActive,
+                IsFavorite = IsFavorite,
+                UserId = null, // Will be set by repository if needed
+                CreatedAt = IsEditMode ? CreatedAt : DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
 
-        Debug.WriteLine($"✅ [BASE_EDIT_VM] Prepared {EntityName} for save: {entity.Name}");
-        return entity;
+            this.LogInfo($"Prepared {EntityName} for save: {entity.Name}");
+            return entity;
+        }, fallbackValue: new T(), "Prepare Entity For Save");
     }
 
     /// <summary>
-    /// ✅ VIRTUAL: Atualiza dados locais após salvar
+    /// Update local data from saved entity
     /// </summary>
     protected virtual async Task UpdateLocalDataFromSavedEntity(T savedEntity)
     {
-        EntityId = savedEntity.Id;
-        UpdatedAt = savedEntity.UpdatedAt;
+        await this.SafeExecuteAsync(async () =>
+        {
+            EntityId = savedEntity.Id;
+            UpdatedAt = savedEntity.UpdatedAt;
 
-        Debug.WriteLine($"✅ [BASE_EDIT_VM] Updated local data from saved {EntityName}");
+            this.LogInfo($"Updated local data from saved {EntityName}");
+        }, "Update Local Data");
     }
 
     /// <summary>
-    /// ✅ VIRTUAL: Callback após salvar com sucesso
+    /// Callback after successful save operation
     /// </summary>
     protected virtual async Task OnSaveSuccessAsync(T savedEntity)
     {
-        // Implementar na classe filha se necessário
-        Debug.WriteLine($"✅ [BASE_EDIT_VM] {EntityName} saved successfully");
+        this.LogSuccess($"{EntityName} saved successfully");
+        await Task.CompletedTask;
     }
 
     #endregion
 
-    #region ✅ NOVO: Toast and Alert Framework
+    #region User Interface Methods
 
     /// <summary>
-    /// ✅ USANDO EXTENSÃO: Mostra toast de sucesso padronizado
+    /// Show success message using standardized toast extensions
     /// </summary>
     protected virtual async Task ShowSuccessAsync(string title, string message)
     {
         await this.ShowSuccessToast(message);
-        Debug.WriteLine($"✅ [BASE_EDIT_VM] Success: {message}");
     }
 
     /// <summary>
-    /// ✅ USANDO EXTENSÃO: Mostra toast de erro padronizado
+    /// Show error message using standardized toast extensions
     /// </summary>
     protected virtual async Task ShowErrorAsync(string title, string message)
     {
         await this.ShowErrorToast(message);
-        Debug.WriteLine($"❌ [BASE_EDIT_VM] Error: {message}");
     }
 
     /// <summary>
-    /// ✅ USANDO EXTENSÃO: Mostra confirmação padronizada
+    /// Show confirmation dialog using standardized extensions
     /// </summary>
     protected virtual async Task<bool> ShowConfirmationAsync(string title, string message, string accept, string cancel)
     {
@@ -782,15 +783,15 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     #endregion
 
-    #region ✅ NOVO: Lifecycle Management
+    #region Lifecycle Management
 
     /// <summary>
-    /// ✅ NOVO: Cleanup de recursos
+    /// Clean up resources and dispose timers
     /// </summary>
     public void Dispose()
     {
-        _validationTimer?.Dispose();
-        Debug.WriteLine($"🗑️ [BASE_EDIT_VM] Disposed resources for {EntityName}");
+        this.SafeDispose(_validationTimer, "Validation Timer");
+        this.LogInfo($"Disposed resources for {EntityName}");
     }
 
     #endregion

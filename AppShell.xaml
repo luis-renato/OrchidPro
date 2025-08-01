@@ -8,7 +8,7 @@
     Title="OrchidPro"
     FlyoutBehavior="Flyout">
 
-    <!-- Cabeçalho do menu -->
+    <!-- Application header with branding -->
     <Shell.FlyoutHeader>
         <Grid BackgroundColor="{StaticResource Primary}" HeightRequest="150">
             <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10">
@@ -20,7 +20,7 @@
                        FontAttributes="Bold"
                        TextColor="{StaticResource OnPrimary}" 
                        HorizontalOptions="Center" />
-                <Label Text="Botanical Management" 
+                <Label Text="Botanical Management System" 
                        FontSize="12" 
                        TextColor="{StaticResource OnPrimary}" 
                        Opacity="0.8"
@@ -29,18 +29,18 @@
         </Grid>
     </Shell.FlyoutHeader>
 
-    <!-- ✅ NOVO: Footer com Sair e Versão -->
+    <!-- Footer with logout and dynamic version information -->
     <Shell.FlyoutFooter>
         <VerticalStackLayout BackgroundColor="{StaticResource Surface}" 
                              Padding="0" 
                              Spacing="0">
 
-            <!-- Separador -->
+            <!-- Separator -->
             <BoxView HeightRequest="1" 
                      BackgroundColor="{StaticResource Gray200}"
                      Opacity="0.3" />
 
-            <!-- Item Sair (estilo menu) -->
+            <!-- Logout menu item -->
             <Grid BackgroundColor="Transparent"
                   Padding="20,16"
                   ColumnDefinitions="Auto,*"
@@ -50,15 +50,15 @@
                     <TapGestureRecognizer Tapped="OnLogoutClicked" />
                 </Grid.GestureRecognizers>
 
-                <!-- Ícone -->
+                <!-- Icon -->
                 <Label Grid.Column="0"
                        Text="🚪"
                        FontSize="18"
                        VerticalOptions="Center" />
 
-                <!-- Texto -->
+                <!-- Text -->
                 <Label Grid.Column="1"
-                       Text="Sair"
+                       Text="Sign Out"
                        FontSize="16"
                        FontFamily="OpenSansRegular"
                        TextColor="{StaticResource ErrorColor}"
@@ -66,24 +66,24 @@
 
             </Grid>
 
-            <!-- Separador inferior -->
+            <!-- Bottom separator -->
             <BoxView HeightRequest="1" 
                      BackgroundColor="{StaticResource Gray200}"
                      Opacity="0.2" />
 
-            <!-- Informações da versão -->
+            <!-- Dynamic version information -->
             <VerticalStackLayout Spacing="4"
                                  HorizontalOptions="Center"
                                  Padding="20,12,20,16">
 
-                <Label Text="OrchidPro v1.0.0"
+                <Label x:Name="VersionLabel"
                        FontSize="11"
                        FontFamily="OpenSansRegular"
                        FontAttributes="Bold"
                        TextColor="{StaticResource Gray600}"
                        HorizontalOptions="Center" />
 
-                <Label Text="Build 2025.01.25"
+                <Label x:Name="BuildLabel"
                        FontSize="10"
                        FontFamily="OpenSansRegular"
                        TextColor="{StaticResource Gray500}"
@@ -109,7 +109,6 @@
     <!-- Botanical Management Section -->
     <FlyoutItem Title="Botanical Data" Icon="plant.png">
         <Tab Title="Families">
-            <!-- ✅ CORRIGIDO: Usar FamiliesListPage como padrão -->
             <ShellContent Title="Families" 
                          Icon="family.png" 
                          Route="families" 
@@ -146,8 +145,8 @@
         <ShellContent Route="settings" />
     </FlyoutItem>
 
-    <!-- ✅ DEBUG: Test Sync Page -->
-    <FlyoutItem Title="🧪 Test Sync" Icon="debug.png" FlyoutDisplayOptions="AsMultipleItems">
+    <!-- Debug section (only visible in debug builds) -->
+    <FlyoutItem x:Name="DebugSection" Title="🧪 Debug Tools" Icon="debug.png" FlyoutDisplayOptions="AsMultipleItems">
         <ShellContent Title="Test Sync" 
                      Route="testsync" 
                      ContentTemplate="{DataTemplate pages:TestSyncPage}" />

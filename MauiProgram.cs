@@ -1,25 +1,31 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
+using OrchidPro.Config;
+using OrchidPro.Extensions;
 using OrchidPro.Services;
 using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Families;
 using OrchidPro.Views.Pages;
 using Syncfusion.Maui.Core.Hosting;
-using System;
 
 namespace OrchidPro;
 
 /// <summary>
-/// CORRIGIDO: Configures the MAUI application with proper DI for TestSyncPage
+/// Configures the MAUI application with enterprise dependency injection and centralized configuration management
 /// </summary>
 public static class MauiProgram
 {
     /// <summary>
-    /// Creates and configures the MAUI application
+    /// Creates and configures the MAUI application with validated settings
     /// </summary>
     public static MauiApp CreateMauiApp()
     {
+        if (!ValidateApplicationConfiguration())
+        {
+            throw new InvalidOperationException("Application configuration validation failed. Check AppSettings.");
+        }
+
         var builder = MauiApp.CreateBuilder();
 
         builder
@@ -30,88 +36,178 @@ public static class MauiProgram
             {
                 fonts.AddFont("OpenSans-Regular.ttf", "OpenSansRegular");
                 fonts.AddFont("OpenSans-Semibold.ttf", "OpenSansSemibold");
-            })
-            .ConfigureEffects(effects =>
-            {
-                // Add platform-specific effects if needed
             });
 
-        // Register services
         ConfigureServices(builder.Services);
+        ConfigureLogging(builder.Logging);
 
-        // Configure logging
-#if DEBUG
-        builder.Logging.AddDebug();
-        builder.Logging.SetMinimumLevel(LogLevel.Debug);
-#else
-        builder.Logging.SetMinimumLevel(LogLevel.Warning);
-#endif
+        var app = builder.Build();
+        LogStartupConfiguration();
 
-        return builder.Build();
+        return app;
     }
 
     /// <summary>
-    /// CORRIGIDO: Configures dependency injection services with proper TestSyncPage registration
+    /// Validates application configuration using centralized AppSettings
+    /// </summary>
+    private static bool ValidateApplicationConfiguration()
+    {
+        try
+        {
+            var isValid = AppSettings.ValidateConfiguration();
+
+            if (isValid)
+            {
+                typeof(MauiProgram).LogSuccess("Application configuration validated successfully");
+            }
+            else
+            {
+                typeof(MauiProgram).LogError("Application configuration validation failed");
+            }
+
+            return isValid;
+        }
+        catch (Exception ex)
+        {
+            typeof(MauiProgram).LogError(ex, "Critical error during configuration validation");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Configures dependency injection services with application architecture patterns
     /// </summary>
     private static void ConfigureServices(IServiceCollection services)
     {
-        // ✅ CORE SERVICES - SINGLETON (shared state across app)
-        // These need to maintain state and be shared across the entire application
-        services.AddSingleton<SupabaseService>();
-        services.AddSingleton<INavigationService, NavigationService>();
+        try
+        {
+            typeof(MauiProgram).LogInfo("Configuring application services");
 
-        // ✅ SIMPLIFIED DATA SERVICES - SINGLETON (direct Supabase + cache)
-        services.AddSingleton<SupabaseFamilyService>();
-        services.AddSingleton<IFamilyRepository, FamilyRepository>();
+            // Core services with singleton lifetime
+            services.AddSingleton<SupabaseService>();
+            services.AddSingleton<INavigationService, NavigationService>();
 
-        // ✅ VIEWMODELS - TRANSIENT (new instance per page navigation)
-        // ViewModels should be transient to get fresh state per navigation
-        services.AddTransient<FamiliesListViewModel>();
-        services.AddTransient<FamilyEditViewModel>();
-        // ✅ NOVA: Versão Syncfusion(SfListView)
-        services.AddTransient<FamiliesListViewModel >();
+            // Data services with caching and performance optimization
+            services.AddSingleton<SupabaseFamilyService>();
+            services.AddSingleton<IFamilyRepository, FamilyRepository>();
 
+            // ViewModels with transient lifetime for fresh state per navigation
+            services.AddTransient<FamiliesListViewModel>();
+            services.AddTransient<FamilyEditViewModel>();
 
-        // ✅ PAGES - TRANSIENT (new instance per navigation)
-        // ✅ CORRIGIDO: Todas as páginas registradas com DI
-        services.AddTransient<SplashPage>();
-        services.AddTransient<LoginPage>();
-        services.AddTransient<MainPage>();
-        services.AddTransient<FamiliesListPage>();
-        services.AddTransient<FamilyEditPage>();
-        services.AddTransient<TestSyncPage>();
-        services.AddTransient<FamiliesListPage>();
+            // Pages with transient lifetime for proper lifecycle management
+            services.AddTransient<SplashPage>();
+            services.AddTransient<LoginPage>();
+            services.AddTransient<MainPage>();
+            services.AddTransient<FamiliesListPage>();
+            services.AddTransient<FamilyEditPage>();
+            services.AddTransient<TestSyncPage>();
 
-        // ✅ SHELL - SINGLETON (app navigation structure)
-        services.AddSingleton<AppShell>();
+            // Application shell with singleton lifetime
+            services.AddSingleton<AppShell>();
 
-        // Register routes for navigation
-        RegisterRoutes();
+            RegisterRoutes();
+
+            typeof(MauiProgram).LogSuccess("Successfully configured services");
+        }
+        catch (Exception ex)
+        {
+            typeof(MauiProgram).LogError(ex, "Failed to configure application services");
+            throw;
+        }
     }
 
     /// <summary>
-    /// Registers navigation routes
+    /// Configures logging based on environment and debug settings
+    /// </summary>
+    private static void ConfigureLogging(ILoggingBuilder logging)
+    {
+        try
+        {
+            if (AppSettings.IsDebugMode)
+            {
+                logging.AddDebug();
+                logging.SetMinimumLevel(LogLevel.Debug);
+                typeof(MauiProgram).LogInfo("Debug logging enabled");
+            }
+            else
+            {
+                logging.SetMinimumLevel(LogLevel.Warning);
+                typeof(MauiProgram).LogInfo("Production logging enabled");
+            }
+
+            if (AppSettings.EnableCrashReporting)
+            {
+                typeof(MauiProgram).LogInfo("Crash reporting will be enabled");
+            }
+
+            if (AppSettings.EnableAnalytics)
+            {
+                typeof(MauiProgram).LogInfo("Analytics logging will be enabled");
+            }
+        }
+        catch (Exception ex)
+        {
+            typeof(MauiProgram).LogError(ex, "Failed to configure logging");
+        }
+    }
+
+    /// <summary>
+    /// Registers navigation routes for application routing system
     /// </summary>
     private static void RegisterRoutes()
     {
-        // ✅ CORREÇÃO: Remover rota duplicada - só manter uma
-        Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
+        try
+        {
+            typeof(MauiProgram).LogInfo("Registering navigation routes");
 
-        // ✅ CORRIGIDO: Testing and debug routes with proper DI
-        Routing.RegisterRoute("testsync", typeof(TestSyncPage));
+            Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
+            Routing.RegisterRoute("families-syncfusion", typeof(FamiliesListPage));
 
-        // ✅ Main families route
-        Routing.RegisterRoute("families-syncfusion", typeof(FamiliesListPage));
+            if (AppSettings.IsDebugMode)
+            {
+                Routing.RegisterRoute("testsync", typeof(TestSyncPage));
+                typeof(MauiProgram).LogInfo("Debug routes registered");
+            }
 
-        // Future routes for other modules
-        Routing.RegisterRoute("genera", typeof(MainPage)); // Placeholder
-        Routing.RegisterRoute("species", typeof(MainPage)); // Placeholder
-        Routing.RegisterRoute("orchids", typeof(MainPage)); // Placeholder
-        Routing.RegisterRoute("schedule", typeof(MainPage)); // Placeholder
-        Routing.RegisterRoute("health", typeof(MainPage)); // Placeholder
-        Routing.RegisterRoute("reports", typeof(MainPage)); // Placeholder
-        Routing.RegisterRoute("statistics", typeof(MainPage)); // Placeholder
-        Routing.RegisterRoute("settings", typeof(MainPage)); // Placeholder
-        Routing.RegisterRoute("sync", typeof(MainPage)); // Placeholder
+            var futureRoutes = new[]
+            {
+                "genera", "species", "orchids", "schedule",
+                "health", "reports", "statistics", "settings", "sync"
+            };
+
+            foreach (var route in futureRoutes)
+            {
+                Routing.RegisterRoute(route, typeof(MainPage));
+            }
+
+            typeof(MauiProgram).LogSuccess("Successfully registered navigation routes");
+        }
+        catch (Exception ex)
+        {
+            typeof(MauiProgram).LogError(ex, "Failed to register navigation routes");
+            throw;
+        }
+    }
+
+    /// <summary>
+    /// Logs startup configuration summary for debugging and monitoring
+    /// </summary>
+    private static void LogStartupConfiguration()
+    {
+        try
+        {
+            if (AppSettings.IsDebugMode)
+            {
+                var summary = AppSettings.GetConfigurationSummary();
+                typeof(MauiProgram).LogInfo($"Startup Configuration:\n{summary}");
+            }
+
+            typeof(MauiProgram).LogSuccess($"OrchidPro {AppSettings.ApplicationVersion} started successfully in {AppSettings.Environment} mode");
+        }
+        catch (Exception ex)
+        {
+            typeof(MauiProgram).LogWarning($"Failed to log startup configuration: {ex.Message}");
+        }
     }
 }

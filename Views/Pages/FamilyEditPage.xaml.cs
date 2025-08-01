@@ -1,12 +1,12 @@
 ﻿using OrchidPro.ViewModels.Families;
 using OrchidPro.Constants;
 using OrchidPro.Extensions;
-using System.Diagnostics;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// ✅ CORRIGIDO: FamilyEditPage com interceptação inteligente de navegação
+/// Page for creating and editing botanical family records with form validation.
+/// Handles navigation interception for unsaved changes and provides smooth animations.
 /// </summary>
 public partial class FamilyEditPage : ContentPage, IQueryAttributable
 {
@@ -14,151 +14,149 @@ public partial class FamilyEditPage : ContentPage, IQueryAttributable
     private bool _isNavigating = false;
     private bool _isNavigationHandlerAttached = false;
 
+    /// <summary>
+    /// Initialize the family edit page with dependency injection and setup
+    /// </summary>
     public FamilyEditPage(FamilyEditViewModel viewModel)
     {
         _viewModel = viewModel;
         BindingContext = _viewModel;
 
-        try
+        var success = this.SafeExecute(() =>
         {
             InitializeComponent();
-            Debug.WriteLine("✅ [FAMILY_EDIT_PAGE] InitializeComponent completed successfully");
-        }
-        catch (Exception ex)
+            this.LogSuccess("InitializeComponent completed successfully");
+        }, "InitializeComponent");
+
+        if (!success)
         {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] InitializeComponent failed: {ex.Message}");
+            this.LogError("InitializeComponent failed");
         }
 
-        Debug.WriteLine("✅ [FAMILY_EDIT_PAGE] Initialized successfully");
+        this.LogInfo("Initialized successfully");
     }
 
     /// <summary>
-    /// ✅ SIMPLIFICADO: Intercepta navegação SEMPRE, decide se mostra dialog baseado no HasUnsavedChanges
+    /// Intercept navigation events to handle unsaved changes confirmation
     /// </summary>
     private async void OnShellNavigating(object? sender, ShellNavigatingEventArgs e)
     {
-        // ✅ Só interceptar navegação de volta da toolbar
+        // Only intercept back navigation from toolbar
         if (_isNavigating || (e.Source != ShellNavigationSource.Pop && e.Source != ShellNavigationSource.PopToRoot))
             return;
 
-        Debug.WriteLine($"⬅️ [FAMILY_EDIT_PAGE] Toolbar navigation detected - HasUnsavedChanges: {_viewModel.HasUnsavedChanges}");
+        this.LogInfo($"Toolbar navigation detected - HasUnsavedChanges: {_viewModel.HasUnsavedChanges}");
 
-        // ✅ SÓ interceptar se há mudanças não salvas
+        // Only intercept if there are unsaved changes
         if (_viewModel.HasUnsavedChanges)
         {
-            // ✅ Cancelar navegação para interceptar
+            // Cancel navigation to intercept
             e.Cancel();
             _isNavigating = true;
 
-            try
+            await this.SafeExecuteAsync(async () =>
             {
-                // ✅ IMPORTANTE: Remover handler ANTES de chamar CancelCommand para evitar interferência
+                // Remove handler BEFORE calling CancelCommand to avoid interference
                 DetachNavigationHandler();
 
-                Debug.WriteLine("🔄 [FAMILY_EDIT_PAGE] Handler removed, delegating to CancelCommand");
+                this.LogInfo("Handler removed, delegating to CancelCommand");
 
                 if (_viewModel.CancelCommand.CanExecute(null))
                 {
                     await _viewModel.CancelCommand.ExecuteAsync(null);
                 }
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Navigation handler error: {ex.Message}");
-            }
-            finally
-            {
-                _isNavigating = false;
-                // ✅ NÃO reativar handler aqui - deixar que seja gerenciado naturalmente
-            }
+            }, "Navigation handler");
+
+            _isNavigating = false;
         }
-        // Se não há mudanças, deixa navegar normalmente (não cancela)
+        // If no changes, allow normal navigation (don't cancel)
     }
 
     /// <summary>
-    /// ✅ SIMPLIFICADO: Remove handler de navegação
+    /// Remove navigation event handler safely
     /// </summary>
     private void DetachNavigationHandler()
     {
-        if (_isNavigationHandlerAttached)
+        this.SafeExecute(() =>
         {
-            Shell.Current.Navigating -= OnShellNavigating;
-            _isNavigationHandlerAttached = false;
-            Debug.WriteLine("🔗 [FAMILY_EDIT_PAGE] Navigation handler detached");
-        }
+            if (_isNavigationHandlerAttached)
+            {
+                Shell.Current.Navigating -= OnShellNavigating;
+                _isNavigationHandlerAttached = false;
+                this.LogInfo("Navigation handler detached");
+            }
+        }, "DetachNavigationHandler");
     }
 
-    #region ✅ Query Attributes
+    #region Query Attributes Management
 
     /// <summary>
-    /// ✅ Implementa IQueryAttributable para receber parâmetros de navegação
+    /// Handle navigation parameters from Shell routing system
     /// </summary>
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        try
+        this.SafeExecute(() =>
         {
-            Debug.WriteLine($"🔍 [FAMILY_EDIT_PAGE] ApplyQueryAttributes called with {query.Count} parameters");
+            this.LogInfo($"ApplyQueryAttributes called with {query.Count} parameters");
 
             foreach (var param in query)
             {
-                Debug.WriteLine($"📝 [FAMILY_EDIT_PAGE] Parameter: {param.Key} = {param.Value} ({param.Value?.GetType().Name})");
+                this.LogInfo($"Parameter: {param.Key} = {param.Value} ({param.Value?.GetType().Name})");
             }
 
-            // Passar parâmetros para o ViewModel
+            // Pass parameters to ViewModel
             _viewModel.ApplyQueryAttributes(query);
 
-            Debug.WriteLine($"✅ [FAMILY_EDIT_PAGE] Parameters applied to ViewModel");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] ApplyQueryAttributes error: {ex.Message}");
-        }
+            this.LogSuccess("Parameters applied to ViewModel");
+        }, "ApplyQueryAttributes");
     }
 
     #endregion
 
-    #region Page Lifecycle
+    #region Page Lifecycle Management
 
+    /// <summary>
+    /// Handle page appearing with navigation setup and animations
+    /// </summary>
     protected override async void OnAppearing()
     {
         base.OnAppearing();
 
-        try
+        await this.SafeExecuteAsync(async () =>
         {
-            Debug.WriteLine($"👀 [FAMILY_EDIT_PAGE] OnAppearing - Mode: {(_viewModel.IsEditMode ? "EDIT" : "CREATE")}");
+            this.LogInfo($"OnAppearing - Mode: {(_viewModel.IsEditMode ? "EDIT" : "CREATE")}");
 
-            // ✅ SEMPRE interceptar navegação da toolbar - mais simples
+            // Always intercept navigation from toolbar - simpler approach
             if (!_isNavigationHandlerAttached)
             {
                 Shell.Current.Navigating += OnShellNavigating;
                 _isNavigationHandlerAttached = true;
-                Debug.WriteLine("🔗 [FAMILY_EDIT_PAGE] Navigation handler attached (always active)");
+                this.LogInfo("Navigation handler attached (always active)");
             }
 
-            // Animação + inicialização em paralelo
+            // Animation and initialization in parallel
             var animationTask = PerformEntranceAnimation();
             var initTask = _viewModel.OnAppearingAsync();
 
-            // Aguarda ambos completarem
+            // Wait for both to complete
             await Task.WhenAll(animationTask, initTask);
 
-            Debug.WriteLine($"✅ [FAMILY_EDIT_PAGE] Page fully loaded and initialized");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] OnAppearing error: {ex.Message}");
-        }
+            this.LogSuccess("Page fully loaded and initialized");
+        }, "OnAppearing");
     }
 
+    /// <summary>
+    /// Handle page disappearing with cleanup and animations
+    /// </summary>
     protected override async void OnDisappearing()
     {
         base.OnDisappearing();
 
-        try
+        await this.SafeExecuteAsync(async () =>
         {
-            Debug.WriteLine("👋 [FAMILY_EDIT_PAGE] OnDisappearing");
+            this.LogInfo("OnDisappearing");
 
-            // ✅ SEMPRE remover handler
+            // Always remove handler
             DetachNavigationHandler();
 
             // Perform exit animation
@@ -166,58 +164,37 @@ public partial class FamilyEditPage : ContentPage, IQueryAttributable
 
             // Cleanup ViewModel
             await _viewModel.OnDisappearingAsync();
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] OnDisappearing error: {ex.Message}");
-        }
+        }, "OnDisappearing");
     }
 
     /// <summary>
-    /// ✅ REMOVIDO: Não precisa mais monitorar PropertyChanged - handler sempre ativo
-    /// </summary>
-    // private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
-    // {
-    //     if (e.PropertyName == nameof(_viewModel.HasUnsavedChanges))
-    //     {
-    //         AttachNavigationHandlerIfNeeded();
-    //     }
-    // }
-
-    /// <summary>
-    /// ✅ CORRIGIDO: Handle apenas back button físico do Android - delega para CancelCommand
+    /// Handle Android physical back button with unsaved changes check
     /// </summary>
     protected override bool OnBackButtonPressed()
     {
-        // ✅ Verificar se já está navegando para evitar múltiplos dialogs
+        // Check if already navigating to avoid multiple dialogs
         if (_isNavigating)
             return true;
 
-        // ✅ Para botão físico, redirecionar para o comando Cancel da classe base
+        // For physical button, redirect to Cancel command from base class
         _ = Task.Run(async () =>
         {
-            try
+            await this.SafeExecuteAsync(async () =>
             {
-                Debug.WriteLine($"⬅️ [FAMILY_EDIT_PAGE] Physical back button pressed - calling CancelCommand");
+                this.LogInfo("Physical back button pressed - calling CancelCommand");
                 _isNavigating = true;
 
                 await MainThread.InvokeOnMainThreadAsync(async () =>
                 {
-                    // ✅ Usar o comando Cancel da classe base que já tem toda a lógica
+                    // Use Cancel command from base class which has all the logic
                     if (_viewModel.CancelCommand.CanExecute(null))
                     {
                         await _viewModel.CancelCommand.ExecuteAsync(null);
                     }
                 });
-            }
-            catch (Exception ex)
-            {
-                Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Back button handler error: {ex.Message}");
-            }
-            finally
-            {
-                _isNavigating = false;
-            }
+            }, "Back button handler");
+
+            _isNavigating = false;
         });
 
         // Prevent default back button behavior
@@ -226,44 +203,34 @@ public partial class FamilyEditPage : ContentPage, IQueryAttributable
 
     #endregion
 
-    #region ✅ Animations
+    #region Animation Management
 
     /// <summary>
-    /// ✅ USANDO EXTENSÃO: Animação de entrada com extension method
+    /// Perform smooth entrance animation for better user experience
     /// </summary>
     private async Task PerformEntranceAnimation()
     {
-        try
+        await this.SafeAnimationExecuteAsync(async () =>
         {
-            // ✅ USANDO EXTENSÃO: Uma linha substitui todo o setup + animação
+            // Use extension method for standardized page entrance
             await Content.PerformStandardEntranceAsync();
 
-            Debug.WriteLine("✨ [FAMILY_EDIT_PAGE] Entrance animation completed");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Entrance animation error: {ex.Message}");
-            // ✅ Fallback para garantir visibilidade
-            Content.Opacity = AnimationConstants.FULL_OPACITY;
-        }
+            this.LogSuccess("Entrance animation completed");
+        }, "Page entrance animation");
     }
 
     /// <summary>
-    /// ✅ USANDO EXTENSÃO: Animação de saída com extension method
+    /// Perform smooth exit animation for better user experience
     /// </summary>
     private async Task PerformExitAnimation()
     {
-        try
+        await this.SafeAnimationExecuteAsync(async () =>
         {
-            // ✅ USANDO EXTENSÃO: Uma linha substitui toda a animação
+            // Use extension method for standardized page exit
             await Content.PerformStandardExitAsync();
 
-            Debug.WriteLine("✨ [FAMILY_EDIT_PAGE] Exit animation completed");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILY_EDIT_PAGE] Exit animation error: {ex.Message}");
-        }
+            this.LogSuccess("Exit animation completed");
+        }, "Page exit animation");
     }
 
     #endregion

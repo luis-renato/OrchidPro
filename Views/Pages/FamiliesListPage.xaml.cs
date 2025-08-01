@@ -1,27 +1,27 @@
 ﻿using OrchidPro.ViewModels.Families;
 using OrchidPro.Constants;
 using OrchidPro.Extensions;
-using System.Diagnostics;
-using Microsoft.Maui.Controls;
-using CommunityToolkit.Maui.Alerts;
-using CommunityToolkit.Maui.Core;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// ✅ FIXED: FamiliesListPage with UNIFIED DELETE FLOW - No duplicate confirmations/messages
+/// Page for displaying and managing list of botanical families with advanced UI features.
+/// Provides CRUD operations, multi-selection, filtering, sorting, and swipe actions.
 /// </summary>
 public partial class FamiliesListPage : ContentPage
 {
     private readonly FamiliesListViewModel _viewModel;
 
+    /// <summary>
+    /// Initialize the families list page with dependency injection and event binding
+    /// </summary>
     public FamiliesListPage(FamiliesListViewModel viewModel)
     {
         InitializeComponent();
         _viewModel = viewModel;
         BindingContext = _viewModel;
 
-        Debug.WriteLine("✅ [FAMILIES_LIST_PAGE] Initialized with UNIFIED delete flow");
+        this.LogInfo("Initialized with unified delete flow");
 
         // Hook up events
         ListRefresh.Refreshing += PullToRefresh_Refreshing;
@@ -31,28 +31,28 @@ public partial class FamiliesListPage : ContentPage
 
         if (_viewModel?.SelectedItems == null)
         {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] ViewModel.SelectedItems is NULL during initialization!");
+            this.LogError("ViewModel.SelectedItems is NULL during initialization");
         }
     }
 
     /// <summary>
-    /// ✅ Sync ListView SelectionMode with ViewModel state
+    /// Synchronize ListView SelectionMode with ViewModel state changes
     /// </summary>
     private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(_viewModel.IsMultiSelectMode))
         {
-            Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] IsMultiSelectMode changed to: {_viewModel.IsMultiSelectMode}");
+            this.LogInfo($"IsMultiSelectMode changed to: {_viewModel.IsMultiSelectMode}");
             SyncSelectionMode();
         }
     }
 
     /// <summary>
-    /// ✅ Ensure ListView SelectionMode matches ViewModel state
+    /// Ensure ListView SelectionMode matches ViewModel state for consistency
     /// </summary>
     private void SyncSelectionMode()
     {
-        try
+        this.SafeExecute(() =>
         {
             var targetMode = _viewModel.IsMultiSelectMode
                 ? Syncfusion.Maui.ListView.SelectionMode.Multiple
@@ -60,31 +60,27 @@ public partial class FamiliesListPage : ContentPage
 
             if (FamilyListView.SelectionMode != targetMode)
             {
-                Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Syncing SelectionMode: {FamilyListView.SelectionMode} → {targetMode}");
+                this.LogInfo($"Syncing SelectionMode: {FamilyListView.SelectionMode} → {targetMode}");
                 FamilyListView.SelectionMode = targetMode;
-                Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] SelectionMode synced to: {FamilyListView.SelectionMode}");
+                this.LogSuccess($"SelectionMode synced to: {FamilyListView.SelectionMode}");
             }
 
             if (!_viewModel.IsMultiSelectMode && FamilyListView.SelectedItems?.Count > 0)
             {
-                Debug.WriteLine($"🧹 [FAMILIES_LIST_PAGE] Clearing ListView selections on multi-select exit");
+                this.LogInfo("Clearing ListView selections on multi-select exit");
                 FamilyListView.SelectedItems.Clear();
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] SyncSelectionMode error: {ex.Message}");
-        }
+        }, "SyncSelectionMode");
     }
 
     /// <summary>
-    /// ✅ Handler do evento Pull-to-Refresh
+    /// Handle pull-to-refresh gesture for data refreshing
     /// </summary>
     private async void PullToRefresh_Refreshing(object? sender, EventArgs e)
     {
-        try
+        await this.SafeExecuteAsync(async () =>
         {
-            Debug.WriteLine("🔄 [FAMILIES_LIST_PAGE] Pull-to-refresh triggered");
+            this.LogInfo("Pull-to-refresh triggered");
 
             ListRefresh.IsRefreshing = true;
 
@@ -95,35 +91,29 @@ public partial class FamiliesListPage : ContentPage
 
             ListRefresh.IsRefreshing = false;
 
-            Debug.WriteLine("✅ [FAMILIES_LIST_PAGE] Pull-to-refresh completed");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Pull-to-refresh error: {ex.Message}");
-            ListRefresh.IsRefreshing = false;
-        }
+            this.LogSuccess("Pull-to-refresh completed");
+        }, "Pull-to-refresh failed");
     }
 
+    /// <summary>
+    /// Handle page appearing lifecycle with animations and data refresh
+    /// </summary>
     protected override async void OnAppearing()
     {
         base.OnAppearing();
 
-        try
+        await this.SafeExecuteAsync(async () =>
         {
             if (FamilyListView.SelectedItems == null)
             {
-                Debug.WriteLine($"🔧 [FAMILIES_LIST_PAGE] Initializing ListView.SelectedItems");
+                this.LogInfo("Initializing ListView.SelectedItems");
                 await Task.Delay(100);
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Error checking SelectedItems: {ex.Message}");
-        }
+        }, "Error checking SelectedItems");
 
         await PerformEntranceAnimation();
 
-        Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Refreshing data on page appearing");
+        this.LogInfo("Refreshing data on page appearing");
         await _viewModel.OnAppearingAsync();
 
         if (_viewModel.RefreshCommand?.CanExecute(null) == true)
@@ -134,58 +124,57 @@ public partial class FamiliesListPage : ContentPage
         SyncSelectionMode();
         UpdateFabVisual();
 
-        Debug.WriteLine($"🔍 [FAMILIES_LIST_PAGE] Final check - ListView.SelectedItems: {(FamilyListView.SelectedItems != null ? "OK" : "NULL")}");
+        this.LogInfo($"Final check - ListView.SelectedItems: {(FamilyListView.SelectedItems != null ? "OK" : "NULL")}");
     }
 
+    /// <summary>
+    /// Handle page disappearing lifecycle with exit animations
+    /// </summary>
     protected override async void OnDisappearing()
     {
         base.OnDisappearing();
         await PerformExitAnimation();
     }
 
-    #region ✅ ANIMATIONS
+    #region Animation Management
 
+    /// <summary>
+    /// Perform entrance animation for smooth page transition
+    /// </summary>
     private async Task PerformEntranceAnimation()
     {
-        try
+        await this.SafeAnimationExecuteAsync(async () =>
         {
-            // ✅ USANDO EXTENSÃO: Animação completa de página + FAB com delay
+            // Complete page entrance animation with FAB delay
             await RootGrid.PerformCompletePageEntranceAsync(FabButton);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Entrance animation error: {ex.Message}");
-            RootGrid.Opacity = 1;
-            FabButton.Opacity = 1;
-        }
+        }, "Page entrance animation");
     }
 
+    /// <summary>
+    /// Perform exit animation for smooth page transition
+    /// </summary>
     private async Task PerformExitAnimation()
     {
-        try
+        await this.SafeAnimationExecuteAsync(async () =>
         {
-            // ✅ USANDO EXTENSÃO: Animação completa de saída
+            // Complete page exit animation
             await RootGrid.PerformCompletePageExitAsync(FabButton);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Exit animation error: {ex.Message}");
-        }
+        }, "Page exit animation");
     }
 
     #endregion
 
-    #region ✅ FAB VISUAL UPDATES
+    #region FAB Visual Management
 
     /// <summary>
-    /// ✅ Atualizar visual do FAB usando cores do ResourceDictionary
+    /// Update FAB appearance based on current selection state and connectivity
     /// </summary>
     private void UpdateFabVisual()
     {
-        try
+        var success = this.SafeExecute(() =>
         {
             var selectedCount = _viewModel?.SelectedItems?.Count ?? 0;
-            Debug.WriteLine($"🎨 [FAB_VISUAL] Updating FAB for {selectedCount} selected items");
+            this.LogInfo($"Updating FAB for {selectedCount} selected items");
 
             Device.BeginInvokeOnMainThread(() =>
             {
@@ -195,80 +184,80 @@ public partial class FamiliesListPage : ContentPage
                 {
                     var errorColor = Application.Current?.Resources.TryGetValue("ErrorColor", out var error) == true
                         ? (Color)error
-                        : Color.FromArgb(ColorConstants.ERROR_COLOR); // ✅ USANDO CONSTANTE: era "#D32F2F"
+                        : Color.FromArgb(ColorConstants.ERROR_COLOR);
 
                     FabButton.BackgroundColor = errorColor;
-                    FabButton.Text = $"{TextConstants.DELETE_ITEM} ({selectedCount})"; // ✅ USANDO CONSTANTE: era "Delete ({selectedCount})"
-                    Debug.WriteLine($"🔴 [FAB_VISUAL] Set to DELETE mode: {TextConstants.DELETE_ITEM} ({selectedCount})");
+                    FabButton.Text = $"{TextConstants.DELETE_ITEM} ({selectedCount})";
+                    this.LogInfo($"Set to DELETE mode: {TextConstants.DELETE_ITEM} ({selectedCount})");
                 }
                 else if (_viewModel?.IsMultiSelectMode == true)
                 {
                     var grayColor = Application.Current?.Resources.TryGetValue("Gray500", out var gray) == true
                         ? (Color)gray
-                        : Color.FromArgb(ColorConstants.GRAY_500); // ✅ USANDO CONSTANTE: era "#757575"
+                        : Color.FromArgb(ColorConstants.GRAY_500);
 
                     FabButton.BackgroundColor = grayColor;
-                    FabButton.Text = TextConstants.CANCEL_CHANGES; // ✅ USANDO CONSTANTE: era "Cancel"
-                    Debug.WriteLine($"⚫ [FAB_VISUAL] Set to CANCEL mode");
+                    FabButton.Text = TextConstants.CANCEL_CHANGES;
+                    this.LogInfo("Set to CANCEL mode");
                 }
                 else
                 {
                     var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
                         ? (Color)primary
-                        : Color.FromArgb(ColorConstants.PRIMARY_COLOR); // ✅ USANDO CONSTANTE: era "#A47764"
+                        : Color.FromArgb(ColorConstants.PRIMARY_COLOR);
 
                     FabButton.BackgroundColor = primaryColor;
-                    FabButton.Text = TextConstants.ADD_FAMILY; // ✅ USANDO CONSTANTE: era "Add Family"
-                    Debug.WriteLine($"🟢 [FAB_VISUAL] Set to ADD mode");
+                    FabButton.Text = TextConstants.ADD_FAMILY;
+                    this.LogInfo("Set to ADD mode");
                 }
 
-                Debug.WriteLine($"✅ [FAB_VISUAL] FAB updated successfully - Text: {FabButton.Text}");
+                this.LogSuccess($"FAB updated successfully - Text: {FabButton.Text}");
             });
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAB_VISUAL] Error updating FAB visual: {ex.Message}");
+        }, "UpdateFabVisual");
 
+        if (!success)
+        {
             Device.BeginInvokeOnMainThread(() =>
             {
                 FabButton.IsVisible = true;
-                FabButton.Text = TextConstants.ADD_FAMILY; // ✅ USANDO CONSTANTE: era "Add Family"
+                FabButton.Text = TextConstants.ADD_FAMILY;
 
                 var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
                     ? (Color)primary
-                    : Color.FromArgb(ColorConstants.PRIMARY_COLOR); // ✅ USANDO CONSTANTE: era "#A47764"
+                    : Color.FromArgb(ColorConstants.PRIMARY_COLOR);
                 FabButton.BackgroundColor = primaryColor;
             });
         }
     }
+
     #endregion
 
-    #region ✅ TOOLBAR ITEMS HANDLERS
+    #region Toolbar Event Handlers
 
     /// <summary>
-    /// ✅ Select All toolbar with proper SelectionMode sync
+    /// Handle select all toolbar item with proper SelectionMode synchronization
     /// </summary>
     private void OnSelectAllTapped(object sender, EventArgs e)
     {
-        try
+        this.SafeExecute(() =>
         {
-            Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Select All toolbar tapped");
+            this.LogInfo("Select All toolbar tapped");
 
             if (FamilyListView.SelectionMode != Syncfusion.Maui.ListView.SelectionMode.Multiple)
             {
-                Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Setting ListView to Multiple mode for Select All");
+                this.LogInfo("Setting ListView to Multiple mode for Select All");
                 FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.Multiple;
             }
 
             if (_viewModel?.SelectAllCommand?.CanExecute(null) == true)
             {
                 _viewModel.SelectAllCommand.Execute(null);
-                Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] SelectAllCommand executed");
+                this.LogSuccess("SelectAllCommand executed");
             }
 
             Device.BeginInvokeOnMainThread(() =>
             {
-                try
+                this.SafeExecute(() =>
                 {
                     FamilyListView.SelectedItems?.Clear();
 
@@ -277,7 +266,7 @@ public partial class FamiliesListPage : ContentPage
                         if (item.IsSelected && FamilyListView.SelectedItems != null)
                         {
                             FamilyListView.SelectedItems.Add(item);
-                            Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] Added {item.Name} to ListView selection");
+                            this.LogInfo($"Added {item.Name} to ListView selection");
                         }
                     }
 
@@ -287,37 +276,29 @@ public partial class FamiliesListPage : ContentPage
                     }
 
                     UpdateFabVisual();
-                }
-                catch (Exception syncEx)
-                {
-                    Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] ListView sync error: {syncEx.Message}");
-                }
+                }, "ListView sync error");
             });
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Select All toolbar error: {ex.Message}");
-        }
+        }, "Select All toolbar error");
     }
 
     /// <summary>
-    /// ✅ Clear All with proper cleanup
+    /// Handle clear all selections with proper cleanup and user feedback
     /// </summary>
     private async void OnDeselectAllTapped(object sender, EventArgs e)
     {
-        try
+        await this.SafeExecuteAsync(async () =>
         {
-            Debug.WriteLine($"🧹 [FAMILIES_LIST_PAGE] Clear All toolbar tapped");
+            this.LogInfo("Clear All toolbar tapped");
 
             if (_viewModel?.ClearSelectionCommand != null && _viewModel.ClearSelectionCommand.CanExecute(null))
             {
                 _viewModel.ClearSelectionCommand.Execute(null);
-                Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] ClearSelectionCommand executed");
+                this.LogSuccess("ClearSelectionCommand executed");
             }
 
             Device.BeginInvokeOnMainThread(() =>
             {
-                try
+                this.SafeExecute(() =>
                 {
                     FamilyListView.SelectedItems?.Clear();
                     FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
@@ -331,134 +312,114 @@ public partial class FamiliesListPage : ContentPage
                     }
 
                     UpdateFabVisual();
-                }
-                catch (Exception clearEx)
-                {
-                    Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] ListView clear error: {clearEx.Message}");
-                }
+                }, "ListView clear error");
             });
 
             await this.ShowSuccessToast("🧹 Cleared selections and filters");
 
-            Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Clear All completed successfully");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Clear All error: {ex.Message}");
-            // ✅ USANDO EXTENSÃO: Toast de erro padronizado
-            await this.ShowErrorToast($"Failed to clear: {ex.Message}");
-        }
-    }
-    #endregion
-
-    #region ✅ SEARCH BAR EVENTS
-
-    private async void OnSearchFocused(object sender, FocusEventArgs e)
-    {
-        try
-        {
-            if (sender is Entry entry && entry.Parent?.Parent is Border border)
-            {
-                await border.ScaleTo(AnimationConstants.BORDER_FOCUS_SCALE, AnimationConstants.BORDER_FOCUS_DURATION, AnimationConstants.FEEDBACK_EASING); // ✅ USANDO CONSTANTE: era 1.02, 150, Easing.CubicOut
-                border.Stroke = Application.Current?.Resources["Primary"] as Color ?? Colors.Blue;
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Search focus error: {ex.Message}");
-        }
-    }
-
-    private async void OnSearchUnfocused(object sender, FocusEventArgs e)
-    {
-        try
-        {
-            if (sender is Entry entry && entry.Parent?.Parent is Border border)
-            {
-                await border.ScaleTo(AnimationConstants.FEEDBACK_SCALE_NORMAL, AnimationConstants.BORDER_FOCUS_DURATION, AnimationConstants.FEEDBACK_EASING); // ✅ USANDO CONSTANTE: era 1, 150, Easing.CubicOut
-                border.Stroke = Application.Current?.Resources["Gray300"] as Color ?? Colors.Gray;
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Search unfocus error: {ex.Message}");
-        }
-    }
-
-    private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
-    {
-        try
-        {
-            Debug.WriteLine($"🔍 [FAMILIES_LIST_PAGE] Search text changed to: '{e.NewTextValue}'");
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Search text changed error: {ex.Message}");
-        }
+            this.LogSuccess("Clear All completed successfully");
+        }, "Clear All failed");
     }
 
     #endregion
 
-    #region ✅ FAB HANDLER - UNIFIED FLOW
+    #region Search Bar Event Handlers
 
     /// <summary>
-    /// ✅ FIXED: FAB handler with UNIFIED delete flow via ViewModel only
+    /// Handle search bar focus with visual feedback animation
+    /// </summary>
+    private async void OnSearchFocused(object sender, FocusEventArgs e)
+    {
+        await this.SafeAnimationExecuteAsync(async () =>
+        {
+            if (sender is Entry entry && entry.Parent?.Parent is Border border)
+            {
+                await border.ScaleTo(AnimationConstants.BORDER_FOCUS_SCALE, AnimationConstants.BORDER_FOCUS_DURATION, AnimationConstants.FEEDBACK_EASING);
+                border.Stroke = Application.Current?.Resources["Primary"] as Color ?? Colors.Blue;
+            }
+        }, "Search focus animation");
+    }
+
+    /// <summary>
+    /// Handle search bar unfocus with visual feedback animation
+    /// </summary>
+    private async void OnSearchUnfocused(object sender, FocusEventArgs e)
+    {
+        await this.SafeAnimationExecuteAsync(async () =>
+        {
+            if (sender is Entry entry && entry.Parent?.Parent is Border border)
+            {
+                await border.ScaleTo(AnimationConstants.FEEDBACK_SCALE_NORMAL, AnimationConstants.BORDER_FOCUS_DURATION, AnimationConstants.FEEDBACK_EASING);
+                border.Stroke = Application.Current?.Resources["Gray300"] as Color ?? Colors.Gray;
+            }
+        }, "Search unfocus animation");
+    }
+
+    /// <summary>
+    /// Handle search text changes for real-time filtering
+    /// </summary>
+    private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
+    {
+        this.SafeExecute(() =>
+        {
+            this.LogInfo($"Search text changed to: '{e.NewTextValue}'");
+        }, "Search text changed error");
+    }
+
+    #endregion
+
+    #region FAB Action Handler
+
+    /// <summary>
+    /// Handle FAB press with context-aware actions (Add/Delete/Cancel)
     /// </summary>
     private async void OnFabPressed(object sender, EventArgs e)
     {
-        try
+        await this.SafeExecuteAsync(async () =>
         {
-            // ✅ USANDO EXTENSÃO: Tap feedback padronizado
-            await FabButton.PerformTapFeedbackAsync();
+            // Perform tap feedback animation
+            await this.SafeAnimationExecuteAsync(async () =>
+            {
+                await FabButton.PerformTapFeedbackAsync();
+            }, "FAB tap feedback");
 
             var selectedCount = _viewModel?.SelectedItems?.Count ?? 0;
-            Debug.WriteLine($"🎯 [FAMILIES_LIST_PAGE] FAB pressed - Selected: {selectedCount}, MultiSelect: {_viewModel?.IsMultiSelectMode}");
+            this.LogInfo($"FAB pressed - Selected: {selectedCount}, MultiSelect: {_viewModel?.IsMultiSelectMode}");
 
             if (selectedCount > 0)
             {
-                Debug.WriteLine($"🗑️ [FAMILIES_LIST_PAGE] Executing UNIFIED delete for {selectedCount} items");
+                this.LogInfo($"Executing unified delete for {selectedCount} items");
 
-                try
+                // Unified delete flow through ViewModel only
+                if (_viewModel?.DeleteSelectedCommand?.CanExecute(null) == true)
                 {
-                    // ✅ UNIFIED: Call ViewModel command only - it handles confirmation + success message
-                    if (_viewModel?.DeleteSelectedCommand?.CanExecute(null) == true)
-                    {
-                        await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
-                        Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] UNIFIED delete completed via ViewModel");
-                    }
+                    await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
+                    this.LogSuccess("Unified delete completed via ViewModel");
+                }
 
-                    // ✅ UI cleanup after ViewModel handles the delete
-                    Device.BeginInvokeOnMainThread(() =>
+                // UI cleanup after ViewModel handles the delete
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    this.SafeExecute(() =>
                     {
-                        try
+                        FamilyListView.SelectedItems?.Clear();
+                        FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
+
+                        if (_viewModel?.Items != null)
                         {
-                            FamilyListView.SelectedItems?.Clear();
-                            FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
-
-                            if (_viewModel?.Items != null)
+                            for (int i = 0; i < _viewModel.Items.Count; i++)
                             {
-                                for (int i = 0; i < _viewModel.Items.Count; i++)
-                                {
-                                    FamilyListView.RefreshItem(i);
-                                }
+                                FamilyListView.RefreshItem(i);
                             }
+                        }
 
-                            UpdateFabVisual();
-                        }
-                        catch (Exception uiEx)
-                        {
-                            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] UI cleanup error: {uiEx.Message}");
-                        }
-                    });
-                }
-                catch (Exception deleteEx)
-                {
-                    Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] UNIFIED delete failed: {deleteEx.Message}");
-                }
+                        UpdateFabVisual();
+                    }, "UI cleanup error");
+                });
             }
             else if (_viewModel?.IsMultiSelectMode == true)
             {
-                Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Canceling multi-select mode");
+                this.LogInfo("Canceling multi-select mode");
 
                 if (_viewModel != null)
                 {
@@ -469,7 +430,7 @@ public partial class FamiliesListPage : ContentPage
             }
             else
             {
-                Debug.WriteLine($"➕ [FAMILIES_LIST_PAGE] Adding new family");
+                this.LogInfo("Adding new family");
 
                 if (_viewModel?.AddNewCommand?.CanExecute(null) == true)
                 {
@@ -477,30 +438,32 @@ public partial class FamiliesListPage : ContentPage
                 }
                 else
                 {
-                    await Shell.Current.GoToAsync("familyedit");
+                    await this.SafeNavigationExecuteAsync(async () =>
+                    {
+                        await Shell.Current.GoToAsync("familyedit");
+                    }, "familyedit");
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] FAB action error: {ex.Message}");
-            // ✅ USANDO EXTENSÃO: Toast padronizado
-            await this.ShowErrorToast("Action failed. Please try again.");
-        }
+        }, "FAB action failed");
     }
 
     #endregion
 
-    #region ✅ FILTER AND SORT HANDLERS
+    #region Filter and Sort Handlers
 
+    /// <summary>
+    /// Handle filter selection with action sheet and apply filter command
+    /// </summary>
     private async void OnFilterTapped(object sender, EventArgs e)
     {
-        try
+        await this.SafeExecuteAsync(async () =>
         {
             if (sender is Border border)
             {
-                // ✅ USANDO EXTENSÃO: Tap feedback padronizado
-                await border.PerformTapFeedbackAsync();
+                await this.SafeAnimationExecuteAsync(async () =>
+                {
+                    await border.PerformTapFeedbackAsync();
+                }, "Filter tap feedback");
             }
 
             string[] options = { "All", "Active", "Inactive" };
@@ -509,31 +472,31 @@ public partial class FamiliesListPage : ContentPage
             if (result != "Cancel" && result != null && _viewModel != null)
             {
                 _viewModel.StatusFilter = result;
-                Debug.WriteLine($"🏷️ [FAMILIES_LIST_PAGE] Status filter changed to: {result}");
+                this.LogInfo($"Status filter changed to: {result}");
 
                 if (_viewModel.ApplyFilterCommand?.CanExecute(null) == true)
                 {
                     await _viewModel.ApplyFilterCommand.ExecuteAsync(null);
                 }
 
-                // ✅ USANDO EXTENSÃO: Toast de informação padronizado
                 await this.ShowInfoToast($"Filter: {result}");
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Filter error: {ex.Message}");
-        }
+        }, "Filter error");
     }
 
+    /// <summary>
+    /// Handle sort selection with action sheet and apply sort command
+    /// </summary>
     private async void OnSortTapped(object sender, EventArgs e)
     {
-        try
+        await this.SafeExecuteAsync(async () =>
         {
             if (sender is Border border)
             {
-                // ✅ USANDO EXTENSÃO: Tap feedback padronizado
-                await border.PerformTapFeedbackAsync();
+                await this.SafeAnimationExecuteAsync(async () =>
+                {
+                    await border.PerformTapFeedbackAsync();
+                }, "Sort tap feedback");
             }
 
             string[] options = { "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First" };
@@ -542,47 +505,45 @@ public partial class FamiliesListPage : ContentPage
             if (result != "Cancel" && result != null && _viewModel != null)
             {
                 _viewModel.SortOrder = result;
-                Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Sort order changed to: {result}");
+                this.LogInfo($"Sort order changed to: {result}");
 
                 if (_viewModel.ToggleSortCommand?.CanExecute(null) == true)
                 {
                     _viewModel.ToggleSortCommand.Execute(null);
                 }
 
-                // ✅ USANDO EXTENSÃO: Toast de informação padronizado
                 await this.ShowInfoToast($"Sorted by: {result}");
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] Sort error: {ex.Message}");
-        }
+        }, "Sort error");
     }
 
     #endregion
 
-    #region ✅ SYNCFUSION LISTVIEW EVENT HANDLERS
+    #region Syncfusion ListView Event Handlers
 
+    /// <summary>
+    /// Handle item tap for selection or navigation based on current mode
+    /// </summary>
     private void OnItemTapped(object sender, Syncfusion.Maui.ListView.ItemTappedEventArgs e)
     {
-        try
+        this.SafeExecute(() =>
         {
             if (e.DataItem is FamilyItemViewModel item)
             {
-                Debug.WriteLine($"👆 [FAMILIES_LIST_PAGE] Item tapped: {item.Name}");
-                Debug.WriteLine($"👆 [FAMILIES_LIST_PAGE] Current IsMultiSelectMode: {_viewModel?.IsMultiSelectMode}");
-                Debug.WriteLine($"👆 [FAMILIES_LIST_PAGE] Current SelectionMode: {FamilyListView.SelectionMode}");
+                this.LogInfo($"Item tapped: {item.Name}");
+                this.LogInfo($"Current IsMultiSelectMode: {_viewModel?.IsMultiSelectMode}");
+                this.LogInfo($"Current SelectionMode: {FamilyListView.SelectionMode}");
 
                 if (_viewModel?.IsMultiSelectMode == true)
                 {
-                    Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] Multi-select mode - toggling selection");
+                    this.LogInfo("Multi-select mode - toggling selection");
 
                     if (item.IsSelected)
                     {
                         item.IsSelected = false;
                         _viewModel?.SelectedItems?.Remove(item);
                         FamilyListView.SelectedItems?.Remove(item);
-                        Debug.WriteLine($"➖ [FAMILIES_LIST_PAGE] Deselected: {item.Name}");
+                        this.LogInfo($"Deselected: {item.Name}");
                     }
                     else
                     {
@@ -591,7 +552,7 @@ public partial class FamiliesListPage : ContentPage
                             _viewModel.SelectedItems.Add(item);
                         if (FamilyListView.SelectedItems != null && !FamilyListView.SelectedItems.Contains(item))
                             FamilyListView.SelectedItems.Add(item);
-                        Debug.WriteLine($"➕ [FAMILIES_LIST_PAGE] Selected: {item.Name}");
+                        this.LogInfo($"Selected: {item.Name}");
                     }
 
                     UpdateFabVisual();
@@ -606,7 +567,7 @@ public partial class FamiliesListPage : ContentPage
                 }
                 else
                 {
-                    Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Normal mode - navigating to edit: {item.Name}");
+                    this.LogInfo($"Normal mode - navigating to edit: {item.Name}");
                     Device.BeginInvokeOnMainThread(async () =>
                     {
                         if (_viewModel?.NavigateToEditCommand?.CanExecute(item) == true)
@@ -616,20 +577,19 @@ public partial class FamiliesListPage : ContentPage
                     });
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] ItemTapped error: {ex.Message}");
-        }
+        }, "ItemTapped error");
     }
 
+    /// <summary>
+    /// Handle long press to activate multi-selection mode
+    /// </summary>
     private void OnItemLongPress(object sender, Syncfusion.Maui.ListView.ItemLongPressEventArgs e)
     {
-        try
+        this.SafeExecute(() =>
         {
             if (e.DataItem is FamilyItemViewModel item)
             {
-                Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] Long press: {item.Name}");
+                this.LogInfo($"Long press: {item.Name}");
 
                 if (_viewModel?.IsMultiSelectMode != true)
                 {
@@ -637,7 +597,7 @@ public partial class FamiliesListPage : ContentPage
                     {
                         _viewModel.IsMultiSelectMode = true;
                     }
-                    Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Multi-select mode ACTIVATED");
+                    this.LogSuccess("Multi-select mode ACTIVATED");
                 }
 
                 if (!item.IsSelected)
@@ -647,7 +607,7 @@ public partial class FamiliesListPage : ContentPage
                     {
                         _viewModel.SelectedItems.Add(item);
                     }
-                    Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Item selected: {item.Name}");
+                    this.LogSuccess($"Item selected: {item.Name}");
                 }
 
                 Device.BeginInvokeOnMainThread(() =>
@@ -656,25 +616,24 @@ public partial class FamiliesListPage : ContentPage
                     if (index >= 0)
                     {
                         FamilyListView.RefreshItem(index);
-                        Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Visual refresh for index: {index}");
+                        this.LogInfo($"Visual refresh for index: {index}");
                     }
                 });
 
                 UpdateFabVisual();
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] ItemLongPress error: {ex.Message}");
-        }
+        }, "ItemLongPress error");
     }
 
+    /// <summary>
+    /// Handle native selection changes and sync with ViewModel
+    /// </summary>
     private void OnSelectionChanged(object sender, Syncfusion.Maui.ListView.ItemSelectionChangedEventArgs e)
     {
-        try
+        this.SafeExecute(() =>
         {
             var selectedCount = FamilyListView.SelectedItems?.Count ?? 0;
-            Debug.WriteLine($"🔘 [FAMILIES_LIST_PAGE] NATIVE Selection changed - ListView count: {selectedCount}");
+            this.LogInfo($"NATIVE Selection changed - ListView count: {selectedCount}");
 
             if (FamilyListView.SelectedItems != null && _viewModel?.SelectedItems != null)
             {
@@ -686,7 +645,7 @@ public partial class FamiliesListPage : ContentPage
                     item.IsSelected = true;
                 }
 
-                Debug.WriteLine($"✅ [FAMILIES_LIST_PAGE] Synced to ViewModel: {_viewModel.SelectedItems.Count} items");
+                this.LogSuccess($"Synced to ViewModel: {_viewModel.SelectedItems.Count} items");
             }
 
             if (_viewModel != null)
@@ -695,7 +654,7 @@ public partial class FamiliesListPage : ContentPage
 
                 if (vmSelectedCount == 0 && _viewModel.IsMultiSelectMode)
                 {
-                    Debug.WriteLine($"🔄 [FAMILIES_LIST_PAGE] Auto-exiting multi-select mode");
+                    this.LogInfo("Auto-exiting multi-select mode");
                     _viewModel.IsMultiSelectMode = false;
                 }
                 else if (vmSelectedCount > 0 && !_viewModel.IsMultiSelectMode)
@@ -705,14 +664,14 @@ public partial class FamiliesListPage : ContentPage
 
                 UpdateFabVisual();
 
-                Debug.WriteLine($"🎯 [FAMILIES_LIST_PAGE] ViewModel updated - MultiSelect: {_viewModel.IsMultiSelectMode}, SelectionMode: {FamilyListView.SelectionMode}");
+                this.LogInfo($"ViewModel updated - MultiSelect: {_viewModel.IsMultiSelectMode}, SelectionMode: {FamilyListView.SelectionMode}");
             }
 
             if (e.AddedItems?.Count > 0)
             {
                 foreach (FamilyItemViewModel item in e.AddedItems)
                 {
-                    Debug.WriteLine($"➕ [FAMILIES_LIST_PAGE] NATIVE Selected: {item.Name}");
+                    this.LogInfo($"NATIVE Selected: {item.Name}");
                 }
             }
 
@@ -721,42 +680,38 @@ public partial class FamiliesListPage : ContentPage
                 foreach (FamilyItemViewModel item in e.RemovedItems)
                 {
                     item.IsSelected = false;
-                    Debug.WriteLine($"➖ [FAMILIES_LIST_PAGE] NATIVE Deselected: {item.Name}");
+                    this.LogInfo($"NATIVE Deselected: {item.Name}");
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [FAMILIES_LIST_PAGE] SelectionChanged error: {ex.Message}");
-        }
+        }, "SelectionChanged error");
     }
 
     #endregion
 
-    #region ✅ SYNCFUSION SWIPE HANDLERS - UNIFIED DELETE FLOW
+    #region Swipe Action Handlers
 
     private const double SWIPE_THRESHOLD = 0.8;
 
+    /// <summary>
+    /// Handle swipe gesture start with logging
+    /// </summary>
     private void OnSwipeStarting(object sender, Syncfusion.Maui.ListView.SwipeStartingEventArgs e)
     {
-        try
+        this.SafeExecute(() =>
         {
             if (e.DataItem is FamilyItemViewModel item)
             {
-                Debug.WriteLine($"🚀 [SWIPE_STARTING] Item: {item.Name}");
-                Debug.WriteLine($"🚀 [SWIPE_STARTING] Direction: {e.Direction}");
-                Debug.WriteLine($"✅ [SWIPE_STARTING] Swipe allowed for {item.Name} - direction: {e.Direction}");
+                this.LogInfo($"Swipe starting for {item.Name} - direction: {e.Direction}");
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [SWIPE_STARTING] Error: {ex.Message}");
-        }
+        }, "SwipeStarting error");
     }
 
+    /// <summary>
+    /// Handle swipe progress with real-time feedback
+    /// </summary>
     private void OnSwiping(object sender, Syncfusion.Maui.ListView.SwipingEventArgs e)
     {
-        try
+        this.SafeExecute(() =>
         {
             if (e.DataItem is FamilyItemViewModel item)
             {
@@ -766,26 +721,22 @@ public partial class FamiliesListPage : ContentPage
 
                 if (offsetPercent >= 0.8)
                 {
-                    Debug.WriteLine($"📱 [SWIPING] {icon} {item.Name} | {direction} | {offsetPercent:P0} - READY!");
+                    this.LogInfo($"{icon} {item.Name} | {direction} | {offsetPercent:P0} - READY!");
                 }
             }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"❌ [SWIPING] Error: {ex.Message}");
-        }
+        }, "Swiping error");
     }
 
     /// <summary>
-    /// ✅ FIXED: UNIFIED SWIPE DELETE FLOW - Uses ViewModel command only
+    /// Handle swipe completion with unified action flow
     /// </summary>
     private async void OnSwipeEnded(object sender, Syncfusion.Maui.ListView.SwipeEndedEventArgs e)
     {
-        try
+        var success = await this.SafeExecuteAsync(async () =>
         {
             if (e.DataItem is not FamilyItemViewModel item)
             {
-                Debug.WriteLine($"❌ [SWIPE_ENDED] DataItem is not FamilyItemViewModel");
+                this.LogError("DataItem is not FamilyItemViewModel");
                 return;
             }
 
@@ -793,30 +744,29 @@ public partial class FamiliesListPage : ContentPage
             var offsetPercent = Math.Abs(e.Offset) / FamilyListView.SwipeOffset;
             var icon = direction == "Right" ? "⭐" : "🗑️";
 
-            Debug.WriteLine($"🏁 [SWIPE_ENDED] {icon} Item: {item.Name}, Direction: {direction}, Progress: {offsetPercent:P1}");
+            this.LogInfo($"{icon} Item: {item.Name}, Direction: {direction}, Progress: {offsetPercent:P1}");
 
             if (offsetPercent < SWIPE_THRESHOLD)
             {
-                Debug.WriteLine($"❌ [SWIPE_ENDED] INSUFFICIENT SWIPE - Need {SWIPE_THRESHOLD:P0}+, got {offsetPercent:P1}");
+                this.LogWarning($"INSUFFICIENT SWIPE - Need {SWIPE_THRESHOLD:P0}+, got {offsetPercent:P1}");
                 FamilyListView.ResetSwipeItem();
                 return;
             }
 
-            Debug.WriteLine($"🎯 [SWIPE_ENDED] SWIPE APPROVED! Executing {icon} {direction} action");
+            this.LogSuccess($"SWIPE APPROVED! Executing {icon} {direction} action");
 
             switch (direction)
             {
                 case "Right":
-                    Debug.WriteLine($"⭐ [SWIPE_ENDED] FAVORITE action triggered");
+                    this.LogInfo("FAVORITE action triggered");
 
                     if (_viewModel?.IsConnected != true)
                     {
-                        // ✅ USANDO EXTENSÃO: Toast de aviso padronizado
                         await this.ShowWarningToast("Cannot favorite while offline");
                         break;
                     }
 
-                    try
+                    await this.SafeExecuteAsync(async () =>
                     {
                         var wasAlreadyFavorite = item.IsFavorite;
 
@@ -826,63 +776,46 @@ public partial class FamiliesListPage : ContentPage
                         }
 
                         var message = wasAlreadyFavorite ? "Removed from favorites" : "Added to favorites! ⭐";
-                        // ✅ USANDO EXTENSÃO: Toast de sucesso padronizado
                         await this.ShowSuccessToast(message);
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"❌ [SWIPE_ENDED] ToggleFavorite failed: {ex.Message}");
-                        // ✅ USANDO EXTENSÃO: Toast de erro padronizado
-                        await this.ShowErrorToast("Failed to update favorite status");
-                    }
+                    }, "Failed to update favorite status");
                     break;
 
                 case "Left":
-                    Debug.WriteLine($"🗑️ [SWIPE_ENDED] UNIFIED DELETE action triggered");
+                    this.LogInfo("UNIFIED DELETE action triggered");
 
                     if (_viewModel?.IsConnected != true)
                     {
-                        // ✅ USANDO EXTENSÃO: Toast de aviso padronizado
                         await this.ShowWarningToast("Cannot delete while offline");
                         break;
                     }
 
-                    try
+                    await this.SafeExecuteAsync(async () =>
                     {
-                        Debug.WriteLine($"🗑️ [SWIPE_ENDED] Calling UNIFIED DeleteSingleCommand for: {item.Name}");
+                        this.LogInfo($"Calling UNIFIED DeleteSingleCommand for: {item.Name}");
 
-                        // ✅ UNIFIED: Use ViewModel command only - it handles confirmation + success message
+                        // Unified delete flow through ViewModel only
                         if (_viewModel?.DeleteSingleCommand?.CanExecute(item) == true)
                         {
                             await _viewModel.DeleteSingleCommand.ExecuteAsync(item);
-                            Debug.WriteLine($"✅ [SWIPE_ENDED] UNIFIED delete completed via ViewModel");
+                            this.LogSuccess("UNIFIED delete completed via ViewModel");
                         }
-
-                        // ✅ NO additional messages here - ViewModel already showed success toast
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"❌ [SWIPE_ENDED] UNIFIED Delete failed: {ex.Message}");
-                        // ViewModel already showed error message
-                    }
+                    }, "UNIFIED Delete failed");
                     break;
 
                 default:
-                    Debug.WriteLine($"⚠️ [SWIPE_ENDED] Unknown direction: {direction}");
+                    this.LogWarning($"Unknown swipe direction: {direction}");
                     break;
             }
 
             FamilyListView.ResetSwipeItem();
-            Debug.WriteLine($"🔄 [SWIPE_ENDED] Auto-reset completed");
-        }
-        catch (Exception ex)
+            this.LogInfo("Auto-reset completed");
+        }, "Swipe action failed");
+
+        if (!success)
         {
-            Debug.WriteLine($"❌ [SWIPE_ENDED] ERROR: {ex.Message}");
             FamilyListView.ResetSwipeItem();
-            await DisplayAlert("Error", $"Swipe action failed: {ex.Message}", "OK");
         }
     }
-    #endregion
 
-    // ✅ REMOVIDO: Método ShowToast antigo - agora usando ToastExtensions padronizado
+    #endregion
 }
