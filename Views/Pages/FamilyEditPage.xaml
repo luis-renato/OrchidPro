@@ -26,6 +26,35 @@
                            TextColor="Gray"
                            Opacity="0.8" />
 
+                    <!-- Related Genera Info (Only in Edit Mode) -->
+                    <Frame BackgroundColor="{StaticResource Gray100}"
+                           BorderColor="{StaticResource Gray300}"
+                           CornerRadius="8"
+                           Padding="12,8"
+                           Margin="0,8,0,0"
+                           IsVisible="{Binding IsEditMode}">
+
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0"
+                                   Text="🌱"
+                                   FontSize="16"
+                                   VerticalOptions="Center" />
+
+                            <Label Grid.Column="1"
+                                   Text="{Binding RelatedGeneraDisplay}"
+                                   FontSize="14"
+                                   TextColor="{StaticResource Gray700}"
+                                   VerticalOptions="Center" />
+
+                            <ActivityIndicator Grid.Column="2"
+                                               IsRunning="{Binding IsLoadingGeneraCount}"
+                                               Color="{StaticResource Primary}"
+                                               WidthRequest="16"
+                                               HeightRequest="16"
+                                               VerticalOptions="Center" />
+                        </Grid>
+                    </Frame>
+
                     <ProgressBar Progress="{Binding FormCompletionProgress}"
                                 ProgressColor="{StaticResource Primary}"
                                 BackgroundColor="{StaticResource Gray200}"
@@ -143,6 +172,16 @@
                             IsEnabled="{Binding IsNameValid}" />
 
                 </Grid>
+
+                <!-- Delete Button (Only in Edit Mode) -->
+                <Button Text="Delete Family"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        BackgroundColor="{StaticResource ErrorColor}"
+                        TextColor="White"
+                        Command="{Binding DeleteWithValidationCommand}"
+                        IsVisible="{Binding IsEditMode}"
+                        IsEnabled="{Binding CanDelete}"
+                        Margin="0,8,0,0" />
 
             </StackLayout>
         </ScrollView>

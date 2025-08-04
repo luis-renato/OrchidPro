@@ -15,8 +15,8 @@ public partial class FamiliesListViewModel : BaseListViewModel<Family, FamilyIte
 {
     #region Private Fields
 
-    // Family-specific repository for accessing family-only methods
     private readonly IFamilyRepository _familyRepository;
+    private readonly IGenusRepository _genusRepository;
 
     #endregion
 
@@ -33,11 +33,12 @@ public partial class FamiliesListViewModel : BaseListViewModel<Family, FamilyIte
     /// <summary>
     /// Initialize families list ViewModel with enhanced base functionality
     /// </summary>
-    public FamiliesListViewModel(IFamilyRepository repository, INavigationService navigationService)
+    public FamiliesListViewModel(IFamilyRepository repository, IGenusRepository genusRepository, INavigationService navigationService)
         : base(repository, navigationService)
     {
         _familyRepository = repository;
-        this.LogInfo("Initialized - using enhanced base with all extracted functionality");
+        _genusRepository = genusRepository;
+        this.LogInfo("Initialized with genus count support");
     }
 
     #endregion
@@ -51,8 +52,8 @@ public partial class FamiliesListViewModel : BaseListViewModel<Family, FamilyIte
     {
         return this.SafeExecute(() =>
         {
-            var itemViewModel = new FamilyItemViewModel(entity);
-            this.LogInfo($"Created FamilyItemViewModel for: {entity.Name}");
+            var itemViewModel = new FamilyItemViewModel(entity, _genusRepository);
+            this.LogInfo($"Created FamilyItemViewModel with genus support for: {entity.Name}");
             return itemViewModel;
         }, fallbackValue: new FamilyItemViewModel(entity), operationName: "CreateItemViewModel");
     }
@@ -77,6 +78,8 @@ public partial class FamiliesListViewModel : BaseListViewModel<Family, FamilyIte
                 "Recent First" => filtered.OrderByDescending(item => item.UpdatedAt),
                 "Oldest First" => filtered.OrderBy(item => item.CreatedAt),
                 "Favorites First" => filtered.OrderByDescending(item => item.IsFavorite).ThenBy(item => item.Name),
+                "Most Genera" => filtered.OrderByDescending(item => item.GenusCount).ThenBy(item => item.Name),
+                "Fewest Genera" => filtered.OrderBy(item => item.GenusCount).ThenBy(item => item.Name),
                 _ => filtered.OrderBy(item => item.Name)
             };
 
@@ -97,14 +100,14 @@ public partial class FamiliesListViewModel : BaseListViewModel<Family, FamilyIte
 
             this.LogInfo($"Toggling favorite for: {item.Name}");
 
-            // Use the family-specific repository directly
             var updatedFamily = await _familyRepository.ToggleFavoriteAsync(item.Id);
 
-            // Update the item by replacing it with updated data
             var index = Items.IndexOf(item);
             if (index >= 0)
             {
-                Items[index] = new FamilyItemViewModel(updatedFamily);
+                var newItem = new FamilyItemViewModel(updatedFamily, _genusRepository);
+                newItem.SelectionChangedAction = item.SelectionChangedAction;
+                Items[index] = newItem;
                 this.LogInfo($"Updated item at index {index} with new favorite status");
             }
 
@@ -119,10 +122,41 @@ public partial class FamiliesListViewModel : BaseListViewModel<Family, FamilyIte
     #region Public Commands for XAML Integration
 
     /// <summary>
-    /// Public command for single item deletion used by swipe-to-delete actions
+    /// Enhanced single delete command with genus validation
     /// </summary>
-    public IAsyncRelayCommand<FamilyItemViewModel> DeleteSingleCommand => DeleteSingleItemSafeCommand;
+    public IAsyncRelayCommand<FamilyItemViewModel> DeleteSingleCommand =>
+        new AsyncRelayCommand<FamilyItemViewModel>(DeleteSingleWithValidationAsync);
+
+    private async Task DeleteSingleWithValidationAsync(FamilyItemViewModel? item)
+    {
+        if (item?.Id == null) return;
+
+        await this.SafeExecuteAsync(async () =>
+        {
+            var genusCount = await _genusRepository.GetCountByFamilyAsync(item.Id, includeInactive: true);
+
+            bool confirmed;
+            if (genusCount > 0)
+            {
+                var genusText = genusCount == 1 ? "genus" : "genera";
+                confirmed = await ShowConfirmAsync("Delete Family with Genera",
+                    $"Family '{item.Name}' has {genusCount} {genusText}. Deleting will also remove all {genusText}. Continue?");
+            }
+            else
+            {
+                confirmed = await ShowConfirmAsync("Delete Family", $"Are you sure you want to delete '{item.Name}'?");
+            }
+
+            if (confirmed)
+            {
+                await _familyRepository.DeleteAsync(item.Id);
+                Items.Remove(item);
+                UpdateCounters();
+                this.LogSuccess($"Family deleted: {item.Name}");
+            }
+
+        }, $"DeleteSingle failed for {item?.Name}");
+    }
 
     #endregion
-
 }

@@ -193,10 +193,9 @@
                                     </DataTemplate>
                                 </sflistview:SfListView.EndSwipeTemplate>
 
-                                <!-- Item template com padding corrigido -->
+                                <!-- Enhanced Item template with Genus Count -->
                                 <sflistview:SfListView.ItemTemplate>
                                     <DataTemplate x:DataType="vm:FamilyItemViewModel">
-                                        <!-- ✅ SEM MARGIN - itens grudados -->
                                         <Grid Margin="0" BackgroundColor="Transparent">
                                             <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
                                                 Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
@@ -208,8 +207,8 @@
 
                                                 <Grid Padding="20,16" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
 
-                                                    <!-- Header row -->
-                                                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                                                    <!-- Header row with optimized layout -->
+                                                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                                                         <Label Grid.Column="0"
                                                            Text="{Binding Name}"
                                                            FontSize="18"
@@ -218,13 +217,44 @@
                                                            LineBreakMode="TailTruncation"
                                                            VerticalOptions="Center" />
 
+                                                        <!-- Favorite Star -->
                                                         <Label Grid.Column="1"
                                                            Text="⭐"
                                                            FontSize="16"
                                                            IsVisible="{Binding IsFavorite}"
                                                            VerticalOptions="Center" />
 
+                                                        <!-- Genus Count Badge -->
                                                         <Border Grid.Column="2"
+                                                                BackgroundColor="LightBlue"
+                                                                Padding="6,3"
+                                                                VerticalOptions="Center"
+                                                                IsVisible="{Binding IsLoadingGenusCount, Converter={StaticResource InvertedBoolConverter}}">
+                                                            <Border.StrokeShape>
+                                                                <RoundRectangle CornerRadius="8" />
+                                                            </Border.StrokeShape>
+                                                            <StackLayout Orientation="Horizontal" Spacing="3">
+                                                                <Label Text="🌱"
+                                                                       FontSize="10"
+                                                                       VerticalOptions="Center" />
+                                                                <Label Text="{Binding GenusCount}"
+                                                                       FontSize="10"
+                                                                       FontAttributes="Bold"
+                                                                       TextColor="White"
+                                                                       VerticalOptions="Center" />
+                                                            </StackLayout>
+                                                        </Border>
+
+                                                        <!-- Loading Genus Count -->
+                                                        <ActivityIndicator Grid.Column="2"
+                                                                           IsRunning="{Binding IsLoadingGenusCount}"
+                                                                           Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                                           WidthRequest="16"
+                                                                           HeightRequest="16"
+                                                                           VerticalOptions="Center" />
+
+                                                        <!-- Active/Inactive Badge -->
+                                                        <Border Grid.Column="3"
                                                             BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#4CAF50|#F44336'}"
                                                             Padding="12,6"
                                                             VerticalOptions="Center">
@@ -247,7 +277,7 @@
                                                        MaxLines="1"
                                                        IsVisible="{Binding DescriptionPreview, Converter={StaticResource StringToBoolConverter}}" />
 
-                                                    <!-- Creation date -->
+                                                    <!-- Creation date only -->
                                                     <Label Grid.Row="2"
                                                        Text="{Binding CreatedAt, StringFormat='Created {0:dd/MM/yyyy}'}"
                                                        FontSize="12"

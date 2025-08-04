@@ -96,7 +96,15 @@ public static class MauiProgram
 
             // ViewModels with transient lifetime for proper lifecycle management
             services.AddTransient<FamiliesListViewModel>();
-            services.AddTransient<FamilyEditViewModel>();
+
+            // FamilyEditViewModel now requires IGenusRepository for delete validation
+            services.AddTransient<FamilyEditViewModel>(provider =>
+                new FamilyEditViewModel(
+                    provider.GetRequiredService<IFamilyRepository>(),
+                    provider.GetRequiredService<IGenusRepository>(),
+                    provider.GetRequiredService<INavigationService>()
+                ));
+
             services.AddTransient<GeneraListViewModel>();
             services.AddTransient<GenusEditViewModel>();
             services.AddTransient<GenusItemViewModel>();
@@ -120,7 +128,7 @@ public static class MauiProgram
 
             RegisterRoutes();
 
-            typeof(MauiProgram).LogSuccess("Successfully configured services");
+            typeof(MauiProgram).LogSuccess("Successfully configured services with genus integration");
         }
         catch (Exception ex)
         {
@@ -218,6 +226,7 @@ public static class MauiProgram
                 var summary = AppSettings.GetConfigurationSummary();
                 typeof(MauiProgram).LogInfo($"Startup Configuration:\n{summary}");
                 typeof(MauiProgram).LogInfo("Genus module services registered and ready");
+                typeof(MauiProgram).LogInfo("FamilyEditViewModel configured with genus count validation");
             }
 
             typeof(MauiProgram).LogSuccess($"OrchidPro {AppSettings.ApplicationVersion} started successfully in {AppSettings.Environment} mode");
@@ -245,16 +254,20 @@ public static class MauiProgram
             var genusRepository = services.GetService<IGenusRepository>();
             var generaListViewModel = services.GetService<GeneraListViewModel>();
 
+            // ✅ ADICIONADO: Validar FamilyEditViewModel com genus repository
+            var familyEditViewModel = services.GetService<FamilyEditViewModel>();
+
             var allServicesValid = supabaseService != null &&
                                  navigationService != null &&
                                  familyRepository != null &&
                                  familiesListViewModel != null &&
                                  genusRepository != null &&
-                                 generaListViewModel != null;
+                                 generaListViewModel != null &&
+                                 familyEditViewModel != null;
 
             if (allServicesValid)
             {
-                typeof(MauiProgram).LogSuccess("All services validated successfully");
+                typeof(MauiProgram).LogSuccess("All services validated successfully including genus integration");
             }
             else
             {

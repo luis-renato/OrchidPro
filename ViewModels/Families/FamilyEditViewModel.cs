@@ -15,6 +15,32 @@ namespace OrchidPro.ViewModels.Families;
 /// </summary>
 public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttributable
 {
+    #region Private Fields
+
+    private readonly IGenusRepository _genusRepository;
+    private int _relatedGeneraCount = 0;
+
+    #endregion
+
+    #region Properties
+
+    public int RelatedGeneraCount
+    {
+        get => _relatedGeneraCount;
+        private set => SetProperty(ref _relatedGeneraCount, value);
+    }
+
+    public string RelatedGeneraDisplay => RelatedGeneraCount switch
+    {
+        0 => "No related genera",
+        1 => "1 related genus",
+        _ => $"{RelatedGeneraCount} related genera"
+    };
+
+    public bool CanDelete => IsEditMode && EntityId.HasValue;
+
+    #endregion
+
     #region Required Base Class Overrides
 
     public override string EntityName => "Family";
@@ -24,46 +50,68 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
 
     #region Page Title Management
 
-    /// <summary>
-    /// Dynamic page title based on edit mode state
-    /// </summary>
     public new string PageTitle => IsEditMode ? "Edit Family" : "New Family";
-
-    /// <summary>
-    /// Current edit mode state for UI binding
-    /// </summary>
     public bool IsEditMode => _isEditMode;
 
     #endregion
 
     #region Constructor
 
-    /// <summary>
-    /// Initialize family edit ViewModel with enhanced base functionality
-    /// </summary>
-    public FamilyEditViewModel(IFamilyRepository familyRepository, INavigationService navigationService)
+    public FamilyEditViewModel(IFamilyRepository familyRepository, IGenusRepository genusRepository, INavigationService navigationService)
         : base(familyRepository, navigationService)
     {
-        this.LogInfo("Initialized - using base functionality with corrections");
+        _genusRepository = genusRepository;
+        this.LogInfo("Initialized with genus repository for delete validation");
+    }
+
+    #endregion
+
+    #region Delete Operations
+
+    [RelayCommand]
+    private async Task DeleteWithValidationAsync()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            if (!EntityId.HasValue) return;
+
+            var genusCount = await _genusRepository.GetCountByFamilyAsync(EntityId.Value, includeInactive: true);
+
+            bool confirmed;
+            if (genusCount > 0)
+            {
+                var genusText = genusCount == 1 ? "genus" : "genera";
+                confirmed = await ShowConfirmationAsync("Delete Family with Genera",
+                    $"This family has {genusCount} {genusText}. Deleting will also remove all {genusText}. Continue?",
+                    "Delete", "Cancel");
+            }
+            else
+            {
+                confirmed = await ShowConfirmationAsync("Delete Family", $"Are you sure you want to delete '{Name}'?", "Delete", "Cancel");
+            }
+
+            if (confirmed)
+            {
+                await _repository.DeleteAsync(EntityId.Value);
+                await ShowSuccessAsync("Deleted", $"{EntityName} deleted successfully");
+                await NavigateBackAsync();
+            }
+
+        }, $"DeleteWithValidation failed for {Name}");
     }
 
     #endregion
 
     #region Save Operations Override
 
-    /// <summary>
-    /// Override save command to send messaging when family is created
-    /// </summary>
     [RelayCommand]
     private async Task SaveWithMessagingAsync()
     {
         var wasCreateOperation = !IsEditMode;
         var familyName = Name;
 
-        // Call base save command
         await SaveCommand.ExecuteAsync(null);
 
-        // Send message only when creating new family (not editing)
         if (wasCreateOperation && EntityId.HasValue)
         {
             await this.SafeExecuteAsync(async () =>
@@ -79,33 +127,33 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
 
     #region Query Attributes Handling
 
-    /// <summary>
-    /// Handle navigation parameters and update edit mode state
-    /// </summary>
     public new void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         this.SafeExecute(() =>
         {
-            this.LogInfo($"ApplyQueryAttributes called with {query.Count} parameters");
-
-            // Log all parameters for debugging
-            foreach (var param in query)
-            {
-                this.LogInfo($"Parameter: {param.Key} = {param.Value} ({param.Value?.GetType().Name})");
-            }
-
-            // Call base implementation first
             base.ApplyQueryAttributes(query);
 
-            // Notify UI of title and mode changes
+            if (IsEditMode && EntityId.HasValue)
+            {
+                _ = LoadGenusCountAsync();
+            }
+
             OnPropertyChanged(nameof(PageTitle));
             OnPropertyChanged(nameof(IsEditMode));
-
-            this.LogSuccess($"Query attributes applied - IsEditMode: {IsEditMode}, PageTitle: {PageTitle}");
+            OnPropertyChanged(nameof(CanDelete));
 
         }, "ApplyQueryAttributes");
     }
 
-    #endregion
+    private async Task LoadGenusCountAsync()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            var count = await _genusRepository.GetCountByFamilyAsync(EntityId!.Value, includeInactive: true);
+            RelatedGeneraCount = count;
+            OnPropertyChanged(nameof(RelatedGeneraDisplay));
+        }, "LoadGenusCount");
+    }
 
+    #endregion
 }
