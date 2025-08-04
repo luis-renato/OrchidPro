@@ -1,10 +1,12 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
 using OrchidPro.Models;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
 using OrchidPro.Extensions;
+using OrchidPro.Messages;
 
 namespace OrchidPro.ViewModels.Genera;
 
@@ -38,6 +40,27 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
 
     [ObservableProperty]
     private bool isLoadingFamilies;
+
+    [ObservableProperty]
+    private string saveAndContinueButtonText = "Save & Add Another";
+
+    [ObservableProperty]
+    private bool showSaveAndContinue = true;
+
+    /// <summary>
+    /// Currently selected family object for ComboBox binding
+    /// </summary>
+    public Family? SelectedFamily
+    {
+        get => AvailableFamilies?.FirstOrDefault(f => f.Id == SelectedFamilyId);
+        set
+        {
+            if (value != null)
+            {
+                SetSelectedFamily(value);
+            }
+        }
+    }
 
     #endregion
 
@@ -78,11 +101,23 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
     {
         _genusRepository = genusRepository;
         _familyRepository = familyRepository;
+
+        SaveAndContinueCommand = new AsyncRelayCommand(SaveAndCreateAnotherAsync, () => CanCreateAnother);
+
+        // Subscribe to family created message
+        WeakReferenceMessenger.Default.Register<FamilyCreatedMessage>(this, OnFamilyCreated);
+
         this.LogInfo("Initialized - using base functionality with family relationship management");
 
         // Load available families for selection
         _ = Task.Run(LoadAvailableFamiliesAsync);
     }
+
+    #endregion
+
+    #region Commands
+
+    public IAsyncRelayCommand SaveAndContinueCommand { get; }
 
     #endregion
 
@@ -121,6 +156,9 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
                 SelectedFamilyId = family.Id;
                 SelectedFamilyName = family.Name;
                 this.LogInfo($"Selected family: {family.Name}");
+
+                SaveAndContinueCommand.NotifyCanExecuteChanged();
+                OnPropertyChanged(nameof(SelectedFamily));
             }
             else
             {
@@ -129,11 +167,9 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
                 this.LogInfo("Cleared family selection");
             }
 
-            // Clear family validation error when selection changes
-            // Note: Using simple validation approach since ObservableProperty validation fields aren't available
-
             // Update family context display
             OnPropertyChanged(nameof(FamilyContext));
+            OnPropertyChanged(nameof(CanCreateAnother));
 
         }, "Set Selected Family");
     }
@@ -280,7 +316,11 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
             EntityId = savedGenus.Id;
             UpdatedAt = savedGenus.UpdatedAt;
 
-            await ShowSuccessAsync($"Genus '{savedGenus.Name}' saved successfully!");
+            // Clear unsaved changes state
+            HasUnsavedChanges = false;
+
+            // Show toast instead of alert
+            this.ShowSuccessToast($"Genus '{savedGenus.Name}' saved successfully!");
 
             // Navigate back
             await _navigationService.GoBackAsync();
@@ -318,26 +358,77 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
             var savedGenus = await _genusRepository.CreateAsync(genus);
             this.LogSuccess($"Created genus: {savedGenus.Name}");
 
-            await ShowSuccessAsync($"Genus '{savedGenus.Name}' saved successfully!");
+            // Show toast instead of alert
+            this.ShowSuccessToast($"Genus '{savedGenus.Name}' saved successfully!");
 
             // Keep the current family selection and reset form
             var currentFamilyId = SelectedFamilyId;
             var currentFamilyName = SelectedFamilyName;
 
-            // Reset form for new entry
-            Name = string.Empty;
-            Description = string.Empty;
-            IsActive = true;
-            IsFavorite = false;
-            EntityId = null;
-            _isEditMode = false;
+            // Save current genus name for success message
+            var savedName = Name;
+
+            // CRITICAL: Clear validation state completely before resetting
+            try
+            {
+                // Disable all validation temporarily
+                var canSaveProperty = this.GetType().GetProperty("CanSave");
+                canSaveProperty?.SetValue(this, true);
+
+                // Reset all validation properties
+                IsNameValid = true;
+                NameValidationMessage = string.Empty;
+                NameError = string.Empty;
+
+                // Force property change notifications for validation
+                OnPropertyChanged(nameof(IsNameValid));
+                OnPropertyChanged(nameof(NameValidationMessage));
+                OnPropertyChanged(nameof(NameError));
+
+                // Reset form fields
+                EntityId = null;
+                _isEditMode = false;
+                HasUnsavedChanges = false;
+                IsActive = true;
+                IsFavorite = false;
+                Description = string.Empty;
+
+                // Set name to empty WITHOUT triggering validation
+                var nameField = this.GetType().GetField("name", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                if (nameField != null)
+                {
+                    nameField.SetValue(this, string.Empty);
+                }
+                else
+                {
+                    Name = string.Empty;
+                }
+
+                // Force validation to stay valid
+                IsNameValid = true;
+                NameValidationMessage = string.Empty;
+            }
+            catch (Exception ex)
+            {
+                this.LogError($"Error during form reset: {ex.Message}");
+                // Fallback to simple reset
+                Name = string.Empty;
+                Description = string.Empty;
+                IsActive = true;
+                IsFavorite = false;
+                EntityId = null;
+                _isEditMode = false;
+                HasUnsavedChanges = false;
+            }
 
             // Restore family selection
             SelectedFamilyId = currentFamilyId;
             SelectedFamilyName = currentFamilyName;
+
             OnPropertyChanged(nameof(FamilyContext));
             OnPropertyChanged(nameof(PageTitle));
             OnPropertyChanged(nameof(IsEditMode));
+            OnPropertyChanged(nameof(SelectedFamily));
 
             this.LogSuccess($"Ready to create another genus in {currentFamilyName}");
 
@@ -490,6 +581,33 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
 
     #endregion
 
+    #region Messaging
+
+    /// <summary>
+    /// Handle family created message
+    /// </summary>
+    private async void OnFamilyCreated(object recipient, FamilyCreatedMessage message)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            this.LogInfo($"Received family created message: {message.FamilyName}");
+
+            // Reload families
+            await LoadAvailableFamiliesAsync();
+
+            // Auto-select the newly created family
+            var newFamily = AvailableFamilies.FirstOrDefault(f => f.Id == message.FamilyId);
+            if (newFamily != null)
+            {
+                SetSelectedFamily(newFamily);
+                this.LogSuccess($"Auto-selected newly created family: {newFamily.Name}");
+            }
+
+        }, "OnFamilyCreated");
+    }
+
+    #endregion
+
     #region Lifecycle
 
     /// <summary>
@@ -501,7 +619,7 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
 
         await this.SafeExecuteAsync(async () =>
         {
-            // Ensure families are loaded
+            // Only load families if not already loaded
             if (!AvailableFamilies.Any() && !IsLoadingFamilies)
             {
                 await LoadAvailableFamiliesAsync();
@@ -519,4 +637,5 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
     }
 
     #endregion
+
 }

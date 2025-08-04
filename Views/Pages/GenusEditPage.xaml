@@ -5,6 +5,7 @@
              xmlns:vm="clr-namespace:OrchidPro.ViewModels.Genera"
              xmlns:models="clr-namespace:OrchidPro.Models"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
+             xmlns:sfcombobox="clr-namespace:Syncfusion.Maui.Inputs;assembly=Syncfusion.Maui.Inputs"
              x:DataType="vm:GenusEditViewModel"
              Title="{Binding PageTitle}"
              BackgroundColor="White">
@@ -37,76 +38,40 @@
                 <!-- Family Selection Field -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
-                        <Label Text="Family *" Style="{StaticResource FormFieldLabelStyle}" />
-
-                        <!-- Current family display -->
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding SelectedFamilyName, Converter={StaticResource StringToBoolConverter}}">
-                            <Label Grid.Column="0"
-                                   Text="{Binding SelectedFamilyName}"
-                                   FontSize="16"
-                                   TextColor="Black"
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0" 
+                                   Text="Family *" 
+                                   Style="{StaticResource FormFieldLabelStyle}"
                                    VerticalOptions="Center" />
-
                             <Button Grid.Column="1"
-                                    Text="Change"
-                                    Command="{Binding SelectFamilyCommand}"
-                                    FontSize="14"
-                                    BackgroundColor="{StaticResource Secondary}"
-                                    TextColor="White"
-                                    CornerRadius="12"
-                                    Padding="12,6" />
+                                    Text="+ Create New Family"
+                                    Command="{Binding CreateNewFamilyCommand}"
+                                    FontSize="12"
+                                    BackgroundColor="Transparent"
+                                    TextColor="{StaticResource Primary}"
+                                    Padding="6,0"
+                                    MaximumHeightRequest="16"
+                                    VerticalOptions="Center" />
                         </Grid>
 
-                        <!-- Select family button when no family selected -->
-                        <Button Text="Select Family"
-                                Command="{Binding SelectFamilyCommand}"
-                                FontSize="16"
-                                BackgroundColor="{StaticResource Primary}"
-                                TextColor="White"
-                                CornerRadius="12"
-                                HeightRequest="40"
-                                IsVisible="{Binding SelectedFamilyName, Converter={StaticResource InvertedStringToBoolConverter}}" />
+                        <!-- SfComboBox for Family Selection -->
+                        <sfcombobox:SfComboBox ItemsSource="{Binding AvailableFamilies}"
+                                               DisplayMemberPath="Name"
+                                               TextMemberPath="Name"
+                                               SelectedItem="{Binding SelectedFamily}"
+                                               Placeholder="Select a family..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="True"
+                                               IsFilteringEnabled="True"
+                                               TextSearchMode="Contains"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent" />
 
-                        <!-- Family selection dropdown/picker -->
-                        <CollectionView ItemsSource="{Binding AvailableFamilies}"
-                                        IsVisible="{Binding IsFamilySelectionVisible}"
-                                        MaximumHeightRequest="200"
-                                        BackgroundColor="White">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="models:Family">
-                                    <Border Padding="12,8"
-                                            BackgroundColor="Transparent">
-                                        <Border.GestureRecognizers>
-                                            <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:GenusEditViewModel}}, Path=SetSelectedFamilyCommand}"
-                                                                  CommandParameter="{Binding .}" />
-                                        </Border.GestureRecognizers>
-
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <Label Grid.Column="0"
-                                                   Text="{Binding Name}"
-                                                   FontSize="14"
-                                                   FontAttributes="Bold"
-                                                   TextColor="Black"
-                                                   VerticalOptions="Center" />
-
-                                            <Label Grid.Column="1"
-                                                   Text="✓"
-                                                   FontSize="16"
-                                                   TextColor="{StaticResource Primary}"
-                                                   VerticalOptions="Center" />
-                                        </Grid>
-                                    </Border>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-
-                        <!-- Create new family link -->
-                        <Button Text="+ Create New Family"
-                                Command="{Binding CreateNewFamilyCommand}"
-                                FontSize="14"
-                                BackgroundColor="Transparent"
-                                TextColor="{StaticResource Primary}"
-                                HorizontalOptions="Start" />
                     </StackLayout>
                 </ContentView>
 
@@ -142,7 +107,7 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Settings usando template -->
+                <!-- Settings usando template melhorado como Family -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormSettingsStackStyle}">
                         <Label Text="Settings" Style="{StaticResource FormFieldLabelStyle}" />
@@ -151,84 +116,89 @@
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Label Grid.Column="0"
                                    Text="🟢"
-                                   FontSize="20"
+                                   FontSize="24"
                                    VerticalOptions="Center" />
 
-                            <Label Grid.Column="1"
-                                   Text="Active Genus"
-                                   FontSize="16"
-                                   VerticalOptions="Center"
-                                   Margin="10,0,0,0" />
+                            <StackLayout Grid.Column="1" 
+                                        Margin="12,0,0,0"
+                                        VerticalOptions="Center">
+                                <Label Text="Active"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="Black" />
+                                <Label Text="Genus is available for use"
+                                       FontSize="12"
+                                       TextColor="Gray" />
+                            </StackLayout>
 
                             <Switch Grid.Column="2"
                                     IsToggled="{Binding IsActive}"
-                                    OnColor="{StaticResource Primary}"
-                                    ThumbColor="White" />
+                                    OnColor="{StaticResource SuccessColor}"
+                                    ThumbColor="White"
+                                    VerticalOptions="Center" />
                         </Grid>
 
                         <!-- Favorite Toggle -->
                         <Grid ColumnDefinitions="Auto,*,Auto">
                             <Label Grid.Column="0"
                                    Text="⭐"
-                                   FontSize="20"
+                                   FontSize="24"
                                    VerticalOptions="Center" />
 
-                            <Label Grid.Column="1"
-                                   Text="Mark as Favorite"
-                                   FontSize="16"
-                                   VerticalOptions="Center"
-                                   Margin="10,0,0,0" />
+                            <StackLayout Grid.Column="1" 
+                                        Margin="12,0,0,0"
+                                        VerticalOptions="Center">
+                                <Label Text="Favorite"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="Black" />
+                                <Label Text="Mark as important genus"
+                                       FontSize="12"
+                                       TextColor="Gray" />
+                            </StackLayout>
 
                             <Switch Grid.Column="2"
                                     IsToggled="{Binding IsFavorite}"
                                     OnColor="{StaticResource WarningColor}"
-                                    ThumbColor="White" />
+                                    ThumbColor="White"
+                                    VerticalOptions="Center" />
                         </Grid>
+
                     </StackLayout>
                 </ContentView>
 
                 <!-- Action Buttons -->
-                <StackLayout Spacing="12" Margin="0,10,0,20">
-                    <!-- Primary Save Button -->
-                    <Button Text="{Binding SaveButtonText}"
-                            Command="{Binding SaveWithFamilyCommand}"
-                            IsEnabled="{Binding CanSave}"
-                            BackgroundColor="{Binding SaveButtonColor}"
-                            Style="{StaticResource DynamicPrimaryButtonStyle}" />
+                <Grid ColumnDefinitions="*,*" 
+                      ColumnSpacing="16"
+                      Margin="0,24,0,0">
 
-                    <!-- Save and Add Another (only for new genus) -->
-                    <Button Text="Save and Add Another"
-                            Command="{Binding SaveAndCreateAnotherCommand}"
-                            IsVisible="{Binding CanCreateAnother}"
-                            Style="{StaticResource SecondaryButtonStyle}" />
-                </StackLayout>
+                    <Button Grid.Column="0"
+                            Text="Cancel"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding CancelCommand}" />
+
+                    <Button Grid.Column="1"
+                            Text="{Binding SaveButtonText}"
+                            Style="{StaticResource DynamicPrimaryButtonStyle}"
+                            BackgroundColor="{Binding SaveButtonColor}"
+                            Command="{Binding SaveWithFamilyCommand}"
+                            IsEnabled="{Binding IsNameValid}" />
+
+                </Grid>
+
+                <!-- Save and Add Another Button (only for new genus) -->
+                <Button Text="{Binding SaveAndContinueButtonText}"
+                        Command="{Binding SaveAndContinueCommand}"
+                        IsVisible="{Binding ShowSaveAndContinue}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Margin="0,8,0,0" />
 
             </StackLayout>
         </ScrollView>
 
         <!-- Loading Overlay -->
-        <Grid IsVisible="{Binding IsBusy}"
-              BackgroundColor="#80000000">
-            <Frame BackgroundColor="White"
-                   CornerRadius="16"
-                   Padding="32"
-                   HorizontalOptions="Center"
-                   VerticalOptions="Center"
-                   HasShadow="True">
-                <StackLayout Spacing="16" Orientation="Horizontal">
-                    <sfbusy:SfBusyIndicator IsVisible="{Binding IsBusy}"
-                                           IsRunning="{Binding IsBusy}"
-                                           AnimationType="CircularMaterial"
-                                           SizeFactor="0.8"
-                                           WidthRequest="50"
-                                           HeightRequest="50" />
+        <ContentView Style="{StaticResource SavingOverlayStyle}" />
 
-                    <Label Text="{Binding LoadingMessage}"
-                           FontSize="16"
-                           VerticalOptions="Center" />
-                </StackLayout>
-            </Frame>
-        </Grid>
     </Grid>
 
 </ContentPage>

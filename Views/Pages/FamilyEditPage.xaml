@@ -33,7 +33,7 @@
                                 Margin="0,8,0,0" />
                 </StackLayout>
 
-                <!-- ✅ TEMPLATE 3: Name Field usando template -->
+                <!-- Name Field usando template -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Name *" Style="{StaticResource FormFieldLabelStyle}" />
@@ -51,7 +51,7 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- ✅ TEMPLATE 3: Description Field usando template -->
+                <!-- Description Field usando template -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Description" Style="{StaticResource FormFieldLabelStyle}" />
@@ -65,7 +65,7 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- ✅ TEMPLATE 3: Settings usando template -->
+                <!-- Settings usando template -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormSettingsStackStyle}">
                         <Label Text="Settings" Style="{StaticResource FormFieldLabelStyle}" />
@@ -125,7 +125,7 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- ✅ TEMPLATE 4: Bottom Buttons usando templates -->
+                <!-- Bottom Buttons usando templates -->
                 <Grid ColumnDefinitions="*,*" 
                       ColumnSpacing="16"
                       Margin="0,24,0,0">
@@ -139,7 +139,7 @@
                             Text="{Binding SaveButtonText}"
                             Style="{StaticResource DynamicPrimaryButtonStyle}"
                             BackgroundColor="{Binding SaveButtonColor}"
-                            Command="{Binding SaveCommand}"
+                            Command="{Binding SaveWithMessagingCommand}"
                             IsEnabled="{Binding IsNameValid}" />
 
                 </Grid>
@@ -147,7 +147,7 @@
             </StackLayout>
         </ScrollView>
 
-        <!-- ✅ TEMPLATE 1: SAVING OVERLAY USANDO TEMPLATE -->
+        <!-- SAVING OVERLAY USANDO TEMPLATE -->
         <ContentView Style="{StaticResource SavingOverlayStyle}" />
 
     </Grid>

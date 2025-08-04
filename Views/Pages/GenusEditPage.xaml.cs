@@ -55,9 +55,9 @@ public partial class GenusEditPage : ContentPage, IQueryAttributable
                 e.Cancel();
 
                 var leaveConfirmed = await DisplayAlert(
-                    "Unsaved Changes",
-                    "You have unsaved changes. Are you sure you want to leave?",
-                    "Leave", "Stay");
+                    "Discard Changes?",
+                    "You have unsaved changes. Are you sure you want to discard them?",
+                    "Discard", "Keep Editing");
 
                 if (leaveConfirmed)
                 {

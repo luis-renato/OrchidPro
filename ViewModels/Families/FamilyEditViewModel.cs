@@ -1,8 +1,11 @@
-﻿using OrchidPro.Models;
+﻿using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using OrchidPro.Extensions;
+using OrchidPro.Messages;
+using OrchidPro.Models;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
-using OrchidPro.Extensions;
 
 namespace OrchidPro.ViewModels.Families;
 
@@ -46,6 +49,34 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
 
     #endregion
 
+    #region Save Operations Override
+
+    /// <summary>
+    /// Override save command to send messaging when family is created
+    /// </summary>
+    [RelayCommand]
+    private async Task SaveWithMessagingAsync()
+    {
+        var wasCreateOperation = !IsEditMode;
+        var familyName = Name;
+
+        // Call base save command
+        await SaveCommand.ExecuteAsync(null);
+
+        // Send message only when creating new family (not editing)
+        if (wasCreateOperation && EntityId.HasValue)
+        {
+            await this.SafeExecuteAsync(async () =>
+            {
+                var message = new FamilyCreatedMessage(EntityId.Value, familyName);
+                WeakReferenceMessenger.Default.Send(message);
+                this.LogSuccess($"Sent FamilyCreatedMessage for: {familyName}");
+            }, "Send FamilyCreatedMessage");
+        }
+    }
+
+    #endregion
+
     #region Query Attributes Handling
 
     /// <summary>
@@ -76,5 +107,5 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
     }
 
     #endregion
-    
+
 }
