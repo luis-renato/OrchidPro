@@ -115,7 +115,7 @@
                          ContentTemplate="{DataTemplate pages:FamiliesListPage}" />
         </Tab>
 
-        <!-- ✅ UPDATED: Genera - Now Active! -->
+        <!-- Genera management tab -->
         <Tab Title="Genera">
             <ShellContent Title="Genera" 
                          Icon="genus.png" 

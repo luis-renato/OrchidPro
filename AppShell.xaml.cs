@@ -36,18 +36,6 @@ public partial class AppShell : Shell
             Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
             Routing.RegisterRoute("familieslist", typeof(FamiliesListPage));
 
-            // ✅ NEW: Genus management routes
-            Routing.RegisterRoute("generalist", typeof(GeneraListPage));
-            Routing.RegisterRoute("genusedit", typeof(GenusEditPage));
-            Routing.RegisterRoute("genera/list", typeof(GeneraListPage));
-            Routing.RegisterRoute("genera/edit", typeof(GenusEditPage));
-            Routing.RegisterRoute("genera/add", typeof(GenusEditPage));
-            Routing.RegisterRoute("genera/family", typeof(GeneraListPage));
-
-            // ✅ NEW: Parameterized genus routes
-            Routing.RegisterRoute("genus/{genusId}/edit", typeof(GenusEditPage));
-            Routing.RegisterRoute("genera/family/{familyId}", typeof(GeneraListPage));
-
             // Authentication routes
             Routing.RegisterRoute("login", typeof(LoginPage));
 

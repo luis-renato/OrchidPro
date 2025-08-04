@@ -6,7 +6,7 @@ using OrchidPro.Services;
 using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Families;
-using OrchidPro.ViewModels.Genera; // ✅ NEW: Genus ViewModels
+using OrchidPro.ViewModels.Genera;
 using OrchidPro.Views.Pages;
 using Syncfusion.Maui.Core.Hosting;
 
@@ -88,36 +88,31 @@ public static class MauiProgram
             services.AddSingleton<SupabaseService>();
             services.AddSingleton<INavigationService, NavigationService>();
 
-            // ✅ EXISTING: Family data services
+            // Data services with singleton lifetime for repository pattern
             services.AddSingleton<SupabaseFamilyService>();
             services.AddSingleton<IFamilyRepository, FamilyRepository>();
-
-            // ✅ NEW: Genus data services
             services.AddSingleton<SupabaseGenusService>();
             services.AddSingleton<IGenusRepository, GenusRepository>();
 
-            // ✅ EXISTING: Family ViewModels
+            // ViewModels with transient lifetime for proper lifecycle management
             services.AddTransient<FamiliesListViewModel>();
             services.AddTransient<FamilyEditViewModel>();
-
-            // ✅ NEW: Genus ViewModels
             services.AddTransient<GeneraListViewModel>();
             services.AddTransient<GenusEditViewModel>();
+            services.AddTransient<GenusItemViewModel>();
 
-            // ✅ EXISTING: Core pages
+            // Core application pages
             services.AddTransient<SplashPage>();
             services.AddTransient<LoginPage>();
             services.AddTransient<MainPage>();
 
-            // ✅ EXISTING: Family pages
+            // Entity management pages
             services.AddTransient<FamiliesListPage>();
             services.AddTransient<FamilyEditPage>();
-
-            // ✅ NEW: Genus pages
             services.AddTransient<GeneraListPage>();
             services.AddTransient<GenusEditPage>();
 
-            // ✅ EXISTING: Debug page
+            // Debug and development pages
             services.AddTransient<TestSyncPage>();
 
             // Application shell with singleton lifetime
@@ -125,7 +120,7 @@ public static class MauiProgram
 
             RegisterRoutes();
 
-            typeof(MauiProgram).LogSuccess("Successfully configured services (including Genus module)");
+            typeof(MauiProgram).LogSuccess("Successfully configured services");
         }
         catch (Exception ex)
         {
@@ -178,30 +173,19 @@ public static class MauiProgram
         {
             typeof(MauiProgram).LogInfo("Registering navigation routes");
 
-            // ✅ EXISTING: Family routes
+            // Application navigation routes
             Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
             Routing.RegisterRoute("families-syncfusion", typeof(FamiliesListPage));
-
-            // ✅ NEW: Genus routes
-            Routing.RegisterRoute("generalist", typeof(GeneraListPage));
             Routing.RegisterRoute("genusedit", typeof(GenusEditPage));
-            Routing.RegisterRoute("genera/list", typeof(GeneraListPage));
-            Routing.RegisterRoute("genera/edit", typeof(GenusEditPage));
-            Routing.RegisterRoute("genera/add", typeof(GenusEditPage));
-            Routing.RegisterRoute("genera/family", typeof(GeneraListPage));
 
-            // ✅ NEW: Parameterized genus routes
-            Routing.RegisterRoute("genus/{genusId}/edit", typeof(GenusEditPage));
-            Routing.RegisterRoute("genera/family/{familyId}", typeof(GeneraListPage));
-
-            // ✅ EXISTING: Debug routes
+            // Development and debugging routes
             if (AppSettings.IsDebugMode)
             {
                 Routing.RegisterRoute("testsync", typeof(TestSyncPage));
                 typeof(MauiProgram).LogInfo("Debug routes registered");
             }
 
-            // ✅ UPDATED: Future routes (removed genera since it's now active)
+            // Future feature placeholder routes
             var futureRoutes = new[]
             {
                 "species", "orchids", "schedule",
@@ -213,7 +197,7 @@ public static class MauiProgram
                 Routing.RegisterRoute(route, typeof(MainPage));
             }
 
-            typeof(MauiProgram).LogSuccess("Successfully registered navigation routes (including Genus)");
+            typeof(MauiProgram).LogSuccess("Successfully registered navigation routes");
         }
         catch (Exception ex)
         {
@@ -233,8 +217,6 @@ public static class MauiProgram
             {
                 var summary = AppSettings.GetConfigurationSummary();
                 typeof(MauiProgram).LogInfo($"Startup Configuration:\n{summary}");
-
-                // ✅ NEW: Log Genus module registration
                 typeof(MauiProgram).LogInfo("Genus module services registered and ready");
             }
 
@@ -246,7 +228,6 @@ public static class MauiProgram
         }
     }
 
-    // ✅ NEW: Helper method for service validation (optional)
     /// <summary>
     /// Validates that all required services are properly registered
     /// </summary>
@@ -254,15 +235,13 @@ public static class MauiProgram
     {
         try
         {
-            // Test core services
+            // Validate core application services
             var supabaseService = services.GetService<SupabaseService>();
             var navigationService = services.GetService<INavigationService>();
 
-            // Test family services
+            // Validate data repository services
             var familyRepository = services.GetService<IFamilyRepository>();
             var familiesListViewModel = services.GetService<FamiliesListViewModel>();
-
-            // Test genus services
             var genusRepository = services.GetService<IGenusRepository>();
             var generaListViewModel = services.GetService<GeneraListViewModel>();
 

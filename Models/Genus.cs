@@ -4,8 +4,8 @@ using System.ComponentModel.DataAnnotations;
 namespace OrchidPro.Models;
 
 /// <summary>
-/// Genus model following exact pattern from Family model
-/// Represents botanical genera with family relationship
+/// Genus model - seguindo exatamente o padrão de Family
+/// Representa um gênero botânico dentro de uma família
 /// </summary>
 public class Genus : IBaseEntity
 {
@@ -15,15 +15,15 @@ public class Genus : IBaseEntity
     public Guid Id { get; set; } = Guid.NewGuid();
 
     /// <summary>
-    /// User who owns this genus record (null for system defaults)
-    /// </summary>
-    public Guid? UserId { get; set; }
-
-    /// <summary>
-    /// Family this genus belongs to
+    /// Foreign key to the family this genus belongs to
     /// </summary>
     [Required(ErrorMessage = "Family is required")]
     public Guid FamilyId { get; set; }
+
+    /// <summary>
+    /// User who owns this genus record (null for system defaults)
+    /// </summary>
+    public Guid? UserId { get; set; }
 
     /// <summary>
     /// Name of the botanical genus
@@ -58,32 +58,21 @@ public class Genus : IBaseEntity
     /// </summary>
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    #region Navigation Properties
-
     /// <summary>
-    /// Navigation property to the family this genus belongs to
+    /// Navigation property to the parent family
     /// </summary>
     public Family? Family { get; set; }
 
     /// <summary>
-    /// Family name for display purposes (loaded from related Family)
-    /// </summary>
-    public string FamilyName { get; set; } = string.Empty;
-
-    #endregion
-
-    #region Computed Properties
-
-    /// <summary>
     /// Computed property indicating if genus is system default
-    /// Based on UserId == null following Family pattern
+    /// Based on UserId == null instead of database field
     /// </summary>
     public bool IsSystemDefault => UserId == null;
 
     /// <summary>
-    /// Display name for UI purposes
+    /// Display name for UI presentation including family context
     /// </summary>
-    public string DisplayName => $"{Name}{(IsSystemDefault ? " (System)" : "")}{(IsFavorite ? " ⭐" : "")}";
+    public string DisplayName => $"{Name}{(Family != null ? $" ({Family.Name})" : "")}{(IsFavorite ? " ⭐" : "")}";
 
     /// <summary>
     /// Status display text for UI
@@ -91,87 +80,104 @@ public class Genus : IBaseEntity
     public string StatusDisplay => IsActive ? "Active" : "Inactive";
 
     /// <summary>
-    /// Extended status display with favorite indicator
+    /// Validates the genus and returns list of errors
     /// </summary>
-    public string FullStatusDisplay
-    {
-        get
-        {
-            var status = StatusDisplay;
-            if (IsSystemDefault) status += " • System";
-            if (IsFavorite) status += " • Favorite";
-            return status;
-        }
-    }
-
-    /// <summary>
-    /// Full display name with family context
-    /// </summary>
-    public string FullDisplayName => $"{Name} ({FamilyName})";
-
-    #endregion
-
-    #region IBaseEntity Implementation
-
-    /// <summary>
-    /// Validates the genus data
-    /// </summary>
+    /// <param name="errors">List of validation errors found</param>
+    /// <returns>True if valid, false if validation errors exist</returns>
     public bool IsValid(out List<string> errors)
     {
         errors = new List<string>();
 
+        // Name validation
         if (string.IsNullOrWhiteSpace(Name))
+        {
             errors.Add("Genus name is required");
-
-        if (Name?.Length > 255)
+        }
+        else if (Name.Length > 255)
+        {
             errors.Add("Genus name cannot exceed 255 characters");
+        }
 
-        if (Description?.Length > 2000)
-            errors.Add("Description cannot exceed 2000 characters");
-
+        // FamilyId validation
         if (FamilyId == Guid.Empty)
+        {
             errors.Add("Family is required");
+        }
+
+        // Description validation
+        if (!string.IsNullOrEmpty(Description) && Description.Length > 2000)
+        {
+            errors.Add("Description cannot exceed 2000 characters");
+        }
 
         return errors.Count == 0;
     }
 
     /// <summary>
-    /// Creates a copy of the genus for editing
+    /// Creates a copy of the genus for editing purposes
     /// </summary>
-    public Genus Clone()
+    /// <returns>Cloned genus instance</returns>
+    public IBaseEntity Clone()
     {
         return new Genus
         {
             Id = this.Id,
-            UserId = this.UserId,
             FamilyId = this.FamilyId,
+            UserId = this.UserId,
             Name = this.Name,
             Description = this.Description,
             IsActive = this.IsActive,
             IsFavorite = this.IsFavorite,
             CreatedAt = this.CreatedAt,
             UpdatedAt = this.UpdatedAt,
-            FamilyName = this.FamilyName,
             Family = this.Family
         };
     }
 
     /// <summary>
-    /// Implementation of interface: Generic clone
+    /// Updates this genus with values from another genus
     /// </summary>
-    IBaseEntity IBaseEntity.Clone()
+    /// <param name="other">Source genus to copy values from</param>
+    public void UpdateFrom(Genus other)
     {
-        return Clone();
-    }
+        if (other == null) return;
 
-    /// <summary>
-    /// Toggle favorite status
-    /// </summary>
-    public void ToggleFavorite()
-    {
-        IsFavorite = !IsFavorite;
+        Name = other.Name;
+        Description = other.Description;
+        FamilyId = other.FamilyId;
+        IsActive = other.IsActive;
+        IsFavorite = other.IsFavorite;
         UpdatedAt = DateTime.UtcNow;
     }
 
-    #endregion
+    /// <summary>
+    /// Gets genus summary for display purposes
+    /// </summary>
+    public string GetSummary()
+    {
+        var parts = new List<string> { Name };
+
+        if (Family != null)
+        {
+            parts.Add($"Family: {Family.Name}");
+        }
+
+        if (!string.IsNullOrEmpty(Description))
+        {
+            var shortDesc = Description.Length > 50
+                ? Description.Substring(0, 47) + "..."
+                : Description;
+            parts.Add(shortDesc);
+        }
+
+        return string.Join(" • ", parts);
+    }
+
+    /// <summary>
+    /// Override ToString for debugging
+    /// </summary>
+    public override string ToString()
+    {
+        return $"Genus: {Name} (Family: {Family?.Name ?? "Unknown"}, Active: {IsActive})";
+    }
 }

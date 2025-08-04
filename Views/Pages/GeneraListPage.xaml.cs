@@ -1,19 +1,19 @@
 ﻿using OrchidPro.ViewModels.Genera;
+using OrchidPro.Constants;
 using OrchidPro.Extensions;
-using Syncfusion.Maui.ListView;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// Genera list page with enhanced animations and interactions
-/// Follows exact pattern from FamiliesListPage with genus-specific adaptations
+/// Page for displaying and managing list of botanical genera with advanced UI features.
+/// Provides CRUD operations, multi-selection, filtering, sorting, and swipe actions.
 /// </summary>
 public partial class GeneraListPage : ContentPage
 {
     private readonly GeneraListViewModel _viewModel;
 
     /// <summary>
-    /// Initialize genera list page with dependency injection
+    /// Initialize the genera list page with dependency injection and event binding
     /// </summary>
     public GeneraListPage(GeneraListViewModel viewModel)
     {
@@ -21,315 +21,636 @@ public partial class GeneraListPage : ContentPage
         _viewModel = viewModel;
         BindingContext = _viewModel;
 
-        this.LogInfo("GeneraListPage created with ViewModel binding");
+        this.LogInfo("Initialized with unified delete flow");
+
+        // Hook up events
+        ListRefresh.Refreshing += PullToRefresh_Refreshing;
+
+        // Monitor ViewModel changes to sync SelectionMode
+        _viewModel.PropertyChanged += OnViewModelPropertyChanged;
+
+        if (_viewModel?.SelectedItems == null)
+        {
+            this.LogError("ViewModel.SelectedItems is NULL during initialization");
+        }
     }
 
-    #region Page Lifecycle
+    /// <summary>
+    /// Synchronize ListView SelectionMode with ViewModel state changes
+    /// </summary>
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(_viewModel.IsMultiSelectMode))
+        {
+            this.LogInfo($"IsMultiSelectMode changed to: {_viewModel.IsMultiSelectMode}");
+            SyncSelectionMode();
+        }
+    }
 
     /// <summary>
-    /// Handle page appearing with enhanced animations and data loading
+    /// Ensure ListView SelectionMode matches ViewModel state for consistency
+    /// </summary>
+    private void SyncSelectionMode()
+    {
+        this.SafeExecute(() =>
+        {
+            var targetMode = _viewModel.IsMultiSelectMode
+                ? Syncfusion.Maui.ListView.SelectionMode.Multiple
+                : Syncfusion.Maui.ListView.SelectionMode.None;
+
+            if (GeneraListView.SelectionMode != targetMode)
+            {
+                this.LogInfo($"Syncing SelectionMode: {GeneraListView.SelectionMode} → {targetMode}");
+                GeneraListView.SelectionMode = targetMode;
+                this.LogSuccess($"SelectionMode synced to: {GeneraListView.SelectionMode}");
+            }
+
+            if (!_viewModel.IsMultiSelectMode && GeneraListView.SelectedItems?.Count > 0)
+            {
+                this.LogInfo("Clearing ListView selections on multi-select exit");
+                GeneraListView.SelectedItems.Clear();
+            }
+        }, "SyncSelectionMode");
+    }
+
+    /// <summary>
+    /// Handle pull-to-refresh gesture for data refreshing
+    /// </summary>
+    private async void PullToRefresh_Refreshing(object? sender, EventArgs e)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            this.LogInfo("Pull to refresh triggered");
+
+            if (_viewModel?.RefreshCommand?.CanExecute(null) == true)
+            {
+                await _viewModel.RefreshCommand.ExecuteAsync(null);
+            }
+
+            ListRefresh.IsRefreshing = false;
+            this.LogSuccess("Pull to refresh completed");
+        }, "Pull to refresh error");
+    }
+
+    /// <summary>
+    /// Handle page appearing - load data and setup
     /// </summary>
     protected override async void OnAppearing()
     {
-        base.OnAppearing();
-
-        await this.SafeExecuteAsync(async () =>
+        using (this.LogPerformance("GeneraListPage OnAppearing"))
         {
-            this.LogInfo("=== GENERA LIST PAGE APPEARING ===");
-
-            // ✅ ENHANCED: Animate FAB entrance
-            await AnimateFabEntrance();
-
-            // ✅ Enhanced data loading with family context
-            if (!_viewModel.HasData)
+            try
             {
-                this.LogInfo("No genera data - triggering initial load");
-                await _viewModel.LoadDataAsync();
-            }
-            else
-            {
-                this.LogInfo("Genera data exists - checking for updates");
-                await _viewModel.RefreshAsync();
-            }
+                base.OnAppearing();
 
-            this.LogSuccess("Genera list page appeared successfully");
-        }, "Genera List Page Appearing");
+                this.LogInfo("GeneraListPage appearing");
+
+                // Ensure ViewModel is available
+                if (_viewModel == null)
+                {
+                    this.LogError("ViewModel is null in OnAppearing");
+                    return;
+                }
+
+                // Fade in animation like FamiliesListPage
+                await RootGrid.FadeTo(1, 500);
+
+                // Load data
+                await _viewModel.OnAppearingAsync();
+
+                this.LogInfo("GeneraListPage appeared successfully");
+            }
+            catch (Exception ex)
+            {
+                this.LogError(ex, "Error in GeneraListPage OnAppearing");
+            }
+        }
     }
 
     /// <summary>
-    /// Handle page disappearing with cleanup and animations
+    /// Handle page disappearing - cleanup if needed
     /// </summary>
-    protected override async void OnDisappearing()
+    protected override void OnDisappearing()
     {
-        await this.SafeExecuteAsync(async () =>
+        try
         {
-            this.LogInfo("Genera list page disappearing");
-
-            // ✅ Animate FAB exit
-            await AnimateFabExit();
-
             base.OnDisappearing();
-        }, "Genera List Page Disappearing");
-    }
-
-    #endregion
-
-    #region FAB Animations
-
-    /// <summary>
-    /// Animate FAB entrance with bounce effect
-    /// </summary>
-    private async Task AnimateFabEntrance()
-    {
-        await this.SafeExecuteAsync(async () =>
+            this.LogInfo("GeneraListPage disappearing");
+        }
+        catch (Exception ex)
         {
-            // Start hidden and scaled down
-            FabButton.Opacity = 0;
-            FabButton.Scale = 0.5;
-            FabButton.IsVisible = true;
-
-            // Animate entrance
-            var tasks = new[]
-            {
-                FabButton.FadeTo(1, 300, Easing.CubicOut),
-                FabButton.ScaleTo(1, 400, Easing.BounceOut)
-            };
-
-            await Task.WhenAll(tasks);
-            this.LogInfo("FAB entrance animation completed");
-        }, "FAB Entrance Animation");
+            this.LogError(ex, "Error in GeneraListPage OnDisappearing");
+        }
     }
 
     /// <summary>
-    /// Animate FAB exit with smooth fade
+    /// Handle select all toolbar item with proper SelectionMode synchronization
     /// </summary>
-    private async Task AnimateFabExit()
+    private void OnSelectAllTapped(object sender, EventArgs e)
     {
-        await this.SafeExecuteAsync(async () =>
+        this.SafeExecute(() =>
         {
-            if (FabButton.IsVisible)
-            {
-                var tasks = new[]
-                {
-                    FabButton.FadeTo(0, 200, Easing.CubicIn),
-                    FabButton.ScaleTo(0.8, 200, Easing.CubicIn)
-                };
+            this.LogInfo("Select All toolbar tapped");
 
-                await Task.WhenAll(tasks);
-                FabButton.IsVisible = false;
-                this.LogInfo("FAB exit animation completed");
+            if (GeneraListView.SelectionMode != Syncfusion.Maui.ListView.SelectionMode.Multiple)
+            {
+                this.LogInfo("Setting ListView to Multiple mode for Select All");
+                GeneraListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.Multiple;
             }
-        }, "FAB Exit Animation");
+
+            if (_viewModel?.SelectAllCommand?.CanExecute(null) == true)
+            {
+                _viewModel.SelectAllCommand.Execute(null);
+                this.LogSuccess("SelectAllCommand executed");
+            }
+
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                this.SafeExecute(() =>
+                {
+                    GeneraListView.SelectedItems?.Clear();
+
+                    foreach (var item in _viewModel.Items)
+                    {
+                        if (item.IsSelected && GeneraListView.SelectedItems != null)
+                        {
+                            GeneraListView.SelectedItems.Add(item);
+                            this.LogInfo($"Added {item.Name} to ListView selection");
+                        }
+                    }
+
+                    for (int i = 0; i < _viewModel.Items.Count; i++)
+                    {
+                        GeneraListView.RefreshItem(i);
+                    }
+
+                    UpdateFabVisual();
+                }, "ListView sync error");
+            });
+        }, "Select All toolbar error");
     }
 
-    #endregion
-
-    #region ListView Event Handlers
-
     /// <summary>
-    /// Handle ListView item tapped for navigation or selection
+    /// Handle clear all selections with proper cleanup and user feedback
     /// </summary>
-    private async void OnListViewItemTapped(object sender, Syncfusion.Maui.ListView.ItemTappedEventArgs e)
+    private async void OnDeselectAllTapped(object sender, EventArgs e)
     {
         await this.SafeExecuteAsync(async () =>
         {
-            if (e.DataItem is GenusItemViewModel genusItem)
-            {
-                this.LogInfo($"Genus item tapped: {genusItem.Name}");
+            this.LogInfo("Clear All toolbar tapped");
 
-                if (_viewModel.IsMultiSelectMode)
+            if (_viewModel?.ClearSelectionCommand != null && _viewModel.ClearSelectionCommand.CanExecute(null))
+            {
+                _viewModel.ClearSelectionCommand.Execute(null);
+                this.LogSuccess("ClearSelectionCommand executed");
+            }
+
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                this.SafeExecute(() =>
                 {
-                    // Toggle selection in multi-select mode
-                    genusItem.IsSelected = !genusItem.IsSelected;
-                    this.LogInfo($"Toggled selection for: {genusItem.Name} -> {genusItem.IsSelected}");
+                    GeneraListView.SelectedItems?.Clear();
+                    GeneraListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
+
+                    if (_viewModel?.Items != null)
+                    {
+                        for (int i = 0; i < _viewModel.Items.Count; i++)
+                        {
+                            GeneraListView.RefreshItem(i);
+                        }
+                    }
+
+                    UpdateFabVisual();
+                }, "ListView clear error");
+            });
+
+            await this.ShowSuccessToast("🧹 Cleared selections and filters");
+
+            this.LogSuccess("Clear All completed successfully");
+        }, "Clear All failed");
+    }
+
+    /// <summary>
+    /// Update FAB appearance based on selection state with proper error handling
+    /// </summary>
+    private void UpdateFabVisual()
+    {
+        var success = this.SafeExecute(() =>
+        {
+            var selectedCount = _viewModel?.SelectedItems?.Count ?? 0;
+            this.LogInfo($"Updating FAB for {selectedCount} selected items");
+
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                FabButton.IsVisible = true;
+
+                if (selectedCount > 0)
+                {
+                    var errorColor = Application.Current?.Resources.TryGetValue("ErrorColor", out var error) == true
+                        ? (Color)error
+                        : Color.FromArgb("#F44336");
+
+                    FabButton.BackgroundColor = errorColor;
+                    FabButton.Text = $"Delete ({selectedCount})";
+                    this.LogInfo($"Set to DELETE mode: Delete ({selectedCount})");
+                }
+                else if (_viewModel?.IsMultiSelectMode == true)
+                {
+                    var grayColor = Application.Current?.Resources.TryGetValue("Gray500", out var gray) == true
+                        ? (Color)gray
+                        : Color.FromArgb("#9E9E9E");
+
+                    FabButton.BackgroundColor = grayColor;
+                    FabButton.Text = "Cancel";
+                    this.LogInfo("Set to CANCEL mode");
                 }
                 else
                 {
-                    // Navigate to edit in normal mode
-                    await _viewModel.EditGenusCommand.ExecuteAsync(genusItem);
-                }
-            }
-        }, "ListView Item Tapped");
-    }
+                    var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
+                        ? (Color)primary
+                        : Color.FromArgb("#A47764");
 
-    /// <summary>
-    /// Handle ListView swipe ended for actions
-    /// </summary>
-    private async void OnListViewSwipeEnded(object sender, Syncfusion.Maui.ListView.SwipeEndedEventArgs e)
-    {
-        await this.SafeExecuteAsync(async () =>
+                    FabButton.BackgroundColor = primaryColor;
+                    FabButton.Text = "Add Genus";
+                    this.LogInfo("Set to ADD mode");
+                }
+
+                this.LogSuccess($"FAB updated successfully - Text: {FabButton.Text}");
+            });
+        }, "UpdateFabVisual");
+
+        if (!success)
         {
-            if (e.DataItem is GenusItemViewModel genusItem)
+            Device.BeginInvokeOnMainThread(() =>
             {
-                this.LogInfo($"Swipe ended on genus: {genusItem.Name}, Direction: {e.SwipeDirection}");
-
-                if (e.SwipeDirection == SwipeDirection.Left)
-                {
-                    // Left swipe - Toggle favorite
-                    this.LogInfo($"Left swipe - toggling favorite for: {genusItem.Name}");
-                    await _viewModel.ToggleFavoriteCommand.ExecuteAsync(genusItem);
-                }
-                else if (e.SwipeDirection == SwipeDirection.Right)
-                {
-                    // Right swipe - Delete
-                    this.LogInfo($"Right swipe - requesting delete for: {genusItem.Name}");
-                    await _viewModel.DeleteGenusCommand.ExecuteAsync(genusItem);
-                }
-            }
-        }, "ListView Swipe Ended");
+                FabButton.IsVisible = true;
+                FabButton.Text = "Add Genus";
+                FabButton.BackgroundColor = Color.FromArgb("#A47764");
+            });
+        }
     }
 
-    #endregion
-
-    #region Search and Filter Handlers
-
     /// <summary>
-    /// Handle search text changes with debouncing
+    /// Handle search text changes for real-time filtering
     /// </summary>
     private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
     {
         this.SafeExecute(() =>
         {
-            if (sender is Entry searchEntry)
-            {
-                var newText = e.NewTextValue ?? string.Empty;
-                this.LogInfo($"Search text changed: '{newText}'");
-
-                // ViewModel handles debouncing internally
-                _viewModel.SearchText = newText;
-            }
-        }, "Search Text Changed");
+            this.LogInfo($"Search text changed to: '{e.NewTextValue}'");
+        }, "Search text changed error");
     }
 
     /// <summary>
-    /// Handle family filter picker selection
+    /// Handle search focused event
     /// </summary>
-    private async void OnFamilyFilterChanged(object sender, EventArgs e)
+    private void OnSearchFocused(object sender, FocusEventArgs e)
+    {
+        try
+        {
+            this.LogInfo("Search focused");
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error in search focused");
+        }
+    }
+
+    /// <summary>
+    /// Handle search unfocused event
+    /// </summary>
+    private void OnSearchUnfocused(object sender, FocusEventArgs e)
+    {
+        try
+        {
+            this.LogInfo("Search unfocused");
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error in search unfocused");
+        }
+    }
+
+    /// <summary>
+    /// Handle filter button tapped
+    /// </summary>
+    private async void OnFilterTapped(object sender, EventArgs e)
     {
         await this.SafeExecuteAsync(async () =>
         {
-            if (sender is Picker picker && picker.SelectedItem is string selectedFamily)
+            if (sender is Border border)
             {
-                this.LogInfo($"Family filter changed: {selectedFamily}");
-
-                _viewModel.FamilyFilter = selectedFamily;
-                await _viewModel.ApplyFamilyFilterCommand.ExecuteAsync(null);
+                await border.PerformTapFeedbackAsync();
             }
-        }, "Family Filter Changed");
-    }
 
-    #endregion
+            string[] options = { "All", "Active", "Inactive" };
+            string result = await DisplayActionSheet("Filter by Status", "Cancel", null, options);
 
-    #region Visual State Management
-
-    /// <summary>
-    /// Handle visual state changes based on connection status
-    /// </summary>
-    private void UpdateConnectionVisualState()
-    {
-        this.SafeExecute(() =>
-        {
-            var isConnected = _viewModel.IsConnected;
-            this.LogInfo($"Updating connection visual state: {(isConnected ? "Connected" : "Disconnected")}");
-
-            // Update visual states based on connection
-            VisualStateManager.GoToState(this, isConnected ? "Connected" : "Disconnected");
-        }, "Update Connection Visual State");
-    }
-
-    /// <summary>
-    /// Handle loading state visual changes
-    /// </summary>
-    private void UpdateLoadingVisualState()
-    {
-        this.SafeExecute(() =>
-        {
-            var isLoading = _viewModel.IsLoading;
-            this.LogInfo($"Updating loading visual state: {(isLoading ? "Loading" : "Loaded")}");
-
-            // Update visual states based on loading
-            VisualStateManager.GoToState(this, isLoading ? "Loading" : "Loaded");
-        }, "Update Loading Visual State");
-    }
-
-    #endregion
-
-    #region Enhanced Interactions
-
-    /// <summary>
-    /// Handle scroll position changes for FAB visibility
-    /// </summary>
-    private void OnListViewScrolled(object sender, ScrolledEventArgs e)
-    {
-        this.SafeExecute(() =>
-        {
-            // Hide FAB when scrolling down, show when scrolling up
-            const double threshold = 50;
-            var shouldShowFab = e.ScrollY < threshold;
-
-            if (_viewModel.FabIsVisible != shouldShowFab)
+            if (result != "Cancel" && result != null && _viewModel != null)
             {
-                _viewModel.FabIsVisible = shouldShowFab;
-                this.LogInfo($"FAB visibility changed based on scroll: {shouldShowFab}");
+                _viewModel.StatusFilter = result;
+                this.LogInfo($"Status filter changed to: {result}");
+
+                if (_viewModel.ApplyFilterCommand?.CanExecute(null) == true)
+                {
+                    await _viewModel.ApplyFilterCommand.ExecuteAsync(null);
+                }
+
+                await this.ShowInfoToast($"Filter: {result}");
             }
-        }, "ListView Scrolled");
+        }, "Filter error");
     }
 
     /// <summary>
-    /// Handle view model property changes for UI updates
+    /// Handle sort button tapped
     /// </summary>
-    private void OnViewModelPropertyChanged(object sender, System.ComponentModel.PropertyChangedEventArgs e)
+    private async void OnSortTapped(object sender, EventArgs e)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            if (sender is Border border)
+            {
+                await border.PerformTapFeedbackAsync();
+            }
+
+            string[] options = { "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First" };
+            string result = await DisplayActionSheet("Sort by", "Cancel", null, options);
+
+            if (result != "Cancel" && result != null && _viewModel != null)
+            {
+                _viewModel.SortOrder = result;
+                this.LogInfo($"Sort order changed to: {result}");
+            }
+        }, "Sort error");
+    }
+
+    /// <summary>
+    /// Handle item tap for selection or navigation based on current mode
+    /// </summary>
+    private void OnItemTapped(object sender, Syncfusion.Maui.ListView.ItemTappedEventArgs e)
     {
         this.SafeExecute(() =>
         {
-            switch (e.PropertyName)
+            if (e.DataItem is GenusItemViewModel item)
             {
-                case nameof(_viewModel.IsConnected):
-                    UpdateConnectionVisualState();
+                this.LogInfo($"Item tapped: {item.Name}");
+
+                if (_viewModel?.IsMultiSelectMode == true)
+                {
+                    this.LogInfo("Multi-select mode - toggling selection");
+
+                    if (item.IsSelected)
+                    {
+                        item.IsSelected = false;
+                        _viewModel?.SelectedItems?.Remove(item);
+                        GeneraListView.SelectedItems?.Remove(item);
+                        this.LogInfo($"Deselected: {item.Name}");
+                    }
+                    else
+                    {
+                        item.IsSelected = true;
+                        if (_viewModel?.SelectedItems != null && !_viewModel.SelectedItems.Contains(item))
+                            _viewModel.SelectedItems.Add(item);
+                        if (GeneraListView.SelectedItems != null && !GeneraListView.SelectedItems.Contains(item))
+                            GeneraListView.SelectedItems.Add(item);
+                        this.LogInfo($"Selected: {item.Name}");
+                    }
+
+                    UpdateFabVisual();
+                }
+                else
+                {
+                    this.LogInfo("Single-select mode - navigating to edit");
+                    if (_viewModel?.NavigateToEditCommand?.CanExecute(item) == true)
+                    {
+                        _viewModel.NavigateToEditCommand.Execute(item);
+                    }
+                }
+            }
+        }, "ItemTapped error");
+    }
+
+    /// <summary>
+    /// Handle item long press to enter multi-select mode
+    /// </summary>
+    private void OnItemLongPress(object sender, Syncfusion.Maui.ListView.ItemLongPressEventArgs e)
+    {
+        this.SafeExecute(() =>
+        {
+            if (e.DataItem is GenusItemViewModel item)
+            {
+                this.LogInfo($"Long press on: {item.Name}");
+
+                if (_viewModel?.IsMultiSelectMode != true)
+                {
+                    this.LogInfo("Entering multi-select mode");
+                    _viewModel.IsMultiSelectMode = true;
+                }
+
+                if (!item.IsSelected)
+                {
+                    item.IsSelected = true;
+                    _viewModel?.SelectedItems?.Add(item);
+                    GeneraListView.SelectedItems?.Add(item);
+                    this.LogInfo($"Selected via long press: {item.Name}");
+                }
+
+                UpdateFabVisual();
+            }
+        }, "ItemLongPress error");
+    }
+
+    /// <summary>
+    /// Handle selection changed event with proper synchronization
+    /// </summary>
+    private void OnSelectionChanged(object sender, Syncfusion.Maui.ListView.ItemSelectionChangedEventArgs e)
+    {
+        this.SafeExecute(() =>
+        {
+            var selectedCount = GeneraListView.SelectedItems?.Count ?? 0;
+            this.LogInfo($"NATIVE Selection changed - ListView count: {selectedCount}");
+
+            if (GeneraListView.SelectedItems != null && _viewModel?.SelectedItems != null)
+            {
+                _viewModel.SelectedItems.Clear();
+
+                foreach (GenusItemViewModel item in GeneraListView.SelectedItems)
+                {
+                    _viewModel.SelectedItems.Add(item);
+                    item.IsSelected = true;
+                }
+
+                this.LogSuccess($"Synced to ViewModel: {_viewModel.SelectedItems.Count} items");
+            }
+
+            UpdateFabVisual();
+
+            if (e.AddedItems?.Count > 0)
+            {
+                foreach (GenusItemViewModel item in e.AddedItems)
+                {
+                    this.LogInfo($"NATIVE Selected: {item.Name}");
+                }
+            }
+
+            if (e.RemovedItems?.Count > 0)
+            {
+                foreach (GenusItemViewModel item in e.RemovedItems)
+                {
+                    item.IsSelected = false;
+                    this.LogInfo($"NATIVE Deselected: {item.Name}");
+                }
+            }
+        }, "SelectionChanged error");
+    }
+
+    private const double SWIPE_THRESHOLD = 0.8;
+
+    /// <summary>
+    /// Handle swipe gesture start with logging
+    /// </summary>
+    private void OnSwipeStarting(object sender, Syncfusion.Maui.ListView.SwipeStartingEventArgs e)
+    {
+        this.SafeExecute(() =>
+        {
+            if (e.DataItem is GenusItemViewModel item)
+            {
+                this.LogInfo($"Swipe starting for {item.Name} - direction: {e.Direction}");
+            }
+        }, "SwipeStarting error");
+    }
+
+    /// <summary>
+    /// Handle swipe progress with real-time feedback
+    /// </summary>
+    private void OnSwiping(object sender, Syncfusion.Maui.ListView.SwipingEventArgs e)
+    {
+        this.SafeExecute(() =>
+        {
+            if (e.DataItem is GenusItemViewModel item)
+            {
+                var offsetPercent = Math.Abs(e.Offset) / GeneraListView.SwipeOffset;
+                var direction = e.Direction.ToString();
+                var icon = direction == "Right" ? "⭐" : "🗑️";
+
+                if (offsetPercent >= 0.8)
+                {
+                    this.LogInfo($"{icon} {item.Name} | {direction} | {offsetPercent:P0} - READY!");
+                }
+            }
+        }, "Swiping error");
+    }
+
+    /// <summary>
+    /// Handle swipe completion with unified action flow
+    /// </summary>
+    private async void OnSwipeEnded(object sender, Syncfusion.Maui.ListView.SwipeEndedEventArgs e)
+    {
+        var success = await this.SafeExecuteAsync(async () =>
+        {
+            if (e.DataItem is not GenusItemViewModel item)
+            {
+                this.LogError("DataItem is not GenusItemViewModel");
+                return;
+            }
+
+            var direction = e.Direction.ToString();
+            var offsetPercent = Math.Abs(e.Offset) / GeneraListView.SwipeOffset;
+            var icon = direction == "Right" ? "⭐" : "🗑️";
+
+            this.LogInfo($"{icon} Item: {item.Name}, Direction: {direction}, Progress: {offsetPercent:P1}");
+
+            if (offsetPercent < SWIPE_THRESHOLD)
+            {
+                this.LogWarning($"INSUFFICIENT SWIPE - Need {SWIPE_THRESHOLD:P0}+, got {offsetPercent:P1}");
+                GeneraListView.ResetSwipeItem();
+                return;
+            }
+
+            this.LogSuccess($"SWIPE APPROVED! Executing {icon} {direction} action");
+
+            switch (direction)
+            {
+                case "Right":
+                    this.LogInfo("FAVORITE action triggered");
+
+                    if (_viewModel?.IsConnected != true)
+                    {
+                        await this.ShowWarningToast("Cannot favorite while offline");
+                        break;
+                    }
+
+                    await this.SafeExecuteAsync(async () =>
+                    {
+                        var wasAlreadyFavorite = item.IsFavorite;
+
+                        if (_viewModel?.ToggleFavoriteCommand?.CanExecute(item) == true)
+                        {
+                            await _viewModel.ToggleFavoriteCommand.ExecuteAsync(item);
+                        }
+
+                        var message = wasAlreadyFavorite ? "Removed from favorites" : "Added to favorites!";
+                        await this.ShowSuccessToast($"⭐ {message}");
+                    }, "Favorite toggle error");
                     break;
 
-                case nameof(_viewModel.IsLoading):
-                    UpdateLoadingVisualState();
-                    break;
+                case "Left":
+                    this.LogInfo("DELETE action triggered");
 
-                case nameof(_viewModel.IsMultiSelectMode):
-                    this.LogInfo($"Multi-select mode changed: {_viewModel.IsMultiSelectMode}");
-                    break;
-
-                case nameof(_viewModel.SelectedFamily):
-                    this.LogInfo($"Selected family changed: {_viewModel.SelectedFamily?.Name ?? "None"}");
+                    if (_viewModel?.DeleteSingleCommand?.CanExecute(item) == true)
+                    {
+                        await _viewModel.DeleteSingleCommand.ExecuteAsync(item);
+                    }
                     break;
             }
-        }, "ViewModel Property Changed");
+
+            GeneraListView.ResetSwipeItem();
+        }, "Swipe ended error");
+
+        if (!success)
+        {
+            GeneraListView.ResetSwipeItem();
+        }
     }
-
-    #endregion
-
-    #region Cleanup
 
     /// <summary>
-    /// Handle cleanup when page is being destroyed
+    /// Handle FAB press with context-aware actions (Add/Delete/Cancel)
     /// </summary>
-    protected override void OnHandlerChanging(HandlerChangingEventArgs args)
+    private async void OnFabPressed(object sender, EventArgs e)
     {
-        this.SafeExecute(() =>
+        await this.SafeExecuteAsync(async () =>
         {
-            if (args.NewHandler == null)
+            // Perform tap feedback animation
+            await this.SafeAnimationExecuteAsync(async () =>
             {
-                // Page is being destroyed, cleanup event handlers
-                _viewModel.PropertyChanged -= OnViewModelPropertyChanged;
-                this.LogInfo("Cleaned up GeneraListPage event handlers");
-            }
-            else if (args.OldHandler == null)
-            {
-                // Page is being created, setup event handlers
-                _viewModel.PropertyChanged += OnViewModelPropertyChanged;
-                this.LogInfo("Setup GeneraListPage event handlers");
-            }
+                await FabButton.PerformTapFeedbackAsync();
+            }, "FAB tap feedback");
 
-            base.OnHandlerChanging(args);
-        }, "Handler Changing");
+            var selectedCount = _viewModel?.SelectedItems?.Count ?? 0;
+            this.LogInfo($"FAB pressed - Selected: {selectedCount}, MultiSelect: {_viewModel?.IsMultiSelectMode}");
+
+            if (selectedCount > 0)
+            {
+                this.LogInfo("FAB DELETE action");
+                if (_viewModel?.DeleteSelectedCommand?.CanExecute(null) == true)
+                {
+                    await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
+                }
+            }
+            else if (_viewModel?.IsMultiSelectMode == true)
+            {
+                this.LogInfo("FAB CANCEL action");
+                if (_viewModel?.ToggleMultiSelectCommand?.CanExecute(null) == true)
+                {
+                    _viewModel.ToggleMultiSelectCommand.Execute(null);
+                }
+            }
+            else
+            {
+                this.LogInfo("FAB ADD action");
+                // Navigate to add new genus - seguindo padrão do FamiliesListPage
+                await Shell.Current.GoToAsync("genusedit");
+            }
+        }, "FAB action failed");
     }
-
-    #endregion
 }

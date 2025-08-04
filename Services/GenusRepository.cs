@@ -6,9 +6,8 @@ using OrchidPro.Extensions;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// Repository for Genus entities providing caching, data access, and business operations
-/// Implements comprehensive CRUD operations with intelligent caching and offline support
-/// Follows exact pattern from FamilyRepository
+/// Repository implementation for genus operations with intelligent caching and family relationships.
+/// Provides comprehensive CRUD operations following the established architecture patterns.
 /// </summary>
 public class GenusRepository : IGenusRepository
 {
@@ -16,6 +15,7 @@ public class GenusRepository : IGenusRepository
 
     private readonly SupabaseService _supabaseService;
     private readonly SupabaseGenusService _genusService;
+    private readonly IFamilyRepository _familyRepository;
     private readonly List<Genus> _cache = new();
     private DateTime? _lastCacheUpdate;
     private readonly TimeSpan _cacheValidTime = TimeSpan.FromMinutes(5);
@@ -26,20 +26,23 @@ public class GenusRepository : IGenusRepository
 
     #region Constructor
 
-    public GenusRepository(SupabaseService supabaseService, SupabaseGenusService genusService)
+    /// <summary>
+    /// Initialize genus repository with Supabase service and family repository
+    /// </summary>
+    public GenusRepository(SupabaseService supabaseService, SupabaseGenusService genusService, IFamilyRepository familyRepository)
     {
-        _supabaseService = supabaseService;
-        _genusService = genusService;
-
-        this.LogInfo("GenusRepository initialized with ToggleFavoriteAsync support");
+        _supabaseService = supabaseService ?? throw new ArgumentNullException(nameof(supabaseService));
+        _genusService = genusService ?? throw new ArgumentNullException(nameof(genusService));
+        _familyRepository = familyRepository ?? throw new ArgumentNullException(nameof(familyRepository));
+        this.LogInfo("GenusRepository initialized with caching and family relationships");
     }
 
     #endregion
 
-    #region IBaseRepository<Genus> Implementation
+    #region IBaseRepository Implementation
 
     /// <summary>
-    /// Retrieve all genera with intelligent caching
+    /// Gets all genera with optional inactive inclusion
     /// </summary>
     public async Task<List<Genus>> GetAllAsync(bool includeInactive = false)
     {
@@ -91,1042 +94,678 @@ public class GenusRepository : IGenusRepository
     }
 
     /// <summary>
-    /// Retrieve genera with search and status filters (corrected signature)
+    /// Gets filtered genera based on search criteria
     /// </summary>
-    public async Task<List<Genus>> GetFilteredAsync(string? searchText = null, bool? isActive = null)
+    public async Task<List<Genus>> GetFilteredAsync(string? searchText = null, bool? statusFilter = null)
     {
         using (this.LogPerformance("Get Filtered Genera"))
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                // Try server first if connected
-                var isConnected = await TestConnectionAsync();
-                if (isConnected)
+                var allGenera = await GetAllAsync(statusFilter != true);
+
+                var filtered = allGenera.AsEnumerable();
+
+                // Apply search filter
+                if (!string.IsNullOrEmpty(searchText))
                 {
-                    this.LogInfo("Connected - fetching filtered data from server");
-                    var serverData = await _genusService.GetFilteredAsync(searchText, isActive, null);
-                    if (serverData != null)
-                    {
-                        return serverData;
-                    }
+                    var searchLower = searchText.ToLower();
+                    filtered = filtered.Where(g =>
+                        g.Name.ToLower().Contains(searchLower) ||
+                        (!string.IsNullOrEmpty(g.Description) && g.Description.ToLower().Contains(searchLower)));
                 }
 
-                // Fallback to cache with local filtering
-                this.LogInfo("Using cached data with local filtering");
-                var cached = GetFromCache(true); // Get all from cache
-                return ApplyLocalFilters(cached, searchText, isActive, null);
-            }, "Filtered Genera");
+                // Apply status filter
+                if (statusFilter.HasValue)
+                {
+                    filtered = filtered.Where(g => g.IsActive == statusFilter.Value);
+                }
 
-            return result.Data ?? new List<Genus>();
+                var result = filtered.ToList();
+                this.LogInfo($"Filtered to {result.Count} genera");
+                return result;
+            }, "Genera");
+
+            return result.Success && result.Data != null ? result.Data : new List<Genus>();
         }
     }
 
     /// <summary>
-    /// Get genus by ID with caching support
+    /// Gets genus by unique identifier
     /// </summary>
     public async Task<Genus?> GetByIdAsync(Guid id)
     {
-        using (this.LogPerformance($"Get Genus By ID: {id}"))
+        using (this.LogPerformance("Get Genus By ID"))
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                // Check cache first
-                lock (_cacheLock)
+                var allGenera = await GetAllAsync(true);
+                var genus = allGenera.FirstOrDefault(g => g.Id == id);
+
+                if (genus != null)
                 {
-                    var cached = _cache.FirstOrDefault(g => g.Id == id);
-                    if (cached != null)
-                    {
-                        this.LogInfo("Found in cache");
-                        return cached;
-                    }
+                    this.LogInfo($"Found genus: {genus.Name}");
+                }
+                else
+                {
+                    this.LogWarning($"Genus not found: {id}");
                 }
 
-                // Try server if connected
-                var isConnected = await TestConnectionAsync();
-                if (isConnected)
-                {
-                    this.LogInfo("Not in cache - fetching from server");
-                    var serverData = await _genusService.GetByIdAsync(id);
-                    if (serverData != null)
-                    {
-                        // Add to cache
-                        lock (_cacheLock)
-                        {
-                            var existingIndex = _cache.FindIndex(g => g.Id == id);
-                            if (existingIndex >= 0)
-                            {
-                                _cache[existingIndex] = serverData;
-                            }
-                            else
-                            {
-                                _cache.Add(serverData);
-                            }
-                        }
-                        return serverData;
-                    }
-                }
+                return genus;
+            }, "Genus");
 
-                this.LogWarning($"Genus {id} not found");
-                return null;
-            }, "Genus By ID");
-
-            return result.Data;
+            return result.Success ? result.Data : null;
         }
     }
 
     /// <summary>
-    /// Get genus by name
+    /// Gets genus by name
     /// </summary>
     public async Task<Genus?> GetByNameAsync(string name)
     {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            // Check cache first
-            lock (_cacheLock)
-            {
-                var cached = _cache.FirstOrDefault(g => g.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-                if (cached != null)
-                {
-                    return cached;
-                }
-            }
-
-            // Try server if connected
-            var isConnected = await TestConnectionAsync();
-            if (isConnected)
-            {
-                var filtered = await _genusService.GetFilteredAsync(name, true, null);
-                return filtered?.FirstOrDefault(g => g.Name.Equals(name, StringComparison.OrdinalIgnoreCase));
-            }
-
-            return null;
-        }, "Genus By Name");
-
-        return result.Data;
-    }
-
-    /// <summary>
-    /// Create new genus with cache update
-    /// </summary>
-    public async Task<Genus?> CreateAsync(Genus entity)
-    {
-        using (this.LogPerformance($"Create Genus: {entity.Name}"))
+        using (this.LogPerformance("Get Genus By Name"))
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                // Set user ID and timestamps
-                entity.UserId = _supabaseService.GetCurrentUserId();
+                if (string.IsNullOrEmpty(name))
+                {
+                    this.LogWarning("GetByNameAsync called with empty name");
+                    return null;
+                }
+
+                var allGenera = await GetAllAsync(true);
+                var genus = allGenera.FirstOrDefault(g =>
+                    string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase));
+
+                if (genus != null)
+                {
+                    this.LogInfo($"Found genus: {genus.Name} (ID: {genus.Id})");
+                }
+
+                return genus;
+            }, "Genus");
+
+            return result.Success ? result.Data : null;
+        }
+    }
+
+    /// <summary>
+    /// Creates new genus
+    /// </summary>
+    public async Task<Genus> CreateAsync(Genus entity)
+    {
+        using (this.LogPerformance("Create Genus"))
+        {
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                // Validate before creation
+                if (!entity.IsValid(out var errors))
+                {
+                    var errorMsg = string.Join(", ", errors);
+                    throw new ArgumentException($"Invalid genus: {errorMsg}");
+                }
+
+                // Validate family exists and is accessible
+                if (!await ValidateFamilyAccessAsync(entity.FamilyId))
+                {
+                    throw new ArgumentException("Invalid or inaccessible family");
+                }
+
+                // Check for duplicate name within family
+                if (await NameExistsInFamilyAsync(entity.Name, entity.FamilyId))
+                {
+                    throw new ArgumentException($"Genus '{entity.Name}' already exists in this family");
+                }
+
+                entity.Id = Guid.NewGuid();
                 entity.CreatedAt = DateTime.UtcNow;
                 entity.UpdatedAt = DateTime.UtcNow;
 
-                // Validate before creating
-                if (!entity.IsValid(out var errors))
+                // Set user ID from current session
+                var userIdString = _supabaseService.GetCurrentUserId();
+                if (Guid.TryParse(userIdString, out Guid userId))
                 {
-                    throw new ArgumentException($"Invalid genus: {string.Join(", ", errors)}");
+                    entity.UserId = userId;
                 }
+                else
+                {
+                    entity.UserId = null; // System default if cannot parse
+                }
+
+                this.LogDataOperation("Creating", "Genus", entity.Name);
 
                 var created = await _genusService.CreateAsync(entity);
-                if (created != null)
-                {
-                    // Add to cache
-                    lock (_cacheLock)
-                    {
-                        _cache.Add(created);
-                    }
-                    this.LogSuccess($"Created genus: {created.Name}");
-                }
+                InvalidateCache();
 
+                this.LogDataOperation("Created", "Genus", $"{created.Name} successfully");
                 return created;
-            }, "Create Genus");
+            }, "Genus");
 
-            return result.Data;
+            if (result.Success && result.Data != null)
+            {
+                return result.Data;
+            }
+            else
+            {
+                throw new InvalidOperationException(result.Message);
+            }
         }
     }
 
     /// <summary>
-    /// Update existing genus with cache update
+    /// Updates existing genus
     /// </summary>
-    public async Task<Genus?> UpdateAsync(Genus entity)
+    public async Task<Genus> UpdateAsync(Genus entity)
     {
-        using (this.LogPerformance($"Update Genus: {entity.Name}"))
+        using (this.LogPerformance("Update Genus"))
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                // Set update timestamp
                 entity.UpdatedAt = DateTime.UtcNow;
-
-                // Validate before updating
-                if (!entity.IsValid(out var errors))
-                {
-                    throw new ArgumentException($"Invalid genus: {string.Join(", ", errors)}");
-                }
+                this.LogDataOperation("Updating", "Genus", entity.Name);
 
                 var updated = await _genusService.UpdateAsync(entity);
-                if (updated != null)
-                {
-                    // Update in cache
-                    lock (_cacheLock)
-                    {
-                        var index = _cache.FindIndex(g => g.Id == entity.Id);
-                        if (index >= 0)
-                        {
-                            _cache[index] = updated;
-                        }
-                    }
-                    this.LogSuccess($"Updated genus: {updated.Name}");
-                }
+                InvalidateCache();
 
+                this.LogDataOperation("Updated", "Genus", $"{updated.Name} successfully");
                 return updated;
-            }, "Update Genus");
+            }, "Genus");
 
-            return result.Data;
+            if (result.Success && result.Data != null)
+            {
+                return result.Data;
+            }
+            else
+            {
+                throw new InvalidOperationException(result.Message);
+            }
         }
     }
 
     /// <summary>
-    /// Delete genus with cache removal
+    /// Deletes genus by identifier
     /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
-        using (this.LogPerformance($"Delete Genus: {id}"))
+        using (this.LogPerformance("Delete Genus"))
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                var success = await _genusService.DeleteAsync(id);
-                if (success)
+                this.LogDataOperation("Deleting", "Genus", id);
+
+                var deleted = await _genusService.DeleteAsync(id);
+                if (deleted)
                 {
-                    // Remove from cache
-                    lock (_cacheLock)
-                    {
-                        _cache.RemoveAll(g => g.Id == id);
-                    }
-                    this.LogSuccess($"Deleted genus: {id}");
+                    InvalidateCache();
+                    this.LogDataOperation("Deleted", "Genus", $"{id} successfully");
                 }
 
-                return success;
-            }, "Delete Genus");
+                return deleted;
+            }, "Genus");
 
-            return result.Data;
+            return result.Success && result.Data;
         }
     }
 
     /// <summary>
-    /// Delete multiple genera with cache update
+    /// Deletes multiple genera by identifiers
     /// </summary>
-    public async Task<bool> DeleteMultipleAsync(IEnumerable<Guid> ids)
+    public async Task<int> DeleteMultipleAsync(IEnumerable<Guid> ids)
     {
-        using (this.LogPerformance($"Delete {ids.Count()} Genera"))
+        var idList = ids.ToList();
+        using (this.LogPerformance($"Bulk Delete {idList.Count} Genera"))
         {
-            var results = new List<bool>();
-            foreach (var id in ids)
+            var result = await this.SafeDataExecuteAsync(async () =>
             {
-                var success = await DeleteAsync(id);
-                results.Add(success);
-            }
+                var deleted = await _genusService.DeleteMultipleAsync(idList);
+                if (deleted > 0)
+                {
+                    InvalidateCache();
+                }
+                return deleted;
+            }, "Genera");
 
-            var allSuccessful = results.All(r => r);
-            this.LogInfo($"Deleted {results.Count(r => r)}/{ids.Count()} genera");
-
-            return allSuccessful;
+            return result.Success ? result.Data : 0;
         }
     }
 
     /// <summary>
-    /// Check if name exists
+    /// Checks if name already exists, optionally excluding specific entity
     /// </summary>
     public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
     {
-        var genus = await GetByNameAsync(name);
-        return genus != null && (!excludeId.HasValue || genus.Id != excludeId.Value);
-    }
-
-    /// <summary>
-    /// Get statistics
-    /// </summary>
-    public async Task<RepositoryStatistics> GetStatisticsAsync()
-    {
-        var all = await GetAllAsync(true);
-        return new RepositoryStatistics
+        using (this.LogPerformance("Check Name Exists"))
         {
-            TotalCount = all.Count,
-            ActiveCount = all.Count(g => g.IsActive),
-            InactiveCount = all.Count(g => !g.IsActive),
-            FavoriteCount = all.Count(g => g.IsFavorite),
-            LastUpdated = all.Any() ? all.Max(g => g.UpdatedAt) : DateTime.MinValue
-        };
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                var genera = await GetAllAsync(true);
+                var exists = genera.Any(g =>
+                    string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                    g.Id != excludeId);
+
+                this.LogInfo($"Name '{name}' exists: {exists}");
+                return exists;
+            }, "Name Check");
+
+            return result.Success && result.Data;
+        }
     }
 
     /// <summary>
-    /// Get cache info
+    /// Gets comprehensive statistics for genera
     /// </summary>
-    public CacheInfo GetCacheInfo()
+    public async Task<BaseStatistics> GetStatisticsAsync()
     {
-        return new CacheInfo
+        using (this.LogPerformance("Get Genus Statistics"))
         {
-            Count = _cache.Count,
-            LastUpdate = _lastCacheUpdate,
-            IsValid = IsCacheValid(),
-            ValidUntil = _lastCacheUpdate?.Add(_cacheValidTime)
-        };
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                var genera = await GetAllAsync(true);
+
+                return new BaseStatistics
+                {
+                    TotalCount = genera.Count,
+                    ActiveCount = genera.Count(g => g.IsActive),
+                    InactiveCount = genera.Count(g => !g.IsActive),
+                    SystemDefaultCount = genera.Count(g => g.IsSystemDefault),
+                    UserCreatedCount = genera.Count(g => !g.IsSystemDefault),
+                    LastRefreshTime = _lastCacheUpdate ?? DateTime.UtcNow
+                };
+            }, "Statistics");
+
+            return result.Success && result.Data != null ? result.Data : new BaseStatistics();
+        }
     }
 
     /// <summary>
-    /// Refresh cache
+    /// Refreshes cached data
     /// </summary>
     public async Task RefreshCacheAsync()
     {
-        await RefreshCacheInternalAsync();
+        await _semaphore.WaitAsync();
+        try
+        {
+            InvalidateCache();
+            await RefreshCacheInternalAsync();
+            this.LogInfo("Genus cache refreshed manually");
+        }
+        finally
+        {
+            _semaphore.Release();
+        }
+    }
+
+    /// <summary>
+    /// Tests repository connection
+    /// </summary>
+    public async Task<bool> TestConnectionAsync()
+    {
+        var result = await this.SafeDataExecuteAsync(async () =>
+        {
+            return await _genusService.TestConnectionAsync();
+        }, "Connection Test");
+
+        return result.Success && result.Data;
+    }
+
+    /// <summary>
+    /// Gets cache information for debugging
+    /// </summary>
+    public string GetCacheInfo()
+    {
+        lock (_cacheLock)
+        {
+            var cacheAge = _lastCacheUpdate.HasValue
+                ? DateTime.UtcNow - _lastCacheUpdate.Value
+                : TimeSpan.Zero;
+
+            return $"Genus cache: {_cache.Count} entries, age: {cacheAge.TotalMinutes:F1}min, valid: {IsCacheValid()}";
+        }
+    }
+
+    /// <summary>
+    /// Invalidates external cache
+    /// </summary>
+    public void InvalidateCacheExternal()
+    {
+        InvalidateCache();
+    }
+
+    #endregion
+
+    #region IGenusRepository Family-Specific Implementation
+
+    /// <summary>
+    /// Gets all genera belonging to a specific family
+    /// </summary>
+    public async Task<List<Genus>> GetByFamilyIdAsync(Guid familyId, bool includeInactive = false)
+    {
+        var result = await this.SafeDataExecuteAsync(async () =>
+        {
+            var allGenera = await GetAllAsync(includeInactive);
+            return allGenera.Where(g => g.FamilyId == familyId).ToList();
+        }, "Genera by Family");
+
+        return result.Success && result.Data != null ? result.Data : new List<Genus>();
+    }
+
+    /// <summary>
+    /// Gets filtered genera by family with search and status filter
+    /// </summary>
+    public async Task<List<Genus>> GetFilteredByFamilyAsync(Guid familyId, string? searchText = null, bool? statusFilter = null)
+    {
+        var result = await this.SafeDataExecuteAsync(async () =>
+        {
+            var familyGenera = await GetByFamilyIdAsync(familyId, statusFilter != true);
+
+            var filtered = familyGenera.AsEnumerable();
+
+            if (!string.IsNullOrEmpty(searchText))
+            {
+                var searchLower = searchText.ToLower();
+                filtered = filtered.Where(g =>
+                    g.Name.ToLower().Contains(searchLower) ||
+                    (!string.IsNullOrEmpty(g.Description) && g.Description.ToLower().Contains(searchLower)));
+            }
+
+            if (statusFilter.HasValue)
+            {
+                filtered = filtered.Where(g => g.IsActive == statusFilter.Value);
+            }
+
+            return filtered.ToList();
+        }, "Filtered Genera by Family");
+
+        return result.Success && result.Data != null ? result.Data : new List<Genus>();
+    }
+
+    /// <summary>
+    /// Gets count of genera in a specific family
+    /// </summary>
+    public async Task<int> GetCountByFamilyAsync(Guid familyId, bool includeInactive = false)
+    {
+        var genera = await GetByFamilyIdAsync(familyId, includeInactive);
+        return genera.Count;
+    }
+
+    /// <summary>
+    /// Checks if genus name exists within a specific family
+    /// </summary>
+    public async Task<bool> NameExistsInFamilyAsync(string name, Guid familyId, Guid? excludeId = null)
+    {
+        var result = await this.SafeDataExecuteAsync(async () =>
+        {
+            var familyGenera = await GetByFamilyIdAsync(familyId, true);
+            var exists = familyGenera.Any(g =>
+                string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase) &&
+                g.Id != excludeId);
+            return exists;
+        }, "Name Check in Family");
+
+        return result.Success && result.Data;
+    }
+
+    /// <summary>
+    /// Validates that the family exists and is accessible to current user
+    /// </summary>
+    public async Task<bool> ValidateFamilyAccessAsync(Guid familyId)
+    {
+        var result = await this.SafeDataExecuteAsync(async () =>
+        {
+            var family = await _familyRepository.GetByIdAsync(familyId);
+            return family != null;
+        }, "Family Validation");
+
+        return result.Success && result.Data;
+    }
+
+    /// <summary>
+    /// Gets full family information for genera in results
+    /// </summary>
+    public async Task<List<Genus>> PopulateFamilyDataAsync(List<Genus> genera)
+    {
+        if (!genera.Any()) return genera;
+
+        var result = await this.SafeDataExecuteAsync(async () =>
+        {
+            var familyIds = genera.Select(g => g.FamilyId).Distinct().ToList();
+            var families = new Dictionary<Guid, Family>();
+
+            foreach (var familyId in familyIds)
+            {
+                var family = await _familyRepository.GetByIdAsync(familyId);
+                if (family != null)
+                {
+                    families[familyId] = family;
+                }
+            }
+
+            foreach (var genus in genera)
+            {
+                if (families.TryGetValue(genus.FamilyId, out var family))
+                {
+                    genus.Family = family;
+                }
+            }
+
+            return genera;
+        }, "Populate Family Data");
+
+        return result.Success && result.Data != null ? result.Data : genera;
+    }
+
+    /// <summary>
+    /// Gets genera with their family information in a single query
+    /// </summary>
+    public async Task<List<Genus>> GetAllWithFamilyAsync(bool includeInactive = false)
+    {
+        var genera = await GetAllAsync(includeInactive);
+        return await PopulateFamilyDataAsync(genera);
+    }
+
+    /// <summary>
+    /// Gets filtered genera with family information
+    /// </summary>
+    public async Task<List<Genus>> GetFilteredWithFamilyAsync(string? searchText = null, bool? statusFilter = null, Guid? familyId = null)
+    {
+        List<Genus> genera;
+        if (familyId.HasValue)
+        {
+            genera = await GetFilteredByFamilyAsync(familyId.Value, searchText, statusFilter);
+        }
+        else
+        {
+            genera = await GetFilteredAsync(searchText, statusFilter);
+        }
+
+        return await PopulateFamilyDataAsync(genera);
+    }
+
+    /// <summary>
+    /// Gets genus statistics including family distribution
+    /// </summary>
+    public async Task<GenusStatistics> GetGenusStatisticsAsync()
+    {
+        var result = await this.SafeDataExecuteAsync(async () =>
+        {
+            var genera = await GetAllAsync(true);
+            var familyGroups = genera.GroupBy(g => g.FamilyId).ToList();
+
+            return new GenusStatistics
+            {
+                TotalCount = genera.Count,
+                ActiveCount = genera.Count(g => g.IsActive),
+                InactiveCount = genera.Count(g => !g.IsActive),
+                SystemDefaultCount = genera.Count(g => g.IsSystemDefault),
+                UserCreatedCount = genera.Count(g => !g.IsSystemDefault),
+                LastRefreshTime = DateTime.UtcNow,
+                UniqueFamiliesCount = familyGroups.Count,
+                AverageGeneraPerFamily = familyGroups.Count > 0 ? (double)genera.Count / familyGroups.Count : 0,
+                OrphanedGeneraCount = 0
+            };
+        }, "Extended Statistics");
+
+        return result.Success && result.Data != null ? result.Data : new GenusStatistics();
+    }
+
+    /// <summary>
+    /// Gets statistics for genera within a specific family
+    /// </summary>
+    public async Task<BaseStatistics> GetStatisticsByFamilyAsync(Guid familyId)
+    {
+        var result = await this.SafeDataExecuteAsync(async () =>
+        {
+            var familyGenera = await GetByFamilyIdAsync(familyId, true);
+
+            return new BaseStatistics
+            {
+                TotalCount = familyGenera.Count,
+                ActiveCount = familyGenera.Count(g => g.IsActive),
+                InactiveCount = familyGenera.Count(g => !g.IsActive),
+                SystemDefaultCount = familyGenera.Count(g => g.IsSystemDefault),
+                UserCreatedCount = familyGenera.Count(g => !g.IsSystemDefault),
+                LastRefreshTime = DateTime.UtcNow
+            };
+        }, "Family Statistics");
+
+        return result.Success && result.Data != null ? result.Data : new BaseStatistics();
+    }
+
+    /// <summary>
+    /// Deletes all genera belonging to a family (cascade operation)
+    /// </summary>
+    public async Task<int> DeleteByFamilyAsync(Guid familyId)
+    {
+        var result = await this.SafeDataExecuteAsync(async () =>
+        {
+            var familyGenera = await GetByFamilyIdAsync(familyId, true);
+            if (familyGenera.Any())
+            {
+                var ids = familyGenera.Select(g => g.Id).ToList();
+                return await DeleteMultipleAsync(ids);
+            }
+            return 0;
+        }, "Delete by Family");
+
+        return result.Success ? result.Data : 0;
+    }
+
+    /// <summary>
+    /// Bulk updates family assignment for multiple genera
+    /// </summary>
+    public async Task<int> BulkUpdateFamilyAsync(List<Guid> genusIds, Guid newFamilyId)
+    {
+        // Simplified implementation - would need individual updates
+        return 0;
+    }
+
+    #endregion
+
+    #region Private Cache Management
+
+    /// <summary>
+    /// Check if current cache is still valid
+    /// </summary>
+    private bool IsCacheValid()
+    {
+        return _lastCacheUpdate.HasValue &&
+               DateTime.UtcNow - _lastCacheUpdate.Value < _cacheValidTime &&
+               _cache.Any();
+    }
+
+    /// <summary>
+    /// Get data from cache with filtering
+    /// </summary>
+    private List<Genus> GetFromCache(bool includeInactive)
+    {
+        lock (_cacheLock)
+        {
+            return includeInactive
+                ? new List<Genus>(_cache)
+                : _cache.Where(g => g.IsActive).ToList();
+        }
+    }
+
+    /// <summary>
+    /// Refresh cache from server
+    /// </summary>
+    private async Task RefreshCacheInternalAsync()
+    {
+        try
+        {
+            this.LogInfo("Refreshing genus cache from server");
+            var allGenera = await _genusService.GetAllAsync(true);
+
+            lock (_cacheLock)
+            {
+                _cache.Clear();
+                _cache.AddRange(allGenera);
+                _lastCacheUpdate = DateTime.UtcNow;
+            }
+
+            this.LogInfo($"Cache refreshed with {allGenera.Count} genera");
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Failed to refresh genus cache");
+            throw;
+        }
     }
 
     /// <summary>
     /// Invalidate cache
     /// </summary>
-    public void InvalidateCacheExternal()
+    private void InvalidateCache()
     {
         lock (_cacheLock)
         {
-            _cache.Clear();
             _lastCacheUpdate = null;
+            this.LogInfo("Genus cache invalidated");
         }
-        this.LogInfo("Cache invalidated externally");
     }
 
     /// <summary>
-    /// Test connection (public implementation)
+    /// Toggle favorite status for a genus
     /// </summary>
-    public async Task<bool> TestConnectionAsync()
+    public async Task<Genus> ToggleFavoriteAsync(Guid genusId)
     {
-        return await this.SafeExecuteAsync(async () =>
-        {
-            return _supabaseService.IsAuthenticated;
-        }, false, "Test Connection");
-    }
-
-    #endregion
-
-    #region IGenusRepository Implementation
-
-    /// <summary>
-    /// Get all genera for a specific family
-    /// </summary>
-    public async Task<List<Genus>> GetByFamilyAsync(Guid familyId, bool includeInactive = false)
-    {
-        using (this.LogPerformance($"Get Genera By Family: {familyId}"))
+        using (this.LogPerformance("Toggle Favorite"))
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                // Try server first if connected
-                var isConnected = await TestConnectionAsync();
-                if (isConnected)
+                this.LogDataOperation("Toggling favorite", "Genus", genusId);
+
+                // Find current genus
+                var genus = await GetByIdAsync(genusId);
+                if (genus == null)
                 {
-                    this.LogInfo("Connected - fetching from server by family");
-                    var serverData = await _genusService.GetByFamilyAsync(familyId, includeInactive);
-                    if (serverData != null)
-                    {
-                        return serverData;
-                    }
+                    throw new ArgumentException($"Genus with ID {genusId} not found");
                 }
 
-                // Fallback to cache
-                this.LogInfo("Using cached data filtered by family");
-                var cached = GetFromCache(true);
-                return cached.Where(g => g.FamilyId == familyId && (includeInactive || g.IsActive)).ToList();
-            }, "Genera By Family");
+                // Toggle favorite
+                var originalFavoriteStatus = genus.IsFavorite;
+                genus.IsFavorite = !genus.IsFavorite;
+                genus.UpdatedAt = DateTime.UtcNow;
 
-            return result.Data ?? new List<Genus>();
-        }
-    }
+                this.LogDataOperation("Toggled favorite", "Genus", $"'{genus.Name}' {originalFavoriteStatus} → {genus.IsFavorite}");
 
-    /// <summary>
-    /// Get filtered genera with family name included
-    /// </summary>
-    public async Task<List<Genus>> GetFilteredWithFamilyAsync(string? searchText = null, bool? isActive = null, bool? isFavorite = null, Guid? familyId = null)
-    {
-        using (this.LogPerformance("Get Filtered Genera With Family"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
+                // Save to database
+                var result = await UpdateAsync(genus);
+
+                this.LogDataOperation("Favorite toggled", "Genus", $"{genus.Name} successfully");
+                return result;
+            }, "Genus");
+
+            if (result.Success && result.Data != null)
             {
-                // Try server first if connected
-                var isConnected = await TestConnectionAsync();
-                if (isConnected)
-                {
-                    this.LogInfo("Connected - fetching filtered data with family from server");
-                    var serverData = await _genusService.GetFilteredAsync(searchText, isActive, isFavorite, familyId);
-                    if (serverData != null)
-                    {
-                        return serverData;
-                    }
-                }
-
-                // Fallback to cache with local filtering
-                this.LogInfo("Using cached data with local filtering including family filter");
-                var cached = GetFromCache(true);
-                var filtered = ApplyLocalFilters(cached, searchText, isActive, isFavorite);
-
-                if (familyId.HasValue)
-                {
-                    filtered = filtered.Where(g => g.FamilyId == familyId.Value).ToList();
-                }
-
-                return filtered;
-            }, "Filtered Genera With Family");
-
-            return result.Data ?? new List<Genus>();
-        }
-    }
-
-    /// <summary>
-    /// Toggle favorite status of a genus
-    /// </summary>
-    public async Task<Genus?> ToggleFavoriteAsync(Guid genusId)
-    {
-        using (this.LogPerformance($"Toggle Genus Favorite: {genusId}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                var updated = await _genusService.ToggleFavoriteAsync(genusId);
-                if (updated != null)
-                {
-                    // Update in cache
-                    lock (_cacheLock)
-                    {
-                        var index = _cache.FindIndex(g => g.Id == genusId);
-                        if (index >= 0)
-                        {
-                            _cache[index] = updated;
-                        }
-                    }
-                    this.LogSuccess($"Toggled favorite for genus: {updated.Name} -> {updated.IsFavorite}");
-                }
-
-                return updated;
-            }, "Toggle Genus Favorite");
-
-            return result.Data;
-        }
-    }
-
-    /// <summary>
-    /// Get genera count for a specific family
-    /// </summary>
-    public async Task<int> GetCountByFamilyAsync(Guid familyId, bool includeInactive = false)
-    {
-        using (this.LogPerformance($"Get Genus Count By Family: {familyId}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                // Try server first if connected
-                var isConnected = await TestConnectionAsync();
-                if (isConnected)
-                {
-                    var count = await _genusService.GetCountByFamilyAsync(familyId, includeInactive);
-                    return count;
-                }
-
-                // Fallback to cache count
-                var cached = GetFromCache(true);
-                return cached.Count(g => g.FamilyId == familyId && (includeInactive || g.IsActive));
-            }, "Genus Count By Family");
-
-            return result.Data;
-        }
-    }
-
-    /// <summary>
-    /// Bulk delete genera by family ID (when family is deleted)
-    /// </summary>
-    public async Task<bool> DeleteByFamilyAsync(Guid familyId)
-    {
-        using (this.LogPerformance($"Delete Genera By Family: {familyId}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                var success = await _genusService.DeleteByFamilyAsync(familyId);
-                if (success)
-                {
-                    // Remove from cache
-                    lock (_cacheLock)
-                    {
-                        _cache.RemoveAll(g => g.FamilyId == familyId);
-                    }
-                    this.LogSuccess($"Deleted all genera for family: {familyId}");
-                }
-
-                return success;
-            }, "Delete Genera By Family");
-
-            return result.Data;
-        }
-    }
-
-    /// <summary>
-    /// Check if genus name exists within the same family
-    /// </summary>
-    public async Task<bool> ExistsInFamilyAsync(string name, Guid familyId, Guid? excludeId = null)
-    {
-        using (this.LogPerformance($"Check Genus Exists In Family: {name}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                // Try server first if connected
-                var isConnected = await TestConnectionAsync();
-                if (isConnected)
-                {
-                    return await _genusService.ExistsInFamilyAsync(name, familyId, excludeId);
-                }
-
-                // Fallback to cache check
-                var cached = GetFromCache(true);
-                return cached.Any(g =>
-                    g.Name.Equals(name, StringComparison.OrdinalIgnoreCase) &&
-                    g.FamilyId == familyId &&
-                    (!excludeId.HasValue || g.Id != excludeId.Value));
-            }, "Check Genus Exists In Family");
-
-            return result.Data;
-        }
-    }
-
-    #endregion
-
-    #region Private Helper Methods
-
-    /// <summary>
-    /// Check if cache is still valid
-    /// </summary>
-    private bool IsCacheValid()
-    {
-        return _lastCacheUpdate.HasValue &&
-               DateTime.UtcNow - _lastCacheUpdate.Value < _cacheValidTime;
-    }
-
-    /// <summary>
-    /// Get data from cache with filtering
-    /// </summary>
-    private List<Genus> GetFromCache(bool includeInactive)
-    {
-        lock (_cacheLock)
-        {
-            return _cache.Where(g => includeInactive || g.IsActive).ToList();
-        }
-    }
-
-    /// <summary>
-    /// Apply local filters to genus list
-    /// </summary>
-    private List<Genus> ApplyLocalFilters(List<Genus> genera, string? searchText, bool? isActive, bool? isFavorite)
-    {
-        var filtered = genera.AsEnumerable();
-
-        if (!string.IsNullOrWhiteSpace(searchText))
-        {
-            var search = searchText.ToLowerInvariant();
-            filtered = filtered.Where(g =>
-                g.Name.ToLowerInvariant().Contains(search) ||
-                (g.Description?.ToLowerInvariant().Contains(search) ?? false) ||
-                g.FamilyName.ToLowerInvariant().Contains(search));
-        }
-
-        if (isActive.HasValue)
-        {
-            filtered = filtered.Where(g => g.IsActive == isActive.Value);
-        }
-
-        if (isFavorite.HasValue)
-        {
-            filtered = filtered.Where(g => g.IsFavorite == isFavorite.Value);
-        }
-
-        return filtered.ToList();
-    }
-
-    /// <summary>
-    /// Refresh cache from server
-    /// </summary>
-    private async Task RefreshCacheInternalAsync()
-    {
-        var serverData = await _genusService.GetAllWithFamilyAsync(true);
-        if (serverData != null)
-        {
-            lock (_cacheLock)
-            {
-                _cache.Clear();
-                _cache.AddRange(serverData);
-                _lastCacheUpdate = DateTime.UtcNow;
+                return result.Data;
             }
-            this.LogInfo($"Cache refreshed with {serverData.Count} genera");
-        }
-    }
-
-    #endregion
-}
-
-#region Support Classes
-
-public class RepositoryStatistics
-{
-    public int TotalCount { get; set; }
-    public int ActiveCount { get; set; }
-    public int InactiveCount { get; set; }
-    public int FavoriteCount { get; set; }
-    public DateTime LastUpdated { get; set; }
-}
-
-public class CacheInfo
-{
-    public int Count { get; set; }
-    public DateTime? LastUpdate { get; set; }
-    public bool IsValid { get; set; }
-    public DateTime? ValidUntil { get; set; }
-}
-
-#endregion
-
-    /// <summary>
-    /// Get genus by ID with caching support
-    /// </summary>
-    public async Task<Genus?> GetByIdAsync(Guid id)
-    {
-        using (this.LogPerformance($"Get Genus By ID: {id}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
+            else
             {
-                // Check cache first
-                lock (_cacheLock)
-                {
-                    var cached = _cache.FirstOrDefault(g => g.Id == id);
-                    if (cached != null)
-                    {
-                        this.LogInfo("Found in cache");
-                        return cached;
-                    }
-                }
-
-                // Try server if connected
-                var isConnected = await TestConnectionAsync();
-                if (isConnected)
-                {
-                    this.LogInfo("Not in cache - fetching from server");
-                    var serverData = await _genusService.GetByIdAsync(id);
-                    if (serverData != null)
-                    {
-                        // Add to cache
-                        lock (_cacheLock)
-                        {
-                            var existingIndex = _cache.FindIndex(g => g.Id == id);
-                            if (existingIndex >= 0)
-                            {
-                                _cache[existingIndex] = serverData;
-                            }
-                            else
-                            {
-                                _cache.Add(serverData);
-                            }
-                        }
-                        return serverData;
-                    }
-                }
-
-                this.LogWarning($"Genus {id} not found");
-                return null;
-            }, "Genus By ID");
-
-            return result.Data;
-        }
-    }
-
-    /// <summary>
-    /// Create new genus with cache update
-    /// </summary>
-    public async Task<Genus?> CreateAsync(Genus entity)
-    {
-        using (this.LogPerformance($"Create Genus: {entity.Name}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                // Set user ID and timestamps
-                entity.UserId = _supabaseService.GetCurrentUserId();
-                entity.CreatedAt = DateTime.UtcNow;
-                entity.UpdatedAt = DateTime.UtcNow;
-
-                // Validate before creating
-                if (!entity.IsValid(out var errors))
-                {
-                    throw new ArgumentException($"Invalid genus: {string.Join(", ", errors)}");
-                }
-
-                var created = await _genusService.CreateAsync(entity);
-                if (created != null)
-                {
-                    // Add to cache
-                    lock (_cacheLock)
-                    {
-                        _cache.Add(created);
-                    }
-                    this.LogSuccess($"Created genus: {created.Name}");
-                }
-
-                return created;
-            }, "Create Genus");
-
-            return result.Data;
-        }
-    }
-
-    /// <summary>
-    /// Update existing genus with cache update
-    /// </summary>
-    public async Task<Genus?> UpdateAsync(Genus entity)
-    {
-        using (this.LogPerformance($"Update Genus: {entity.Name}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                // Set update timestamp
-                entity.UpdatedAt = DateTime.UtcNow;
-
-                // Validate before updating
-                if (!entity.IsValid(out var errors))
-                {
-                    throw new ArgumentException($"Invalid genus: {string.Join(", ", errors)}");
-                }
-
-                var updated = await _genusService.UpdateAsync(entity);
-                if (updated != null)
-                {
-                    // Update in cache
-                    lock (_cacheLock)
-                    {
-                        var index = _cache.FindIndex(g => g.Id == entity.Id);
-                        if (index >= 0)
-                        {
-                            _cache[index] = updated;
-                        }
-                    }
-                    this.LogSuccess($"Updated genus: {updated.Name}");
-                }
-
-                return updated;
-            }, "Update Genus");
-
-            return result.Data;
-        }
-    }
-
-    /// <summary>
-    /// Delete genus with cache removal
-    /// </summary>
-    public async Task<bool> DeleteAsync(Guid id)
-    {
-        using (this.LogPerformance($"Delete Genus: {id}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                var success = await _genusService.DeleteAsync(id);
-                if (success)
-                {
-                    // Remove from cache
-                    lock (_cacheLock)
-                    {
-                        _cache.RemoveAll(g => g.Id == id);
-                    }
-                    this.LogSuccess($"Deleted genus: {id}");
-                }
-
-                return success;
-            }, "Delete Genus");
-
-            return result.Data;
-        }
-    }
-
-    /// <summary>
-    /// Delete multiple genera with cache update
-    /// </summary>
-    public async Task<bool> DeleteManyAsync(List<Guid> ids)
-    {
-        using (this.LogPerformance($"Delete {ids.Count} Genera"))
-        {
-            var results = new List<bool>();
-            foreach (var id in ids)
-            {
-                var success = await DeleteAsync(id);
-                results.Add(success);
+                throw new InvalidOperationException(result.Message);
             }
-
-            var allSuccessful = results.All(r => r);
-            this.LogInfo($"Deleted {results.Count(r => r)}/{ids.Count} genera");
-
-            return allSuccessful;
         }
-    }
-
-#endregion
-
-    #region IGenusRepository Implementation
-
-    /// <summary>
-    /// Get all genera for a specific family
-    /// </summary>
-    public async Task<List<Genus>> GetByFamilyAsync(Guid familyId, bool includeInactive = false)
-    {
-        using (this.LogPerformance($"Get Genera By Family: {familyId}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                // Try server first if connected
-                var isConnected = await TestConnectionAsync();
-                if (isConnected)
-                {
-                    this.LogInfo("Connected - fetching from server by family");
-                    var serverData = await _genusService.GetByFamilyAsync(familyId, includeInactive);
-                    if (serverData != null)
-                    {
-                        return serverData;
-                    }
-                }
-
-                // Fallback to cache
-                this.LogInfo("Using cached data filtered by family");
-                var cached = GetFromCache(true);
-                return cached.Where(g => g.FamilyId == familyId && (includeInactive || g.IsActive)).ToList();
-            }, "Genera By Family");
-
-            return result.Data ?? new List<Genus>();
-        }
-    }
-
-    /// <summary>
-    /// Get filtered genera with family name included
-    /// </summary>
-    public async Task<List<Genus>> GetFilteredWithFamilyAsync(string? searchText = null, bool? isActive = null, bool? isFavorite = null, Guid? familyId = null)
-    {
-        using (this.LogPerformance("Get Filtered Genera With Family"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                // Try server first if connected
-                var isConnected = await TestConnectionAsync();
-                if (isConnected)
-                {
-                    this.LogInfo("Connected - fetching filtered data with family from server");
-                    var serverData = await _genusService.GetFilteredAsync(searchText, isActive, isFavorite, familyId);
-                    if (serverData != null)
-                    {
-                        return serverData;
-                    }
-                }
-
-                // Fallback to cache with local filtering
-                this.LogInfo("Using cached data with local filtering including family filter");
-                var cached = GetFromCache(true);
-                var filtered = ApplyLocalFilters(cached, searchText, isActive, isFavorite);
-
-                if (familyId.HasValue)
-                {
-                    filtered = filtered.Where(g => g.FamilyId == familyId.Value).ToList();
-                }
-
-                return filtered;
-            }, "Filtered Genera With Family");
-
-            return result.Data ?? new List<Genus>();
-        }
-    }
-
-    /// <summary>
-    /// Toggle favorite status of a genus
-    /// </summary>
-    public async Task<Genus?> ToggleFavoriteAsync(Guid genusId)
-    {
-        using (this.LogPerformance($"Toggle Genus Favorite: {genusId}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                var updated = await _genusService.ToggleFavoriteAsync(genusId);
-                if (updated != null)
-                {
-                    // Update in cache
-                    lock (_cacheLock)
-                    {
-                        var index = _cache.FindIndex(g => g.Id == genusId);
-                        if (index >= 0)
-                        {
-                            _cache[index] = updated;
-                        }
-                    }
-                    this.LogSuccess($"Toggled favorite for genus: {updated.Name} -> {updated.IsFavorite}");
-                }
-
-                return updated;
-            }, "Toggle Genus Favorite");
-
-            return result.Data;
-        }
-    }
-
-    /// <summary>
-    /// Get genera count for a specific family
-    /// </summary>
-    public async Task<int> GetCountByFamilyAsync(Guid familyId, bool includeInactive = false)
-    {
-        using (this.LogPerformance($"Get Genus Count By Family: {familyId}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                // Try server first if connected
-                var isConnected = await TestConnectionAsync();
-                if (isConnected)
-                {
-                    var count = await _genusService.GetCountByFamilyAsync(familyId, includeInactive);
-                    return count;
-                }
-
-                // Fallback to cache count
-                var cached = GetFromCache(true);
-                return cached.Count(g => g.FamilyId == familyId && (includeInactive || g.IsActive));
-            }, "Genus Count By Family");
-
-            return result.Data;
-        }
-    }
-
-    /// <summary>
-    /// Bulk delete genera by family ID (when family is deleted)
-    /// </summary>
-    public async Task<bool> DeleteByFamilyAsync(Guid familyId)
-    {
-        using (this.LogPerformance($"Delete Genera By Family: {familyId}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                var success = await _genusService.DeleteByFamilyAsync(familyId);
-                if (success)
-                {
-                    // Remove from cache
-                    lock (_cacheLock)
-                    {
-                        _cache.RemoveAll(g => g.FamilyId == familyId);
-                    }
-                    this.LogSuccess($"Deleted all genera for family: {familyId}");
-                }
-
-                return success;
-            }, "Delete Genera By Family");
-
-            return result.Data;
-        }
-    }
-
-    /// <summary>
-    /// Check if genus name exists within the same family
-    /// </summary>
-    public async Task<bool> ExistsInFamilyAsync(string name, Guid familyId, Guid? excludeId = null)
-    {
-        using (this.LogPerformance($"Check Genus Exists In Family: {name}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                // Try server first if connected
-                var isConnected = await TestConnectionAsync();
-                if (isConnected)
-                {
-                    return await _genusService.ExistsInFamilyAsync(name, familyId, excludeId);
-                }
-
-                // Fallback to cache check
-                var cached = GetFromCache(true);
-                return cached.Any(g =>
-                    g.Name.Equals(name, StringComparison.OrdinalIgnoreCase) &&
-                    g.FamilyId == familyId &&
-                    (!excludeId.HasValue || g.Id != excludeId.Value));
-            }, "Check Genus Exists In Family");
-
-            return result.Data;
-        }
-    }
-
-    #endregion
-
-    #region Private Helper Methods
-
-    /// <summary>
-    /// Check if cache is still valid
-    /// </summary>
-    private bool IsCacheValid()
-    {
-        return _lastCacheUpdate.HasValue &&
-               DateTime.UtcNow - _lastCacheUpdate.Value < _cacheValidTime;
-    }
-
-    /// <summary>
-    /// Get data from cache with filtering
-    /// </summary>
-    private List<Genus> GetFromCache(bool includeInactive)
-    {
-        lock (_cacheLock)
-        {
-            return _cache.Where(g => includeInactive || g.IsActive).ToList();
-        }
-    }
-
-    /// <summary>
-    /// Apply local filters to genus list
-    /// </summary>
-    private List<Genus> ApplyLocalFilters(List<Genus> genera, string? searchText, bool? isActive, bool? isFavorite)
-    {
-        var filtered = genera.AsEnumerable();
-
-        if (!string.IsNullOrWhiteSpace(searchText))
-        {
-            var search = searchText.ToLowerInvariant();
-            filtered = filtered.Where(g =>
-                g.Name.ToLowerInvariant().Contains(search) ||
-                (g.Description?.ToLowerInvariant().Contains(search) ?? false) ||
-                g.FamilyName.ToLowerInvariant().Contains(search));
-        }
-
-        if (isActive.HasValue)
-        {
-            filtered = filtered.Where(g => g.IsActive == isActive.Value);
-        }
-
-        if (isFavorite.HasValue)
-        {
-            filtered = filtered.Where(g => g.IsFavorite == isFavorite.Value);
-        }
-
-        return filtered.ToList();
-    }
-
-    /// <summary>
-    /// Refresh cache from server
-    /// </summary>
-    private async Task RefreshCacheInternalAsync()
-    {
-        var serverData = await _genusService.GetAllWithFamilyAsync(true);
-        if (serverData != null)
-        {
-            lock (_cacheLock)
-            {
-                _cache.Clear();
-                _cache.AddRange(serverData);
-                _lastCacheUpdate = DateTime.UtcNow;
-            }
-            this.LogInfo($"Cache refreshed with {serverData.Count} genera");
-        }
-    }
-
-    /// <summary>
-    /// Test connection to Supabase
-    /// </summary>
-    private async Task<bool> TestConnectionAsync()
-    {
-        return await this.SafeExecuteAsync(async () =>
-        {
-            return _supabaseService.IsAuthenticated;
-        }, false, "Test Connection");
-    }
+    } 
 
     #endregion
 }

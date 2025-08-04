@@ -1,131 +1,175 @@
 ﻿using OrchidPro.Models;
 using OrchidPro.ViewModels.Base;
 using OrchidPro.Extensions;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace OrchidPro.ViewModels.Genera;
 
 /// <summary>
-/// ViewModel for individual genus items in lists
-/// Provides genus-specific display logic and UI properties following Family pattern
+/// Item ViewModel for botanical genus entities with genus-specific properties and behaviors.
+/// Extends base functionality with favorites, family relationship display, and enhanced UI binding.
 /// </summary>
-public class GenusItemViewModel : BaseItemViewModel<Genus>
+public partial class GenusItemViewModel : BaseItemViewModel<Genus>
 {
-    #region Private Fields
+    #region Base Class Implementation
 
-    private readonly Genus _genus;
-
-    #endregion
-
-    #region Public Properties
-
-    /// <summary>
-    /// Entity name for logging and display purposes
-    /// </summary>
     public override string EntityName => "Genus";
 
-    /// <summary>
-    /// Family ID this genus belongs to
-    /// </summary>
-    public Guid FamilyId => _genus.FamilyId;
+    #endregion
+
+    #region Genus-Specific Properties
 
     /// <summary>
-    /// Family name for display
+    /// Favorite status specific to Genus entities
     /// </summary>
-    public string FamilyName => _genus.FamilyName;
+    public bool IsFavorite { get; }
 
     /// <summary>
-    /// Full display name with family context
+    /// Foreign key to parent family
     /// </summary>
-    public string FullDisplayName => _genus.FullDisplayName;
+    public Guid FamilyId { get; }
 
     /// <summary>
-    /// Extended status display with family and favorite info
+    /// Family name for display (if available)
     /// </summary>
-    public string FullStatusDisplay => _genus.FullStatusDisplay;
-
-    /// <summary>
-    /// IsFavorite property from base entity
-    /// </summary>
-    public bool IsFavorite => _genus.IsFavorite;
+    public string? FamilyName { get; }
 
     #endregion
 
-    #region Display Properties for UI Binding
+    #region Commands (will be set up later if needed)
 
     /// <summary>
-    /// Primary text for list display
+    /// Command to view details - initially null, can be set by parent
     /// </summary>
-    public string PrimaryText => Name;
+    public IAsyncRelayCommand? ViewDetailsCommand { get; set; }
 
     /// <summary>
-    /// Secondary text showing family relationship
+    /// Command to toggle favorite status - initially null, can be set by parent
     /// </summary>
-    public string SecondaryText => $"Family: {FamilyName}";
+    public IAsyncRelayCommand? ToggleFavoriteCommand { get; set; }
+
+    #endregion
+
+    #region Constructor
 
     /// <summary>
-    /// Tertiary text for additional context
+    /// Initialize genus item ViewModel with genus-specific data
     /// </summary>
-    public string TertiaryText => !string.IsNullOrWhiteSpace(Description)
-        ? Description.Length > 80
-            ? $"{Description[..77]}..."
-            : Description
-        : "No description";
+    public GenusItemViewModel(Genus genus) : base(genus)
+    {
+        IsFavorite = genus.IsFavorite;
+        FamilyId = genus.FamilyId;
+        FamilyName = genus.Family?.Name;
+        this.LogInfo($"Created: {genus.Name} (Family: {FamilyName}, Favorite: {IsFavorite}, ID: {genus.Id})");
+    }
+
+    #endregion
+
+    #region Enhanced UI Properties
 
     /// <summary>
-    /// Status color for visual indicators
+    /// Customized description preview for botanical genera
     /// </summary>
-    public Color StatusColor
+    public override string DescriptionPreview
     {
         get
         {
             return this.SafeExecute(() =>
             {
-                if (!IsActive) return Color.FromArgb("#9E9E9E"); // Gray
-                if (IsFavorite) return Color.FromArgb("#FF9800"); // Orange
-                if (IsSystemDefault) return Color.FromArgb("#2196F3"); // Blue
-                return Color.FromArgb("#4CAF50"); // Green for active
-            }, fallbackValue: Color.FromArgb("#4CAF50"), operationName: "StatusColor");
+                if (string.IsNullOrWhiteSpace(Description))
+                    return "No botanical description available";
+
+                return Description.Length > 120
+                    ? $"{Description.Substring(0, 117)}..."
+                    : Description;
+            }, fallbackValue: "Description unavailable", operationName: "DescriptionPreview");
         }
     }
 
     /// <summary>
-    /// Icon for genus type visualization
+    /// Gets creation date for display
     /// </summary>
-    public string GenusIcon
+    public DateTime CreatedAt => this.SafeExecute(() => ToModel()?.CreatedAt ?? DateTime.Now);
+
+    /// <summary>
+    /// Recent indicator with genus-specific icons including favorites
+    /// </summary>
+    public override string RecentIndicator =>
+        this.SafeExecute(() => IsRecent ? "🌱" : (IsFavorite ? "⭐" : ""),
+                        fallbackValue: "",
+                        operationName: "RecentIndicator");
+
+    /// <summary>
+    /// Extended status display including genus-specific indicators and family context
+    /// </summary>
+    public override string FullStatusDisplay
     {
         get
         {
             return this.SafeExecute(() =>
             {
-                // Check if it's a common orchid genus
-                if (IsOrchidGenus) return "🌺";
-                if (IsFavorite) return "⭐";
-                if (IsSystemDefault) return "🔒";
-                return "🌱"; // Default genus icon
-            }, fallbackValue: "🌱", operationName: "GenusIcon");
+                var status = StatusDisplay;
+                if (IsSystemDefault) status += " • System";
+                if (IsRecent) status += " • New";
+                if (!string.IsNullOrEmpty(FamilyName)) status += $" • {FamilyName}";
+                if (IsFavorite) status += " • Favorite";
+                return status;
+            }, fallbackValue: StatusDisplay, operationName: "FullStatusDisplay");
         }
     }
 
     /// <summary>
-    /// Check if this is a common orchid genus
+    /// Status badge color with special handling for favorites
     /// </summary>
-    public bool IsOrchidGenus
+    public override Color StatusBadgeColor
     {
         get
         {
             return this.SafeExecute(() =>
             {
-                var orchidGenera = new[]
-                {
-                    "Cattleya", "Phalaenopsis", "Dendrobium", "Oncidium",
-                    "Paphiopedilum", "Cymbidium", "Vanda", "Miltonia",
-                    "Brassia", "Laelia", "Bulbophyllum", "Epidendrum"
-                };
+                if (IsFavorite)
+                    return Color.FromArgb("#FF9800"); // Special color for favorites
 
-                return orchidGenera.Contains(Name, StringComparer.OrdinalIgnoreCase);
-            }, fallbackValue: false, operationName: "IsOrchidGenus");
+                return base.StatusBadgeColor;
+            }, fallbackValue: base.StatusBadgeColor, operationName: "StatusBadgeColor");
         }
     }
+
+    /// <summary>
+    /// Enhanced display name with family context and visual indicators
+    /// </summary>
+    public new string DisplayName =>
+        this.SafeExecute(() =>
+        {
+            var name = Name;
+            if (!string.IsNullOrEmpty(FamilyName))
+                name += $" ({FamilyName})";
+            if (IsSystemDefault)
+                name += " (System)";
+            if (IsFavorite)
+                name += " ⭐";
+            return name;
+        }, fallbackValue: Name, operationName: "DisplayName");
+
+    #endregion
+
+    #region Genus-Specific Properties
+
+    /// <summary>
+    /// Detect if this genus belongs to orchid family based on family name
+    /// </summary>
+    public bool IsOrchidGenus =>
+        this.SafeExecute(() =>
+            !string.IsNullOrEmpty(FamilyName) &&
+            FamilyName.Contains("Orchidaceae", StringComparison.OrdinalIgnoreCase),
+            fallbackValue: false,
+            operationName: "IsOrchidGenus");
+
+    /// <summary>
+    /// Genus type indicator icon based on family and status
+    /// </summary>
+    public string GenusTypeIndicator => IsOrchidGenus ? "🌺" : "🌱";
 
     /// <summary>
     /// Selection state visual indicators for UI binding
@@ -164,10 +208,10 @@ public class GenusItemViewModel : BaseItemViewModel<Genus>
 
                 if (IsFavorite) parts.Add("Favorite genus");
                 if (IsOrchidGenus) parts.Add("Orchid genus");
+                if (!string.IsNullOrEmpty(FamilyName)) parts.Add($"Family: {FamilyName}");
                 if (IsSystemDefault) parts.Add("System default");
                 if (!IsActive) parts.Add("Inactive");
 
-                parts.Add($"Family: {FamilyName}");
                 parts.Add($"Created {CreatedAt:dd/MM/yyyy}");
 
                 return string.Join(" • ", parts);
@@ -176,31 +220,30 @@ public class GenusItemViewModel : BaseItemViewModel<Genus>
     }
 
     /// <summary>
-    /// Badge text for family reference
+    /// Family context display for hierarchical view
     /// </summary>
-    public string FamilyBadge => FamilyName.Length > 15 ? $"{FamilyName[..12]}..." : FamilyName;
+    public string FamilyContext =>
+        this.SafeExecute(() =>
+            !string.IsNullOrEmpty(FamilyName) ? $"in {FamilyName}" : "Family unknown",
+            fallbackValue: "Family unknown",
+            operationName: "FamilyContext");
 
     /// <summary>
-    /// Subtitle combining family and status
+    /// Short family name for compact display
     /// </summary>
-    public string Subtitle => $"{FamilyName} • {FullStatusDisplay}";
-
-    #endregion
-
-    #region Constructor
-
-    /// <summary>
-    /// Initialize genus item ViewModel with enhanced display properties
-    /// </summary>
-    public GenusItemViewModel(Genus genus) : base(genus)
-    {
-        _genus = genus;
-
+    public string ShortFamilyName =>
         this.SafeExecute(() =>
         {
-            this.LogInfo($"GenusItemViewModel created for: {Name} (Family: {FamilyName})");
-        }, "GenusItemViewModel Constructor");
-    }
+            if (string.IsNullOrEmpty(FamilyName))
+                return "N/A";
+
+            // For orchidaceae, show just "Orchidaceae", for others show first word
+            if (FamilyName.Contains("Orchidaceae", StringComparison.OrdinalIgnoreCase))
+                return "Orchidaceae";
+
+            var firstWord = FamilyName.Split(' ', StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            return firstWord ?? FamilyName;
+        }, fallbackValue: "N/A", operationName: "ShortFamilyName");
 
     #endregion
 
@@ -214,7 +257,7 @@ public class GenusItemViewModel : BaseItemViewModel<Genus>
         return this.SafeExecute(() =>
         {
             var model = base.ToModel();
-            this.LogInfo($"Retrieved Genus model for: {Name} (Family: {FamilyName})");
+            this.LogInfo($"Retrieved Genus model for: {Name}");
             return model;
         }, fallbackValue: base.ToModel(), operationName: "ToModel");
     }
@@ -228,35 +271,41 @@ public class GenusItemViewModel : BaseItemViewModel<Genus>
         {
             if (other == null) return 1;
 
-            // Priority order: Favorites > System defaults > Regular > Inactive
-            var thisPriority = GetSortPriority();
-            var otherPriority = other.GetSortPriority();
+            // Favorites first
+            if (IsFavorite && !other.IsFavorite) return -1;
+            if (!IsFavorite && other.IsFavorite) return 1;
 
-            if (thisPriority != otherPriority)
-                return thisPriority.CompareTo(otherPriority);
-
-            // Secondary sort by family name
+            // Then by family name
             var familyComparison = string.Compare(FamilyName, other.FamilyName, StringComparison.OrdinalIgnoreCase);
-            if (familyComparison != 0)
-                return familyComparison;
+            if (familyComparison != 0) return familyComparison;
 
-            // Tertiary sort by genus name
+            // Finally by genus name
             return string.Compare(Name, other.Name, StringComparison.OrdinalIgnoreCase);
         }, fallbackValue: 0, operationName: "CompareTo");
     }
 
     /// <summary>
-    /// Get sorting priority based on genus properties
+    /// Get summary text for quick info display
     /// </summary>
-    private int GetSortPriority()
+    public string GetSummary()
     {
         return this.SafeExecute(() =>
         {
-            if (!IsActive) return 4; // Inactive last
-            if (IsFavorite) return 1; // Favorites first
-            if (IsSystemDefault) return 2; // System defaults second
-            return 3; // Regular genera third
-        }, fallbackValue: 3, operationName: "GetSortPriority");
+            var parts = new List<string> { Name };
+
+            if (!string.IsNullOrEmpty(FamilyName))
+                parts.Add($"Family: {ShortFamilyName}");
+
+            if (!string.IsNullOrEmpty(Description))
+            {
+                var shortDesc = Description.Length > 50
+                    ? Description.Substring(0, 47) + "..."
+                    : Description;
+                parts.Add(shortDesc);
+            }
+
+            return string.Join(" • ", parts);
+        }, fallbackValue: Name, operationName: "GetSummary");
     }
 
     /// <summary>
@@ -266,51 +315,45 @@ public class GenusItemViewModel : BaseItemViewModel<Genus>
     {
         return this.SafeExecute(() =>
         {
-            if (string.IsNullOrWhiteSpace(searchText)) return true;
+            if (string.IsNullOrWhiteSpace(searchText))
+                return true;
 
-            var search = searchText.ToLowerInvariant();
-            return Name.ToLowerInvariant().Contains(search) ||
-                   (Description?.ToLowerInvariant().Contains(search) ?? false) ||
-                   FamilyName.ToLowerInvariant().Contains(search);
+            var searchLower = searchText.ToLower();
+
+            return Name.ToLower().Contains(searchLower) ||
+                   (!string.IsNullOrEmpty(Description) && Description.ToLower().Contains(searchLower)) ||
+                   (!string.IsNullOrEmpty(FamilyName) && FamilyName.ToLower().Contains(searchLower));
         }, fallbackValue: false, operationName: "MatchesSearch");
     }
 
     /// <summary>
-    /// Get display text for current sorting mode
+    /// Get hierarchical path for breadcrumb navigation
     /// </summary>
-    public string GetSortDisplayText(string sortMode)
+    public string GetHierarchicalPath()
     {
         return this.SafeExecute(() =>
         {
-            return sortMode?.ToLowerInvariant() switch
-            {
-                "family" => FamilyName,
-                "created" => CreatedAt.ToString("dd/MM/yyyy"),
-                "updated" => UpdatedAt.ToString("dd/MM/yyyy"),
-                "status" => StatusDisplay,
-                _ => Name
-            };
-        }, fallbackValue: Name, operationName: "GetSortDisplayText");
+            if (!string.IsNullOrEmpty(FamilyName))
+                return $"{FamilyName} → {Name}";
+
+            return Name;
+        }, fallbackValue: Name, operationName: "GetHierarchicalPath");
     }
 
     #endregion
 
-    #region Equality and Hash Code
+    #region Override ToString for Debugging
 
     /// <summary>
-    /// Equality comparison based on genus ID
+    /// Override ToString for debugging and logging
     /// </summary>
-    public override bool Equals(object? obj)
+    public override string ToString()
     {
-        return obj is GenusItemViewModel other && Id == other.Id;
-    }
-
-    /// <summary>
-    /// Hash code based on genus ID
-    /// </summary>
-    public override int GetHashCode()
-    {
-        return Id.GetHashCode();
+        return this.SafeExecute(() =>
+        {
+            return $"GenusItemViewModel: {Name} (Family: {FamilyName ?? "Unknown"}, " +
+                   $"Active: {IsActive}, Favorite: {IsFavorite}, Selected: {IsSelected})";
+        }, fallbackValue: $"GenusItemViewModel: {Name}", operationName: "ToString");
     }
 
     #endregion
