@@ -8,14 +8,13 @@ using OrchidPro.Extensions;
 namespace OrchidPro.ViewModels.Genera;
 
 /// <summary>
-/// ViewModel for managing list of botanical genera with enhanced base functionality.
-/// Provides genus-specific implementations while leveraging generic base operations.
+/// MINIMAL Genus list ViewModel - reduced from ~120 lines to essential code only!
+/// All common functionality moved to BaseListViewModel and pattern classes.
 /// </summary>
 public partial class GeneraListViewModel : BaseListViewModel<Genus, GenusItemViewModel>
 {
     #region Private Fields
 
-    // Genus-specific repository for accessing genus-only methods
     private readonly IGenusRepository _genusRepository;
 
     #endregion
@@ -30,23 +29,17 @@ public partial class GeneraListViewModel : BaseListViewModel<Genus, GenusItemVie
 
     #region Constructor
 
-    /// <summary>
-    /// Initialize genera list ViewModel with enhanced base functionality
-    /// </summary>
     public GeneraListViewModel(IGenusRepository repository, INavigationService navigationService)
         : base(repository, navigationService)
     {
         _genusRepository = repository;
-        this.LogInfo("Initialized - using enhanced base with all extracted functionality");
+        this.LogInfo("Initialized - using bases for ALL functionality");
     }
 
     #endregion
 
     #region Required Implementation
 
-    /// <summary>
-    /// Create genus-specific item ViewModel from entity
-    /// </summary>
     protected override GenusItemViewModel CreateItemViewModel(Genus entity)
     {
         return this.SafeExecute(() =>
@@ -59,26 +52,18 @@ public partial class GeneraListViewModel : BaseListViewModel<Genus, GenusItemVie
 
     #endregion
 
-    #region Genus-Specific Overrides
+    #region Genus-Specific Sort Override (Standard Only)
 
-    /// <summary>
-    /// Apply genus-specific sorting logic including favorites-first option
-    /// </summary>
     protected override IOrderedEnumerable<GenusItemViewModel> ApplyEntitySpecificSort(IEnumerable<GenusItemViewModel> filtered)
     {
         return this.SafeExecute(() =>
         {
             this.LogInfo($"Applying sort order: {SortOrder}");
 
-            var sorted = SortOrder switch
-            {
-                "Name A→Z" => filtered.OrderBy(item => item.Name),
-                "Name Z→A" => filtered.OrderByDescending(item => item.Name),
-                "Recent First" => filtered.OrderByDescending(item => item.UpdatedAt),
-                "Oldest First" => filtered.OrderBy(item => item.CreatedAt),
-                "Favorites First" => filtered.OrderByDescending(item => item.IsFavorite).ThenBy(item => item.Name),
-                _ => filtered.OrderBy(item => item.Name)
-            };
+            // Use BaseSortPatterns with standard sorts only
+            var sorted = BaseSortPatterns.ApplyStandardSort<GenusItemViewModel>(
+                filtered,
+                SortOrder);
 
             this.LogSuccess($"Sort applied successfully: {SortOrder}");
             return sorted;
@@ -86,67 +71,24 @@ public partial class GeneraListViewModel : BaseListViewModel<Genus, GenusItemVie
         }, fallbackValue: filtered.OrderBy(item => item.Name), operationName: "ApplyEntitySpecificSort");
     }
 
-    /// <summary>
-    /// Toggle favorite status using genus-specific repository implementation
-    /// </summary>
-    protected override async Task ToggleFavoriteAsync(GenusItemViewModel item)
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            if (item?.Id == null) return;
-
-            this.LogInfo($"Toggling favorite for: {item.Name}");
-
-            // Use the genus-specific repository directly
-            var updatedGenus = await _genusRepository.ToggleFavoriteAsync(item.Id);
-
-            // Update the item by replacing it with updated data
-            var index = Items.IndexOf(item);
-            if (index >= 0)
-            {
-                var newItem = new GenusItemViewModel(updatedGenus);
-                newItem.SelectionChangedAction = item.SelectionChangedAction;
-                Items[index] = newItem;
-                this.LogInfo($"Updated item at index {index} with new favorite status");
-            }
-
-            UpdateCounters();
-            this.LogSuccess($"Favorite toggled: {item.Name} → {updatedGenus.IsFavorite}");
-
-        }, $"ToggleFavorite failed for {item?.Name}");
-    }
-
     #endregion
 
-    #region Public Commands for XAML Integration
+    #region Delete Operations Using Base Pattern
 
-    /// <summary>
-    /// ✅ FIXED: Public command for single item deletion - same pattern as FamiliesListViewModel
-    /// </summary>
     public IAsyncRelayCommand<GenusItemViewModel> DeleteSingleCommand =>
         new AsyncRelayCommand<GenusItemViewModel>(DeleteSingleAsync);
 
     private async Task DeleteSingleAsync(GenusItemViewModel? item)
     {
-        if (item?.Id == null) return;
-
-        await this.SafeExecuteAsync(async () =>
-        {
-            // Simple confirmation - no genus validation like Family has
-            var confirmed = await ShowConfirmAsync("Delete Genus", $"Are you sure you want to delete '{item.Name}'?");
-
-            if (confirmed)
-            {
-                await _genusRepository.DeleteAsync(item.Id);
-                Items.Remove(item);
-                UpdateCounters();
-                this.LogSuccess($"Genus deleted: {item.Name}");
-            }
-            // ✅ FIXED: No toast on cancel - just like Family
-
-        }, $"DeleteSingle failed for {item?.Name}");
+        await BaseDeleteOperations.ExecuteSimpleDeleteAsync<Genus, GenusItemViewModel>(
+            item,
+            _genusRepository,
+            EntityName,
+            Items,
+            UpdateCounters,
+            async (title, message) => await ShowConfirmAsync(title, message),
+            async (message) => await ShowSuccessToast(message));
     }
 
     #endregion
-
 }

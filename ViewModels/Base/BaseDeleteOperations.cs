@@ -6,43 +6,88 @@ using CommunityToolkit.Mvvm.Input;
 namespace OrchidPro.ViewModels.Base;
 
 /// <summary>
-/// Generic delete operations pattern for hierarchical entities with cascade validation.
-/// Eliminates delete logic duplication across Family, Genus, Species and future hierarchical entities.
+/// Generic delete operations pattern for all entities with optional cascade validation.
+/// Eliminates delete logic duplication across all list ViewModels.
 /// Provides standardized cascade validation and user confirmation workflows.
 /// </summary>
-/// <typeparam name="TEntity">Entity being deleted</typeparam>
-/// <typeparam name="TChild">Child entity type (if any)</typeparam>
-/// <typeparam name="TItemViewModel">Item ViewModel type for UI operations</typeparam>
-public static class BaseDeleteOperations<TEntity, TChild, TItemViewModel>
-    where TEntity : class, IBaseEntity
-    where TChild : class, IBaseEntity, IHierarchicalEntity<TEntity>
-    where TItemViewModel : BaseItemViewModel<TEntity>
+public static class BaseDeleteOperations
 {
     /// <summary>
-    /// Execute delete operation with hierarchical validation for single item
+    /// Execute simple delete operation for entities without children
     /// </summary>
+    /// <typeparam name="TEntity">Entity being deleted</typeparam>
+    /// <typeparam name="TItemViewModel">Item ViewModel type</typeparam>
     /// <param name="item">Item to delete</param>
     /// <param name="repository">Repository for the entity being deleted</param>
-    /// <param name="childRepository">Repository for child entities (optional)</param>
     /// <param name="entityName">Display name for the entity type</param>
-    /// <param name="childName">Display name for child entity type</param>
-    /// <param name="childNamePlural">Plural display name for child entity type</param>
-    /// <param name="onSuccess">Callback for successful deletion</param>
+    /// <param name="items">Items collection to update</param>
+    /// <param name="updateCounters">Action to update counters</param>
     /// <param name="showConfirmation">Function to show confirmation dialog</param>
     /// <param name="showSuccess">Function to show success message</param>
     /// <returns>Task representing the async operation</returns>
-    public static async Task ExecuteSingleDeleteWithValidationAsync(
-        TItemViewModel item,
+    public static async Task ExecuteSimpleDeleteAsync<TEntity, TItemViewModel>(
+        TItemViewModel? item,
+        IBaseRepository<TEntity> repository,
+        string entityName,
+        IList<TItemViewModel> items,
+        Action updateCounters,
+        Func<string, string, Task<bool>> showConfirmation,
+        Func<string, Task> showSuccess)
+        where TEntity : class, IBaseEntity
+        where TItemViewModel : BaseItemViewModel<TEntity>
+    {
+        if (item == null) return;
+
+        await SafeExecuteAsync(async () =>
+        {
+            var confirmed = await showConfirmation(
+                $"Delete {entityName}",
+                $"Are you sure you want to delete '{item.Name}'?");
+
+            if (confirmed)
+            {
+                await repository.DeleteAsync(item.Id);
+                items.Remove(item);
+                updateCounters();
+                await showSuccess($"'{item.Name}' deleted successfully");
+            }
+
+        }, $"SimpleDelete failed for {item?.Name}");
+    }
+
+    /// <summary>
+    /// Execute delete operation with hierarchical validation for entities with children
+    /// </summary>
+    /// <typeparam name="TEntity">Entity being deleted</typeparam>
+    /// <typeparam name="TChild">Child entity type</typeparam>
+    /// <typeparam name="TItemViewModel">Item ViewModel type</typeparam>
+    /// <param name="item">Item to delete</param>
+    /// <param name="repository">Repository for the entity being deleted</param>
+    /// <param name="childRepository">Repository for child entities</param>
+    /// <param name="entityName">Display name for the entity type</param>
+    /// <param name="childName">Display name for child entity type</param>
+    /// <param name="childNamePlural">Plural display name for child entity type</param>
+    /// <param name="items">Items collection to update</param>
+    /// <param name="updateCounters">Action to update counters</param>
+    /// <param name="showConfirmation">Function to show confirmation dialog</param>
+    /// <param name="showSuccess">Function to show success message</param>
+    /// <returns>Task representing the async operation</returns>
+    public static async Task ExecuteHierarchicalDeleteAsync<TEntity, TChild, TItemViewModel>(
+        TItemViewModel? item,
         IBaseRepository<TEntity> repository,
         IHierarchicalRepository<TChild, TEntity>? childRepository,
         string entityName,
         string childName,
         string childNamePlural,
-        Func<Task> onSuccess,
-        Func<string, string, string, string, Task<bool>> showConfirmation,
-        Func<string, string, Task> showSuccess)
+        IList<TItemViewModel> items,
+        Action updateCounters,
+        Func<string, string, Task<bool>> showConfirmation,
+        Func<string, Task> showSuccess)
+        where TEntity : class, IBaseEntity
+        where TChild : class, IBaseEntity, IHierarchicalEntity<TEntity>
+        where TItemViewModel : BaseItemViewModel<TEntity>
     {
-        if (item?.Id == null) return;
+        if (item == null) return;
 
         await SafeExecuteAsync(async () =>
         {
@@ -58,102 +103,24 @@ public static class BaseDeleteOperations<TEntity, TChild, TItemViewModel>
                 var childText = childCount == 1 ? childName.ToLower() : childNamePlural.ToLower();
                 confirmed = await showConfirmation(
                     $"Delete {entityName} with {childNamePlural}",
-                    $"{entityName} '{item.Name}' has {childCount} {childText}. Deleting will also remove all {childText}. Continue?",
-                    "Delete",
-                    "Cancel");
+                    $"{entityName} '{item.Name}' has {childCount} {childText}. Deleting will also remove all {childText}. Continue?");
             }
             else
             {
                 confirmed = await showConfirmation(
                     $"Delete {entityName}",
-                    $"Are you sure you want to delete '{item.Name}'?",
-                    "Delete",
-                    "Cancel");
+                    $"Are you sure you want to delete '{item.Name}'?");
             }
 
             if (confirmed)
             {
                 await repository.DeleteAsync(item.Id);
-                await onSuccess();
-                await showSuccess("Deleted", $"{entityName} deleted successfully");
+                items.Remove(item);
+                updateCounters();
+                await showSuccess($"'{item.Name}' deleted successfully");
             }
 
-        }, $"DeleteSingle failed for {item?.Name}");
-    }
-
-    /// <summary>
-    /// Execute bulk delete operation with hierarchical validation
-    /// </summary>
-    /// <param name="selectedItems">Items to delete</param>
-    /// <param name="repository">Repository for the entity being deleted</param>
-    /// <param name="childRepository">Repository for child entities (optional)</param>
-    /// <param name="entityName">Display name for the entity type</param>
-    /// <param name="entityNamePlural">Plural display name for the entity type</param>
-    /// <param name="childName">Display name for child entity type</param>
-    /// <param name="childNamePlural">Plural display name for child entity type</param>
-    /// <param name="onSuccess">Callback for successful deletion</param>
-    /// <param name="showConfirmation">Function to show confirmation dialog</param>
-    /// <param name="showSuccess">Function to show success message</param>
-    /// <returns>Task representing the async operation</returns>
-    public static async Task ExecuteBulkDeleteWithValidationAsync(
-        IEnumerable<TItemViewModel> selectedItems,
-        IBaseRepository<TEntity> repository,
-        IHierarchicalRepository<TChild, TEntity>? childRepository,
-        string entityName,
-        string entityNamePlural,
-        string childName,
-        string childNamePlural,
-        Func<Task> onSuccess,
-        Func<string, string, string, string, Task<bool>> showConfirmation,
-        Func<string, string, Task> showSuccess)
-    {
-        var itemsList = selectedItems.Where(i => i != null).ToList();
-        if (!itemsList.Any()) return;
-
-        await SafeExecuteAsync(async () =>
-        {
-            var totalChildCount = 0;
-            if (childRepository != null)
-            {
-                foreach (var item in itemsList)
-                {
-                    var count = await childRepository.GetCountByParentAsync(item.Id, includeInactive: true);
-                    totalChildCount += count;
-                }
-            }
-
-            var itemCount = itemsList.Count;
-            var itemText = itemCount == 1 ? entityName.ToLower() : entityNamePlural.ToLower();
-
-            bool confirmed;
-            if (totalChildCount > 0)
-            {
-                var childText = totalChildCount == 1 ? childName.ToLower() : childNamePlural.ToLower();
-                confirmed = await showConfirmation(
-                    $"Delete {itemCount} {itemText} with {childNamePlural}",
-                    $"Selected {itemText} have {totalChildCount} {childText}. Deleting will also remove all {childText}. Continue?",
-                    "Delete All",
-                    "Cancel");
-            }
-            else
-            {
-                confirmed = await showConfirmation(
-                    $"Delete {itemCount} {itemText}",
-                    $"Are you sure you want to delete {itemCount} selected {itemText}?",
-                    "Delete All",
-                    "Cancel");
-            }
-
-            if (confirmed)
-            {
-                var ids = itemsList.Select(i => i.Id).ToList();
-                var deletedCount = await repository.DeleteMultipleAsync(ids);
-
-                await onSuccess();
-                await showSuccess("Deleted", $"{deletedCount} {itemText} deleted successfully");
-            }
-
-        }, $"BulkDelete failed for {itemsList.Count} items");
+        }, $"HierarchicalDelete failed for {item?.Name}");
     }
 
     /// <summary>
@@ -167,60 +134,8 @@ public static class BaseDeleteOperations<TEntity, TChild, TItemViewModel>
         }
         catch (Exception ex)
         {
-            // Use extension method for logging
             ex.LogError($"Delete operation failed: {operationName}");
             throw;
         }
-    }
-}
-
-/// <summary>
-/// Extension methods for simplified delete operations in ViewModels
-/// </summary>
-public static class DeleteOperationsExtensions
-{
-    /// <summary>
-    /// Execute single delete with validation for hierarchical entities
-    /// </summary>
-    public static async Task DeleteSingleWithHierarchyAsync<TEntity, TChild, TItemViewModel>(
-        this TItemViewModel item,
-        IBaseRepository<TEntity> repository,
-        IHierarchicalRepository<TChild, TEntity>? childRepository,
-        string entityName,
-        string childName,
-        string childNamePlural,
-        Func<Task> onSuccess,
-        Func<string, string, string, string, Task<bool>> showConfirmation,
-        Func<string, string, Task> showSuccess)
-        where TEntity : class, IBaseEntity
-        where TChild : class, IBaseEntity, IHierarchicalEntity<TEntity>
-        where TItemViewModel : BaseItemViewModel<TEntity>
-    {
-        await BaseDeleteOperations<TEntity, TChild, TItemViewModel>.ExecuteSingleDeleteWithValidationAsync(
-            item, repository, childRepository, entityName, childName, childNamePlural,
-            onSuccess, showConfirmation, showSuccess);
-    }
-
-    /// <summary>
-    /// Execute bulk delete with validation for hierarchical entities
-    /// </summary>
-    public static async Task DeleteBulkWithHierarchyAsync<TEntity, TChild, TItemViewModel>(
-        this IEnumerable<TItemViewModel> selectedItems,
-        IBaseRepository<TEntity> repository,
-        IHierarchicalRepository<TChild, TEntity>? childRepository,
-        string entityName,
-        string entityNamePlural,
-        string childName,
-        string childNamePlural,
-        Func<Task> onSuccess,
-        Func<string, string, string, string, Task<bool>> showConfirmation,
-        Func<string, string, Task> showSuccess)
-        where TEntity : class, IBaseEntity
-        where TChild : class, IBaseEntity, IHierarchicalEntity<TEntity>
-        where TItemViewModel : BaseItemViewModel<TEntity>
-    {
-        await BaseDeleteOperations<TEntity, TChild, TItemViewModel>.ExecuteBulkDeleteWithValidationAsync(
-            selectedItems, repository, childRepository, entityName, entityNamePlural, childName, childNamePlural,
-            onSuccess, showConfirmation, showSuccess);
     }
 }

@@ -10,8 +10,8 @@ using OrchidPro.ViewModels.Base;
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ViewModel for editing and creating botanical family records.
-/// Provides family-specific functionality while leveraging enhanced base edit operations.
+/// MINIMAL Family edit ViewModel - reduced from ~200 lines to essential code only!
+/// All common functionality moved to BaseEditViewModel and pattern classes.
 /// </summary>
 public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttributable
 {
@@ -22,7 +22,7 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
 
     #endregion
 
-    #region Properties
+    #region Family-Specific Properties
 
     public int RelatedGeneraCount
     {
@@ -48,13 +48,6 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
 
     #endregion
 
-    #region Page Title Management
-
-    public new string PageTitle => IsEditMode ? "Edit Family" : "New Family";
-    public bool IsEditMode => _isEditMode;
-
-    #endregion
-
     #region Constructor
 
     public FamilyEditViewModel(IFamilyRepository familyRepository, IGenusRepository genusRepository, INavigationService navigationService)
@@ -66,43 +59,33 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
 
     #endregion
 
-    #region Delete Operations
+    #region Delete Operations Using Base Pattern
 
     [RelayCommand]
     private async Task DeleteWithValidationAsync()
     {
-        await this.SafeExecuteAsync(async () =>
-        {
-            if (!EntityId.HasValue) return;
+        if (!EntityId.HasValue) return;
 
-            var genusCount = await _genusRepository.GetCountByFamilyAsync(EntityId.Value, includeInactive: true);
-
-            bool confirmed;
-            if (genusCount > 0)
+        await BaseDeleteOperations.ExecuteHierarchicalDeleteAsync<Family, Genus, Family>(
+            new Family { Id = EntityId.Value, Name = Name },
+            (IBaseRepository<Family>)_repository,
+            _genusRepository,
+            EntityName,
+            "genus",
+            "genera",
+            new List<Family>(), // Not used for single delete
+            () => { }, // Not used for single delete
+            async (title, message) => await ShowConfirmationAsync(title, message, "Delete", "Cancel"),
+            async (message) =>
             {
-                var genusText = genusCount == 1 ? "genus" : "genera";
-                confirmed = await ShowConfirmationAsync("Delete Family with Genera",
-                    $"This family has {genusCount} {genusText}. Deleting will also remove all {genusText}. Continue?",
-                    "Delete", "Cancel");
-            }
-            else
-            {
-                confirmed = await ShowConfirmationAsync("Delete Family", $"Are you sure you want to delete '{Name}'?", "Delete", "Cancel");
-            }
-
-            if (confirmed)
-            {
-                await _repository.DeleteAsync(EntityId.Value);
                 await ShowSuccessAsync("Deleted", $"{EntityName} deleted successfully");
                 await NavigateBackAsync();
-            }
-
-        }, $"DeleteWithValidation failed for {Name}");
+            });
     }
 
     #endregion
 
-    #region Save Operations Override
+    #region Save Operations with Messaging
 
     [RelayCommand]
     private async Task SaveWithMessagingAsync()
@@ -138,8 +121,6 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
                 _ = LoadGenusCountAsync();
             }
 
-            OnPropertyChanged(nameof(PageTitle));
-            OnPropertyChanged(nameof(IsEditMode));
             OnPropertyChanged(nameof(CanDelete));
 
         }, "ApplyQueryAttributes");

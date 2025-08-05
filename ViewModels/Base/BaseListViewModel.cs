@@ -478,20 +478,17 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     #region Favorites Management
 
     /// <summary>
-    /// Toggle favorite status for an entity (virtual method for override)
+    /// Generic toggle favorite implementation using BaseToggleFavoritePattern
     /// </summary>
     [RelayCommand]
     protected virtual async Task ToggleFavoriteAsync(TItemViewModel item)
     {
-        await this.SafeExecuteAsync(async () =>
-        {
-            if (item?.Id == null) return;
-
-            this.LogInfo($"Base ToggleFavorite called for: {item.Name}");
-            this.LogWarning("Override this method in specific ViewModel if entity supports favorites");
-
-            await Task.CompletedTask;
-        }, "Toggle Favorite");
+        await BaseToggleFavoritePattern.ExecuteToggleFavoriteAsync<T, TItemViewModel>(
+            item,
+            _repository,
+            Items,
+            CreateItemViewModel,
+            UpdateCounters);
     }
 
     #endregion
