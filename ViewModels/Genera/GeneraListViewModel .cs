@@ -87,7 +87,7 @@ public partial class GeneraListViewModel : BaseListViewModel<Genus, GenusItemVie
             Items,
             UpdateCounters,
             async (title, message) => await ShowConfirmAsync(title, message),
-            async (message) => await ShowSuccessToast(message));
+            async (message) => await ShowSuccessToastAsync(message)); // ✅ CORRIGIDO: ShowSuccessToastAsync
     }
 
     #endregion

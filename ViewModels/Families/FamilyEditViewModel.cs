@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Messaging;
 using OrchidPro.Extensions;
 using OrchidPro.Messages;
 using OrchidPro.Models;
+using OrchidPro.Models.Base;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
@@ -10,34 +11,14 @@ using OrchidPro.ViewModels.Base;
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// MINIMAL Family edit ViewModel - reduced from ~200 lines to essential code only!
-/// All common functionality moved to BaseEditViewModel and pattern classes.
+/// MINIMAL Family edit ViewModel - uses BaseEditViewModel SaveCommand + only messaging override
 /// </summary>
-public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttributable
+public partial class FamilyEditViewModel : BaseEditViewModel<Family>
 {
     #region Private Fields
 
+    private readonly IFamilyRepository _familyRepository;
     private readonly IGenusRepository _genusRepository;
-    private int _relatedGeneraCount = 0;
-
-    #endregion
-
-    #region Family-Specific Properties
-
-    public int RelatedGeneraCount
-    {
-        get => _relatedGeneraCount;
-        private set => SetProperty(ref _relatedGeneraCount, value);
-    }
-
-    public string RelatedGeneraDisplay => RelatedGeneraCount switch
-    {
-        0 => "No related genera",
-        1 => "1 related genus",
-        _ => $"{RelatedGeneraCount} related genera"
-    };
-
-    public bool CanDelete => IsEditMode && EntityId.HasValue;
 
     #endregion
 
@@ -53,87 +34,100 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
     public FamilyEditViewModel(IFamilyRepository familyRepository, IGenusRepository genusRepository, INavigationService navigationService)
         : base(familyRepository, navigationService)
     {
+        _familyRepository = familyRepository;
         _genusRepository = genusRepository;
-        this.LogInfo("Initialized with genus repository for delete validation");
+
+        // Only delete command is family-specific
+        DeleteWithValidationCommand = new AsyncRelayCommand(DeleteFamilyAsync, () => CanDelete);
+
+        this.LogInfo("Initialized - using base SaveCommand + delete validation");
     }
 
     #endregion
 
-    #region Delete Operations Using Base Pattern
+    #region Commands
 
-    [RelayCommand]
-    private async Task DeleteWithValidationAsync()
-    {
-        if (!EntityId.HasValue) return;
-
-        await BaseDeleteOperations.ExecuteHierarchicalDeleteAsync<Family, Genus, Family>(
-            new Family { Id = EntityId.Value, Name = Name },
-            (IBaseRepository<Family>)_repository,
-            _genusRepository,
-            EntityName,
-            "genus",
-            "genera",
-            new List<Family>(), // Not used for single delete
-            () => { }, // Not used for single delete
-            async (title, message) => await ShowConfirmationAsync(title, message, "Delete", "Cancel"),
-            async (message) =>
-            {
-                await ShowSuccessAsync("Deleted", $"{EntityName} deleted successfully");
-                await NavigateBackAsync();
-            });
-    }
+    public IAsyncRelayCommand DeleteWithValidationCommand { get; }
 
     #endregion
 
-    #region Save Operations with Messaging
+    #region Override Save Success for Messaging
 
-    [RelayCommand]
-    private async Task SaveWithMessagingAsync()
+    /// <summary>
+    /// ✅ CORRETO: Override OnSaveSuccessAsync para enviar mensagem
+    /// </summary>
+    protected override async Task OnSaveSuccessAsync(Family savedEntity)
     {
-        var wasCreateOperation = !IsEditMode;
-        var familyName = Name;
+        await base.OnSaveSuccessAsync(savedEntity);
 
-        await SaveCommand.ExecuteAsync(null);
-
-        if (wasCreateOperation && EntityId.HasValue)
+        // Send family created message if it was a new family
+        if (!IsEditMode)
         {
-            await this.SafeExecuteAsync(async () =>
-            {
-                var message = new FamilyCreatedMessage(EntityId.Value, familyName);
-                WeakReferenceMessenger.Default.Send(message);
-                this.LogSuccess($"Sent FamilyCreatedMessage for: {familyName}");
-            }, "Send FamilyCreatedMessage");
+            SendFamilyCreatedMessage(savedEntity.Name);
         }
     }
 
     #endregion
 
-    #region Query Attributes Handling
+    #region Family-Specific Operations
 
-    public new void ApplyQueryAttributes(IDictionary<string, object> query)
+    /// <summary>
+    /// Delete family with genus count validation
+    /// </summary>
+    private async Task DeleteFamilyAsync()
     {
-        this.SafeExecute(() =>
-        {
-            base.ApplyQueryAttributes(query);
+        if (!EntityId.HasValue) return;
 
-            if (IsEditMode && EntityId.HasValue)
-            {
-                _ = LoadGenusCountAsync();
-            }
-
-            OnPropertyChanged(nameof(CanDelete));
-
-        }, "ApplyQueryAttributes");
-    }
-
-    private async Task LoadGenusCountAsync()
-    {
         await this.SafeExecuteAsync(async () =>
         {
-            var count = await _genusRepository.GetCountByFamilyAsync(EntityId!.Value, includeInactive: true);
-            RelatedGeneraCount = count;
-            OnPropertyChanged(nameof(RelatedGeneraDisplay));
-        }, "LoadGenusCount");
+            // Use GetCountByFamilyAsync (exists in IGenusRepository)
+            var genusCount = await _genusRepository.GetCountByFamilyAsync(EntityId.Value, includeInactive: true);
+
+            string message = genusCount > 0
+                ? $"This family has {genusCount} genera. Delete anyway?"
+                : "Are you sure you want to delete this family?";
+
+            // Use ShowConfirmationAsync from BaseEditViewModel
+            var confirmed = await ShowConfirmationAsync("Delete Family", message, "Delete", "Cancel");
+            if (!confirmed) return;
+
+            var success = await _familyRepository.DeleteAsync(EntityId.Value);
+            if (success)
+            {
+                await ShowSuccessAsync("Success", "Family deleted successfully");
+                await _navigationService.GoBackAsync();
+            }
+            else
+            {
+                await ShowErrorAsync("Error", "Failed to delete family");
+            }
+        }, "Delete Family");
+    }
+
+    #endregion
+
+    #region Property Overrides
+
+    /// <summary>
+    /// Can delete - only in edit mode with valid entity
+    /// </summary>
+    public bool CanDelete => IsEditMode && !IsBusy && EntityId.HasValue;
+
+    #endregion
+
+    #region Messaging
+
+    /// <summary>
+    /// Send family created message after successful save
+    /// </summary>
+    private void SendFamilyCreatedMessage(string familyName)
+    {
+        if (EntityId.HasValue && !string.IsNullOrEmpty(familyName))
+        {
+            var message = new FamilyCreatedMessage(EntityId.Value, familyName);
+            WeakReferenceMessenger.Default.Send(message);
+            this.LogInfo($"Sent FamilyCreatedMessage for: {familyName}");
+        }
     }
 
     #endregion

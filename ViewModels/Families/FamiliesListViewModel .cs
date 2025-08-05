@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.Input;
 using OrchidPro.Models;
 using OrchidPro.Services;
+using OrchidPro.Services.Base;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
 using OrchidPro.Extensions;
@@ -83,17 +84,20 @@ public partial class FamiliesListViewModel : BaseListViewModel<Family, FamilyIte
 
     private async Task DeleteSingleWithValidationAsync(FamilyItemViewModel? item)
     {
+        // ✅ CORRIGIDO: Cast para IHierarchicalRepository
+        var hierarchicalGenusRepo = _genusRepository as IHierarchicalRepository<Genus, Family>;
+
         await BaseDeleteOperations.ExecuteHierarchicalDeleteAsync<Family, Genus, FamilyItemViewModel>(
             item,
             _familyRepository,
-            _genusRepository,
+            hierarchicalGenusRepo,
             EntityName,
             "genus",
             "genera",
             Items,
             UpdateCounters,
             async (title, message) => await ShowConfirmAsync(title, message),
-            async (message) => await ShowSuccessToast(message));
+            async (message) => await ShowSuccessToastAsync(message));
     }
 
     #endregion

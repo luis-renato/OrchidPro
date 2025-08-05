@@ -1,4 +1,5 @@
 ﻿using OrchidPro.Models.Base;
+using OrchidPro.Services.Base;
 using OrchidPro.Extensions;
 
 namespace OrchidPro.ViewModels.Base;
@@ -10,7 +11,7 @@ namespace OrchidPro.ViewModels.Base;
 public static class BaseToggleFavoritePattern
 {
     /// <summary>
-    /// Execute toggle favorite with standard pattern used by all list ViewModels
+    /// Execute toggle favorite with standard pattern used by all list ViewModels - CORRIGIDO SIMPLES
     /// </summary>
     /// <typeparam name="TEntity">Entity type</typeparam>
     /// <typeparam name="TItemViewModel">Item ViewModel type</typeparam>
@@ -26,7 +27,7 @@ public static class BaseToggleFavoritePattern
         IList<TItemViewModel> items,
         Func<TEntity, TItemViewModel> createItemViewModel,
         Action updateCounters)
-        where TEntity : class, IBaseEntity
+        where TEntity : class, IBaseEntity, new()
         where TItemViewModel : BaseItemViewModel<TEntity>
     {
         if (item?.Id == null) return;
@@ -35,8 +36,9 @@ public static class BaseToggleFavoritePattern
         {
             item.LogInfo($"Toggling favorite for: {item.Name}");
 
-            // Call repository toggle favorite
-            var updatedEntity = await repository.ToggleFavoriteAsync(item.Id);
+            // ✅ CORRIGIDO: Cast simples para BaseRepository
+            var baseRepo = (BaseRepository<TEntity>)repository;
+            var updatedEntity = await baseRepo.ToggleFavoriteAsync(item.Id);
 
             // Find and replace item in collection
             var index = items.IndexOf(item);

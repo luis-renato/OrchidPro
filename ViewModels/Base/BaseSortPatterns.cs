@@ -10,7 +10,7 @@ namespace OrchidPro.ViewModels.Base;
 public static class BaseSortPatterns
 {
     /// <summary>
-    /// Apply standard sort patterns used by all entities
+    /// Apply standard sort patterns used by all entities - CORRIGIDO CONSTRAINT
     /// </summary>
     /// <typeparam name="TItemViewModel">Item ViewModel type</typeparam>
     /// <param name="filtered">Filtered items to sort</param>
@@ -21,7 +21,7 @@ public static class BaseSortPatterns
         IEnumerable<TItemViewModel> filtered,
         string sortOrder,
         Func<IEnumerable<TItemViewModel>, string, IOrderedEnumerable<TItemViewModel>?>? entitySpecificSort = null)
-        where TItemViewModel : BaseItemViewModel<IBaseEntity>
+        where TItemViewModel : class // ✅ CORRIGIDO: Constraint mais flexível
     {
         // Try entity-specific sort first
         if (entitySpecificSort != null)
@@ -34,12 +34,12 @@ public static class BaseSortPatterns
         // Standard sort patterns used by all entities
         return sortOrder switch
         {
-            "Name A→Z" => filtered.OrderBy(item => item.Name),
-            "Name Z→A" => filtered.OrderByDescending(item => item.Name),
-            "Recent First" => filtered.OrderByDescending(item => item.UpdatedAt),
-            "Oldest First" => filtered.OrderBy(item => item.CreatedAt),
-            "Favorites First" => filtered.OrderByDescending(item => item.IsFavorite).ThenBy(item => item.Name),
-            _ => filtered.OrderBy(item => item.Name)
+            "Name A→Z" => filtered.OrderBy(item => GetName(item)),
+            "Name Z→A" => filtered.OrderByDescending(item => GetName(item)),
+            "Recent First" => filtered.OrderByDescending(item => GetUpdatedAt(item)),
+            "Oldest First" => filtered.OrderBy(item => GetCreatedAt(item)),
+            "Favorites First" => filtered.OrderByDescending(item => GetIsFavorite(item)).ThenBy(item => GetName(item)),
+            _ => filtered.OrderBy(item => GetName(item))
         };
     }
 
@@ -59,21 +59,87 @@ public static class BaseSortPatterns
         };
     }
 
-    /// <summary>
-    /// Get genus count from item using reflection (for Family items)
-    /// </summary>
-    private static int GetGenusCount<TItemViewModel>(TItemViewModel item)
-    {
-        var property = item?.GetType().GetProperty("GenusCount");
-        return property?.GetValue(item) as int? ?? 0;
-    }
+    #region Helper Methods Using Reflection - SAFE
 
     /// <summary>
-    /// Get name from item using reflection
+    /// Get name from item using reflection safely
     /// </summary>
     private static string GetName<TItemViewModel>(TItemViewModel item)
     {
-        var property = item?.GetType().GetProperty("Name");
-        return property?.GetValue(item) as string ?? "";
+        try
+        {
+            var property = item?.GetType().GetProperty("Name");
+            return property?.GetValue(item) as string ?? "";
+        }
+        catch
+        {
+            return "";
+        }
     }
+
+    /// <summary>
+    /// Get IsFavorite from item using reflection safely
+    /// </summary>
+    private static bool GetIsFavorite<TItemViewModel>(TItemViewModel item)
+    {
+        try
+        {
+            var property = item?.GetType().GetProperty("IsFavorite");
+            return property?.GetValue(item) as bool? ?? false;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Get UpdatedAt from item using reflection safely
+    /// </summary>
+    private static DateTime GetUpdatedAt<TItemViewModel>(TItemViewModel item)
+    {
+        try
+        {
+            var property = item?.GetType().GetProperty("UpdatedAt");
+            return property?.GetValue(item) as DateTime? ?? DateTime.MinValue;
+        }
+        catch
+        {
+            return DateTime.MinValue;
+        }
+    }
+
+    /// <summary>
+    /// Get CreatedAt from item using reflection safely
+    /// </summary>
+    private static DateTime GetCreatedAt<TItemViewModel>(TItemViewModel item)
+    {
+        try
+        {
+            var property = item?.GetType().GetProperty("CreatedAt");
+            return property?.GetValue(item) as DateTime? ?? DateTime.MinValue;
+        }
+        catch
+        {
+            return DateTime.MinValue;
+        }
+    }
+
+    /// <summary>
+    /// Get genus count from item using reflection safely (for Family items)
+    /// </summary>
+    private static int GetGenusCount<TItemViewModel>(TItemViewModel item)
+    {
+        try
+        {
+            var property = item?.GetType().GetProperty("GenusCount");
+            return property?.GetValue(item) as int? ?? 0;
+        }
+        catch
+        {
+            return 0;
+        }
+    }
+
+    #endregion
 }

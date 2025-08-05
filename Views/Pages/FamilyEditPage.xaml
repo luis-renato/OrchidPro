@@ -168,8 +168,8 @@
                             Text="{Binding SaveButtonText}"
                             Style="{StaticResource DynamicPrimaryButtonStyle}"
                             BackgroundColor="{Binding SaveButtonColor}"
-                            Command="{Binding SaveWithMessagingCommand}"
-                            IsEnabled="{Binding IsNameValid}" />
+                            Command="{Binding SaveCommand}"
+                            IsEnabled="{Binding CanSave}" />
 
                 </Grid>
 
