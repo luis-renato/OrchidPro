@@ -133,9 +133,6 @@
 		<MauiXaml Update="Views\Pages\FamilyEditPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\Pages\TestSyncPage.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</MauiXaml>
 	</ItemGroup>
 
 </Project>

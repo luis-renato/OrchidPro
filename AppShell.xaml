@@ -146,11 +146,4 @@
         <ShellContent Route="settings" />
     </FlyoutItem>
 
-    <!-- Debug section (only visible in debug builds) -->
-    <FlyoutItem x:Name="DebugSection" Title="🧪 Debug Tools" Icon="debug.png" FlyoutDisplayOptions="AsMultipleItems">
-        <ShellContent Title="Test Sync" 
-                     Route="testsync" 
-                     ContentTemplate="{DataTemplate pages:TestSyncPage}" />
-    </FlyoutItem>
-
 </Shell>

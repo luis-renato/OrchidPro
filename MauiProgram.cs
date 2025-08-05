@@ -120,9 +120,6 @@ public static class MauiProgram
             services.AddTransient<GeneraListPage>();
             services.AddTransient<GenusEditPage>();
 
-            // Debug and development pages
-            services.AddTransient<TestSyncPage>();
-
             // Application shell with singleton lifetime
             services.AddSingleton<AppShell>();
 
@@ -185,13 +182,6 @@ public static class MauiProgram
             Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
             Routing.RegisterRoute("families-syncfusion", typeof(FamiliesListPage));
             Routing.RegisterRoute("genusedit", typeof(GenusEditPage));
-
-            // Development and debugging routes
-            if (AppSettings.IsDebugMode)
-            {
-                Routing.RegisterRoute("testsync", typeof(TestSyncPage));
-                typeof(MauiProgram).LogInfo("Debug routes registered");
-            }
 
             // Future feature placeholder routes
             var futureRoutes = new[]

@@ -39,13 +39,6 @@ public partial class AppShell : Shell
             // Authentication routes
             Routing.RegisterRoute("login", typeof(LoginPage));
 
-            // Debug routes (only in debug mode)
-            if (AppSettings.IsDebugMode)
-            {
-                Routing.RegisterRoute("testsync", typeof(TestSyncPage));
-                this.LogInfo("Debug routes registered");
-            }
-
             // Future module routes (placeholders)
             // Routing.RegisterRoute("speciesedit", typeof(SpeciesEditPage));
 

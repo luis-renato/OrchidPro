@@ -81,11 +81,10 @@ public class SupabaseGenus : BaseModel
 }
 
 /// <summary>
-/// Service for managing genus entities in Supabase database.
-/// Provides CRUD operations and business logic for genus management with family relationships.
-/// Follows the exact same pattern as SupabaseFamilyService.
+/// REFACTORED: Genus service implementing ISupabaseEntityService<Genus> interface.
+/// Reduced from ~500 lines to minimal implementation focused on Genus-specific logic.
 /// </summary>
-public class SupabaseGenusService
+public class SupabaseGenusService : ISupabaseEntityService<Genus>
 {
     #region Private Fields
 
@@ -95,445 +94,138 @@ public class SupabaseGenusService
 
     #region Constructor
 
-    /// <summary>
-    /// Initialize genus service with Supabase connection
-    /// </summary>
     public SupabaseGenusService(SupabaseService supabaseService)
     {
         _supabaseService = supabaseService ?? throw new ArgumentNullException(nameof(supabaseService));
-        this.LogInfo("SupabaseGenusService initialized");
+        this.LogInfo("SupabaseGenusService initialized - implementing ISupabaseEntityService");
     }
 
     #endregion
 
-    #region Main CRUD Operations
+    #region ISupabaseEntityService<Genus> Implementation
 
-    /// <summary>
-    /// Retrieve all genera accessible to current user including system defaults
-    /// </summary>
-    public async Task<List<Genus>> GetAllAsync(bool includeInactive = false)
+    public async Task<IEnumerable<Genus>> GetAllAsync()
     {
-        using (this.LogPerformance("Get All Genera"))
+        var result = await this.SafeDataExecuteAsync(async () =>
         {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                if (_supabaseService.Client == null)
-                {
-                    this.LogError("Supabase client not available");
-                    return new List<Genus>();
-                }
-
-                this.LogInfo("Starting GetAllAsync operation");
-
-                var currentUserIdString = _supabaseService.GetCurrentUserId();
-                this.LogInfo($"Current user ID: '{currentUserIdString}'");
-
-                // Validate and convert userId
-                Guid? currentUserId = null;
-                if (Guid.TryParse(currentUserIdString, out Guid parsedUserId))
-                {
-                    currentUserId = parsedUserId;
-                    this.LogInfo($"Parsed user ID: {currentUserId}");
-                }
-                else
-                {
-                    this.LogWarning("Could not parse user ID, will only get system genera");
-                }
-
-                if (currentUserId.HasValue)
-                {
-                    // Query all genera and filter on client side
-                    var response = await _supabaseService.Client
-                        .From<SupabaseGenus>()
-                        .Select("*")
-                        .Get();
-
-                    this.LogInfo("Querying all genera");
-
-                    if (response?.Models == null || !response.Models.Any())
-                    {
-                        this.LogWarning("No genera found in database");
-                        return new List<Genus>();
-                    }
-
-                    // Filter: user genera OR system defaults (UserId == null)
-                    var filteredGenera = response.Models.Where(sg =>
-                        sg.UserId == currentUserId || sg.UserId == null
-                    ).ToList();
-
-                    this.LogInfo($"Found {response.Models.Count()} total genera in database");
-                    this.LogInfo($"Filtered to {filteredGenera.Count} genera for user");
-
-                    var genera = filteredGenera
-                        .Select(sg => sg.ToGenus())
-                        .Where(g => includeInactive || g.IsActive)
-                        .OrderBy(g => g.Name)
-                        .ToList();
-
-                    this.LogDataOperation("Retrieved", "Genera", $"{genera.Count} items");
-
-                    return genera;
-                }
-                else
-                {
-                    // Only system genera if no authenticated user
-                    var response = await _supabaseService.Client
-                        .From<SupabaseGenus>()
-                        .Select("*")
-                        .Where(g => g.UserId == null)
-                        .Get();
-
-                    this.LogInfo("Querying only system genera (no authenticated user)");
-
-                    if (response?.Models == null || !response.Models.Any())
-                    {
-                        this.LogWarning("No genera found in database");
-                        return new List<Genus>();
-                    }
-
-                    var genera = response.Models
-                        .Select(sg => sg.ToGenus())
-                        .Where(g => includeInactive || g.IsActive)
-                        .OrderBy(g => g.Name)
-                        .ToList();
-
-                    this.LogDataOperation("Retrieved", "System Genera", $"{genera.Count} items");
-
-                    return genera;
-                }
-            }, "Genera");
-
-            if (result.Success && result.Data != null)
-            {
-                return result.Data;
-            }
-            else
-            {
-                this.LogError($"GetAllAsync failed: {result.Message}");
+            if (_supabaseService.Client == null)
                 return new List<Genus>();
-            }
-        }
+
+            var currentUserId = GetCurrentUserId();
+            var response = await _supabaseService.Client
+                .From<SupabaseGenus>()
+                .Select("*")
+                .Get();
+
+            if (response?.Models == null)
+                return new List<Genus>();
+
+            // Filter: user genera OR system defaults (UserId == null)
+            var filteredGenera = response.Models.Where(sg =>
+                sg.UserId == currentUserId || sg.UserId == null);
+
+            return filteredGenera.Select(sg => sg.ToGenus()).OrderBy(g => g.Name).ToList();
+        }, "Genera");
+
+        return result.Success && result.Data != null ? result.Data : new List<Genus>();
     }
 
-    /// <summary>
-    /// Get genera by family ID
-    /// </summary>
-    public async Task<List<Genus>> GetByFamilyIdAsync(Guid familyId, bool includeInactive = false)
+    public async Task<Genus?> GetByIdAsync(Guid id)
     {
-        using (this.LogPerformance("Get Genera By Family"))
+        var result = await this.SafeDataExecuteAsync(async () =>
         {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                if (_supabaseService.Client == null)
-                {
-                    this.LogError("Supabase client not available");
-                    return new List<Genus>();
-                }
+            if (_supabaseService.Client == null)
+                return null;
 
-                this.LogInfo($"Getting genera for family: {familyId}");
+            var response = await _supabaseService.Client
+                .From<SupabaseGenus>()
+                .Where(g => g.Id == id)
+                .Single();
 
-                var currentUserIdString = _supabaseService.GetCurrentUserId();
-                Guid? currentUserId = null;
-                if (Guid.TryParse(currentUserIdString, out Guid parsedUserId))
-                {
-                    currentUserId = parsedUserId;
-                }
+            return response?.ToGenus();
+        }, "Genus");
 
-                var response = await _supabaseService.Client
-                    .From<SupabaseGenus>()
-                    .Select("*")
-                    .Where(g => g.FamilyId == familyId)
-                    .Get();
-
-                if (response?.Models == null || !response.Models.Any())
-                {
-                    this.LogWarning($"No genera found for family: {familyId}");
-                    return new List<Genus>();
-                }
-
-                // Filter: user genera OR system defaults (UserId == null)
-                var filteredGenera = response.Models.Where(sg =>
-                    (currentUserId.HasValue && sg.UserId == currentUserId) || sg.UserId == null
-                ).ToList();
-
-                var genera = filteredGenera
-                    .Select(sg => sg.ToGenus())
-                    .Where(g => includeInactive || g.IsActive)
-                    .OrderBy(g => g.Name)
-                    .ToList();
-
-                this.LogDataOperation("Retrieved", "Genera by Family", $"{genera.Count} items for family {familyId}");
-
-                return genera;
-            }, "Genera");
-
-            return result.Success && result.Data != null ? result.Data : new List<Genus>();
-        }
+        return result.Success ? result.Data : null;
     }
 
-    /// <summary>
-    /// Create new genus
-    /// </summary>
-    public async Task<Genus> CreateAsync(Genus genus)
+    public async Task<Genus?> CreateAsync(Genus entity)
     {
-        using (this.LogPerformance("Create Genus"))
+        var result = await this.SafeDataExecuteAsync(async () =>
         {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                ArgumentNullException.ThrowIfNull(genus);
+            if (_supabaseService.Client == null)
+                return null;
 
-                if (_supabaseService.Client == null)
-                {
-                    throw new InvalidOperationException("Supabase client not available");
-                }
+            entity.Id = Guid.NewGuid();
+            entity.CreatedAt = DateTime.UtcNow;
+            entity.UpdatedAt = DateTime.UtcNow;
+            entity.UserId = GetCurrentUserId();
 
-                this.LogInfo($"Creating genus: {genus.Name} in family {genus.FamilyId}");
+            var supabaseGenus = SupabaseGenus.FromGenus(entity);
+            var response = await _supabaseService.Client
+                .From<SupabaseGenus>()
+                .Insert(supabaseGenus);
 
-                var supabaseGenus = SupabaseGenus.FromGenus(genus);
+            return response?.Models?.FirstOrDefault()?.ToGenus() ?? entity;
+        }, "Genus");
 
-                var response = await _supabaseService.Client
-                    .From<SupabaseGenus>()
-                    .Insert(supabaseGenus);
-
-                if (response?.Models == null || !response.Models.Any())
-                {
-                    throw new InvalidOperationException("Failed to create genus");
-                }
-
-                var created = response.Models.First().ToGenus();
-
-                this.LogDataOperation("Created", "Genus", $"{created.Name} successfully (ID: {created.Id})");
-                return created;
-            }, "Genus");
-
-            if (result.Success && result.Data != null)
-            {
-                return result.Data;
-            }
-            else
-            {
-                throw new InvalidOperationException(result.Message);
-            }
-        }
+        return result.Success ? result.Data : null;
     }
 
-    /// <summary>
-    /// Update existing genus
-    /// </summary>
-    public async Task<Genus> UpdateAsync(Genus genus)
+    public async Task<Genus?> UpdateAsync(Genus entity)
     {
-        using (this.LogPerformance("Update Genus"))
+        var result = await this.SafeDataExecuteAsync(async () =>
         {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                ArgumentNullException.ThrowIfNull(genus);
+            if (_supabaseService.Client == null)
+                return null;
 
-                if (_supabaseService.Client == null)
-                {
-                    throw new InvalidOperationException("Supabase client not available");
-                }
+            entity.UpdatedAt = DateTime.UtcNow;
+            var supabaseGenus = SupabaseGenus.FromGenus(entity);
 
-                this.LogInfo($"Updating genus: {genus.Name} (ID: {genus.Id})");
+            await _supabaseService.Client
+                .From<SupabaseGenus>()
+                .Where(g => g.Id == entity.Id)
+                .Update(supabaseGenus);
 
-                var supabaseGenus = SupabaseGenus.FromGenus(genus);
+            return entity;
+        }, "Genus");
 
-                var response = await _supabaseService.Client
-                    .From<SupabaseGenus>()
-                    .Where(g => g.Id == genus.Id)
-                    .Update(supabaseGenus);
-
-                if (response?.Models == null || !response.Models.Any())
-                {
-                    throw new InvalidOperationException("Failed to update genus");
-                }
-
-                var updated = response.Models.First().ToGenus();
-
-                this.LogDataOperation("Updated", "Genus", $"{updated.Name} successfully");
-                return updated;
-            }, "Genus");
-
-            if (result.Success && result.Data != null)
-            {
-                return result.Data;
-            }
-            else
-            {
-                throw new InvalidOperationException(result.Message);
-            }
-        }
+        return result.Success ? result.Data : null;
     }
 
-    /// <summary>
-    /// Delete genus by ID
-    /// </summary>
     public async Task<bool> DeleteAsync(Guid id)
     {
-        using (this.LogPerformance("Delete Genus"))
+        var result = await this.SafeDataExecuteAsync(async () =>
         {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                if (_supabaseService.Client == null)
-                {
-                    this.LogError("Supabase client not available");
-                    return false;
-                }
+            if (_supabaseService.Client == null)
+                return false;
 
-                this.LogInfo($"Deleting genus: {id}");
+            await _supabaseService.Client
+                .From<SupabaseGenus>()
+                .Where(g => g.Id == id)
+                .Delete();
 
-                await _supabaseService.Client
-                    .From<SupabaseGenus>()
-                    .Where(g => g.Id == id)
-                    .Delete();
+            return true;
+        }, "Genus");
 
-                this.LogDataOperation("Deleted", "Genus", $"{id} successfully");
-                return true;
-            }, "Genus");
-
-            return result.Success && result.Data;
-        }
+        return result.Success && result.Data;
     }
 
-    /// <summary>
-    /// Delete multiple genera by IDs
-    /// </summary>
-    public async Task<int> DeleteMultipleAsync(List<Guid> ids)
+    public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
     {
-        using (this.LogPerformance("Bulk Delete Genera"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                if (!ids.Any())
-                {
-                    this.LogWarning("DeleteMultipleAsync called with empty ID list");
-                    return 0;
-                }
-
-                if (_supabaseService.Client == null)
-                {
-                    this.LogError("Supabase client not available");
-                    return 0;
-                }
-
-                this.LogInfo($"Bulk deleting {ids.Count} genera");
-
-                int deletedCount = 0;
-
-                // ✅ FIXED: Delete one by one since Supabase doesn't support Contains() in LINQ
-                foreach (var id in ids)
-                {
-                    try
-                    {
-                        await _supabaseService.Client
-                            .From<SupabaseGenus>()
-                            .Where(g => g.Id == id)
-                            .Delete();
-
-                        deletedCount++;
-                        this.LogInfo($"Deleted genus: {id}");
-                    }
-                    catch (Exception ex)
-                    {
-                        this.LogError($"Failed to delete genus {id}: {ex.Message}");
-                        // Continue with other deletes instead of failing completely
-                    }
-                }
-
-                this.LogDataOperation("Bulk deleted", "Genera", $"{deletedCount} items");
-                return deletedCount;
-            }, "Genera");
-
-            return result.Success ? result.Data : 0;
-        }
+        var genera = await GetAllAsync();
+        return genera.Any(g =>
+            string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase) &&
+            g.Id != excludeId);
     }
 
     #endregion
 
-    #region Validation and Business Logic
+    #region Private Helper Methods
 
-    /// <summary>
-    /// Check if genus name exists within a specific family
-    /// </summary>
-    public async Task<bool> NameExistsInFamilyAsync(string name, Guid familyId, Guid? excludeId = null)
+    private Guid? GetCurrentUserId()
     {
-        using (this.LogPerformance("Check Name Exists In Family"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                if (string.IsNullOrEmpty(name))
-                {
-                    return false;
-                }
-
-                if (_supabaseService.Client == null)
-                {
-                    this.LogError("Supabase client not available");
-                    return false;
-                }
-
-                this.LogInfo($"Checking if genus name exists in family: {name} in {familyId}");
-
-                var currentUserIdString = _supabaseService.GetCurrentUserId();
-                Guid? currentUserId = null;
-                if (Guid.TryParse(currentUserIdString, out Guid parsedUserId))
-                {
-                    currentUserId = parsedUserId;
-                }
-
-                var response = await _supabaseService.Client
-                    .From<SupabaseGenus>()
-                    .Select("id")
-                    .Where(g => g.FamilyId == familyId && g.Name.ToLower() == name.ToLower())
-                    .Get();
-
-                if (response?.Models == null || !response.Models.Any())
-                {
-                    return false;
-                }
-
-                // Filter and check exclusion
-                var filteredGenera = response.Models.Where(sg =>
-                    (currentUserId.HasValue && sg.Id != excludeId && (sg.UserId == currentUserId || sg.UserId == null)) ||
-                    (!currentUserId.HasValue && sg.Id != excludeId && sg.UserId == null)
-                );
-
-                var exists = filteredGenera.Any();
-
-                this.LogInfo($"Genus name '{name}' exists in family: {exists}");
-                return exists;
-            }, "Name Check");
-
-            return result.Success && result.Data;
-        }
-    }
-
-    /// <summary>
-    /// Test database connectivity
-    /// </summary>
-    public async Task<bool> TestConnectionAsync()
-    {
-        using (this.LogPerformance("Test Connection"))
-        {
-            var result = await this.SafeNetworkExecuteAsync(async () =>
-            {
-                if (_supabaseService.Client == null)
-                {
-                    this.LogError("No client available");
-                    return false;
-                }
-
-                var response = await _supabaseService.Client
-                    .From<SupabaseGenus>()
-                    .Select("id")
-                    .Limit(1)
-                    .Get();
-
-                this.LogSuccess("Connection test successful");
-                return true;
-            }, "Connection Test");
-
-            return result;
-        }
+        var userIdString = _supabaseService.GetCurrentUserId();
+        return Guid.TryParse(userIdString, out var userId) ? userId : null;
     }
 
     #endregion

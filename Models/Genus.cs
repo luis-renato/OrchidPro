@@ -4,10 +4,10 @@ using System.ComponentModel.DataAnnotations;
 namespace OrchidPro.Models;
 
 /// <summary>
-/// Genus model - seguindo exatamente o padrão de Family
-/// Representa um gênero botânico dentro de uma família
+/// Genus model implementing IHierarchicalEntity for automatic hierarchical repository support.
+/// Represents a botanical genus within a family with full hierarchical functionality.
 /// </summary>
-public class Genus : IBaseEntity
+public class Genus : IBaseEntity, IHierarchicalEntity<Family>
 {
     /// <summary>
     /// Unique identifier for the genus
@@ -15,7 +15,7 @@ public class Genus : IBaseEntity
     public Guid Id { get; set; } = Guid.NewGuid();
 
     /// <summary>
-    /// Foreign key to the family this genus belongs to
+    /// Foreign key to the family this genus belongs to (implements IHierarchicalEntity)
     /// </summary>
     [Required(ErrorMessage = "Family is required")]
     public Guid FamilyId { get; set; }
@@ -59,13 +59,14 @@ public class Genus : IBaseEntity
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Navigation property to the parent family
+    /// Navigation property to the parent family (implements IHierarchicalEntity)
     /// </summary>
     public Family? Family { get; set; }
 
+    #region IBaseEntity Implementation
+
     /// <summary>
     /// Computed property indicating if genus is system default
-    /// Based on UserId == null instead of database field
     /// </summary>
     public bool IsSystemDefault => UserId == null;
 
@@ -80,44 +81,31 @@ public class Genus : IBaseEntity
     public string StatusDisplay => IsActive ? "Active" : "Inactive";
 
     /// <summary>
-    /// Validates the genus and returns list of errors
+    /// Validates the genus data
     /// </summary>
-    /// <param name="errors">List of validation errors found</param>
-    /// <returns>True if valid, false if validation errors exist</returns>
     public bool IsValid(out List<string> errors)
     {
         errors = new List<string>();
 
-        // Name validation
         if (string.IsNullOrWhiteSpace(Name))
-        {
             errors.Add("Genus name is required");
-        }
-        else if (Name.Length > 255)
-        {
+
+        if (Name?.Length > 255)
             errors.Add("Genus name cannot exceed 255 characters");
-        }
 
-        // FamilyId validation
-        if (FamilyId == Guid.Empty)
-        {
-            errors.Add("Family is required");
-        }
-
-        // Description validation
-        if (!string.IsNullOrEmpty(Description) && Description.Length > 2000)
-        {
+        if (Description?.Length > 2000)
             errors.Add("Description cannot exceed 2000 characters");
-        }
+
+        if (FamilyId == Guid.Empty)
+            errors.Add("Family is required");
 
         return errors.Count == 0;
     }
 
     /// <summary>
-    /// Creates a copy of the genus for editing purposes
+    /// Creates a copy of the genus for editing
     /// </summary>
-    /// <returns>Cloned genus instance</returns>
-    public IBaseEntity Clone()
+    public Genus Clone()
     {
         return new Genus
         {
@@ -135,49 +123,66 @@ public class Genus : IBaseEntity
     }
 
     /// <summary>
-    /// Updates this genus with values from another genus
+    /// Implementation of interface: Generic clone
     /// </summary>
-    /// <param name="other">Source genus to copy values from</param>
-    public void UpdateFrom(Genus other)
+    IBaseEntity IBaseEntity.Clone()
     {
-        if (other == null) return;
+        return Clone();
+    }
 
-        Name = other.Name;
-        Description = other.Description;
-        FamilyId = other.FamilyId;
-        IsActive = other.IsActive;
-        IsFavorite = other.IsFavorite;
+    /// <summary>
+    /// Toggle favorite status
+    /// </summary>
+    public void ToggleFavorite()
+    {
+        IsFavorite = !IsFavorite;
         UpdatedAt = DateTime.UtcNow;
     }
 
+    #endregion
+
+    #region IHierarchicalEntity<Family> Implementation
+
     /// <summary>
-    /// Gets genus summary for display purposes
+    /// Parent identifier for hierarchical operations
     /// </summary>
-    public string GetSummary()
+    public Guid ParentId
     {
-        var parts = new List<string> { Name };
-
-        if (Family != null)
-        {
-            parts.Add($"Family: {Family.Name}");
-        }
-
-        if (!string.IsNullOrEmpty(Description))
-        {
-            var shortDesc = Description.Length > 50
-                ? Description.Substring(0, 47) + "..."
-                : Description;
-            parts.Add(shortDesc);
-        }
-
-        return string.Join(" • ", parts);
+        get => FamilyId;
+        set => FamilyId = value;
     }
 
     /// <summary>
-    /// Override ToString for debugging
+    /// Parent entity for hierarchical operations
     /// </summary>
-    public override string ToString()
+    public Family? Parent
     {
-        return $"Genus: {Name} (Family: {Family?.Name ?? "Unknown"}, Active: {IsActive})";
+        get => Family;
+        set => Family = value;
     }
+
+    /// <summary>
+    /// Get the parent identifier value
+    /// </summary>
+    public Guid GetParentId() => FamilyId;
+
+    /// <summary>
+    /// Set the parent identifier value
+    /// </summary>
+    public void SetParentId(Guid parentId) => FamilyId = parentId;
+
+    /// <summary>
+    /// Get display name for the parent family
+    /// </summary>
+    public string GetParentDisplayName() => Family?.Name ?? "Unknown Family";
+
+    /// <summary>
+    /// Validate that the hierarchical relationship is properly configured
+    /// </summary>
+    public bool ValidateHierarchy()
+    {
+        return FamilyId != Guid.Empty;
+    }
+
+    #endregion
 }
