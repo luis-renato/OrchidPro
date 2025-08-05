@@ -104,7 +104,9 @@ public partial class GeneraListViewModel : BaseListViewModel<Genus, GenusItemVie
             var index = Items.IndexOf(item);
             if (index >= 0)
             {
-                Items[index] = new GenusItemViewModel(updatedGenus);
+                var newItem = new GenusItemViewModel(updatedGenus);
+                newItem.SelectionChangedAction = item.SelectionChangedAction;
+                Items[index] = newItem;
                 this.LogInfo($"Updated item at index {index} with new favorite status");
             }
 
@@ -119,9 +121,31 @@ public partial class GeneraListViewModel : BaseListViewModel<Genus, GenusItemVie
     #region Public Commands for XAML Integration
 
     /// <summary>
-    /// Public command for single item deletion used by swipe-to-delete actions
+    /// ✅ FIXED: Public command for single item deletion - same pattern as FamiliesListViewModel
     /// </summary>
-    public IAsyncRelayCommand<GenusItemViewModel> DeleteSingleCommand => DeleteSingleItemSafeCommand;
+    public IAsyncRelayCommand<GenusItemViewModel> DeleteSingleCommand =>
+        new AsyncRelayCommand<GenusItemViewModel>(DeleteSingleAsync);
+
+    private async Task DeleteSingleAsync(GenusItemViewModel? item)
+    {
+        if (item?.Id == null) return;
+
+        await this.SafeExecuteAsync(async () =>
+        {
+            // Simple confirmation - no genus validation like Family has
+            var confirmed = await ShowConfirmAsync("Delete Genus", $"Are you sure you want to delete '{item.Name}'?");
+
+            if (confirmed)
+            {
+                await _genusRepository.DeleteAsync(item.Id);
+                Items.Remove(item);
+                UpdateCounters();
+                this.LogSuccess($"Genus deleted: {item.Name}");
+            }
+            // ✅ FIXED: No toast on cancel - just like Family
+
+        }, $"DeleteSingle failed for {item?.Name}");
+    }
 
     #endregion
 

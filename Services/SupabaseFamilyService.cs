@@ -463,6 +463,59 @@ public class SupabaseFamilyService
     }
 
     /// <summary>
+    /// Delete multiple families by IDs - consistent with SupabaseGenusService
+    /// </summary>
+    public async Task<int> DeleteMultipleAsync(List<Guid> ids)
+    {
+        using (this.LogPerformance("Bulk Delete Families"))
+        {
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                if (!ids.Any())
+                {
+                    this.LogWarning("DeleteMultipleAsync called with empty ID list");
+                    return 0;
+                }
+
+                if (_supabaseService.Client == null)
+                {
+                    this.LogError("Supabase client not available");
+                    return 0;
+                }
+
+                this.LogInfo($"Bulk deleting {ids.Count} families");
+
+                int deletedCount = 0;
+
+                // Delete one by one since Supabase doesn't support Contains() in LINQ
+                foreach (var id in ids)
+                {
+                    try
+                    {
+                        await _supabaseService.Client
+                            .From<SupabaseFamily>()
+                            .Where(f => f.Id == id)
+                            .Delete();
+
+                        deletedCount++;
+                        this.LogInfo($"Deleted family: {id}");
+                    }
+                    catch (Exception ex)
+                    {
+                        this.LogError($"Failed to delete family {id}: {ex.Message}");
+                        // Continue with other deletes instead of failing completely
+                    }
+                }
+
+                this.LogDataOperation("Bulk deleted", "Families", $"{deletedCount} items");
+                return deletedCount;
+            }, "Families");
+
+            return result.Success ? result.Data : 0;
+        }
+    }
+
+    /// <summary>
     /// Retrieve a specific family by its unique identifier
     /// </summary>
     public async Task<Family?> GetByIdAsync(Guid id)

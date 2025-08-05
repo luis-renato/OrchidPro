@@ -282,7 +282,7 @@ public class FamilyRepository : IFamilyRepository
     }
 
     /// <summary>
-    /// Delete multiple families in batch operation
+    /// Delete multiple families by IDs - now using proper bulk operation
     /// </summary>
     public async Task<int> DeleteMultipleAsync(IEnumerable<Guid> ids)
     {
@@ -290,27 +290,11 @@ public class FamilyRepository : IFamilyRepository
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                var idsArray = ids.ToArray();
-                this.LogDataOperation("Deleting", "Families", $"{idsArray.Length} items");
+                var idsArray = ids.ToList();
+                this.LogDataOperation("Deleting", "Families", $"{idsArray.Count} items");
 
-                // Implement without using non-existent SupabaseFamilyService.DeleteMultipleAsync
-                int deletedCount = 0;
-                foreach (var id in idsArray)
-                {
-                    var deleteResult = await this.SafeDataExecuteAsync(async () =>
-                    {
-                        return await _familyService.DeleteAsync(id);
-                    }, "Individual Family");
-
-                    if (deleteResult.Success && deleteResult.Data)
-                    {
-                        deletedCount++;
-                    }
-                    else
-                    {
-                        this.LogWarning($"Failed to delete family {id}: {deleteResult.Message}");
-                    }
-                }
+                // ✅ FIXED: Use proper bulk delete from SupabaseFamilyService
+                var deletedCount = await _familyService.DeleteMultipleAsync(idsArray);
 
                 InvalidateCache();
 

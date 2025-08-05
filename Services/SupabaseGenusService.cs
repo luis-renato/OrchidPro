@@ -419,18 +419,24 @@ public class SupabaseGenusService
 
                 int deletedCount = 0;
 
-                // Delete in batches to avoid query limits
-                const int batchSize = 50;
-                for (int i = 0; i < ids.Count; i += batchSize)
+                // ✅ FIXED: Delete one by one since Supabase doesn't support Contains() in LINQ
+                foreach (var id in ids)
                 {
-                    var batch = ids.Skip(i).Take(batchSize).ToList();
+                    try
+                    {
+                        await _supabaseService.Client
+                            .From<SupabaseGenus>()
+                            .Where(g => g.Id == id)
+                            .Delete();
 
-                    await _supabaseService.Client
-                        .From<SupabaseGenus>()
-                        .Where(g => batch.Contains(g.Id))
-                        .Delete();
-
-                    deletedCount += batch.Count;
+                        deletedCount++;
+                        this.LogInfo($"Deleted genus: {id}");
+                    }
+                    catch (Exception ex)
+                    {
+                        this.LogError($"Failed to delete genus {id}: {ex.Message}");
+                        // Continue with other deletes instead of failing completely
+                    }
                 }
 
                 this.LogDataOperation("Bulk deleted", "Genera", $"{deletedCount} items");

@@ -315,7 +315,8 @@ public partial class FamiliesListPage : ContentPage
                 }, "ListView clear error");
             });
 
-            await this.ShowSuccessToast("🧹 Cleared selections and filters");
+            // ✅ FIXED: Remove toast - clear selections doesn't need confirmation
+            // await this.ShowSuccessToast("🧹 Cleared selections and filters");
 
             this.LogSuccess("Clear All completed successfully");
         }, "Clear All failed");

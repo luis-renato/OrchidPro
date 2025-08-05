@@ -224,7 +224,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 if (!confirmed)
                 {
                     this.LogInfo("Delete cancelled by user");
-                    return false;
+                    return false; // ✅ FIXED: No toast on cancel, just return
                 }
 
                 IsBusy = true;
@@ -241,15 +241,15 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 return success;
             }, EntityName);
 
-            if (!result.Success)
+            // ✅ FIXED: Only show error toast if operation failed AND was not cancelled
+            if (!result.Success && result.Data == false && !result.Message.Contains("cancelled"))
             {
-                await ShowErrorToastAsync(result.Message);
+                await ShowErrorToastAsync($"Failed to delete {item.Name}: {result.Message}");
             }
 
             IsBusy = false;
         }
     }
-
     #endregion
 
     #region Property Change Handlers

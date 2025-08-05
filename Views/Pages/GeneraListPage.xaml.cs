@@ -80,68 +80,159 @@ public partial class GeneraListPage : ContentPage
     {
         await this.SafeExecuteAsync(async () =>
         {
-            this.LogInfo("Pull to refresh triggered");
+            this.LogInfo("Pull-to-refresh triggered");
 
-            if (_viewModel?.RefreshCommand?.CanExecute(null) == true)
+            ListRefresh.IsRefreshing = true;
+
+            if (_viewModel.RefreshCommand?.CanExecute(null) == true)
             {
                 await _viewModel.RefreshCommand.ExecuteAsync(null);
             }
 
             ListRefresh.IsRefreshing = false;
-            this.LogSuccess("Pull to refresh completed");
-        }, "Pull to refresh error");
+
+            this.LogSuccess("Pull-to-refresh completed");
+        }, "Pull-to-refresh failed");
     }
 
     /// <summary>
-    /// Handle page appearing - load data and setup
+    /// Handle page appearing lifecycle with animations and data refresh
     /// </summary>
     protected override async void OnAppearing()
     {
-        using (this.LogPerformance("GeneraListPage OnAppearing"))
+        base.OnAppearing();
+
+        await this.SafeExecuteAsync(async () =>
         {
-            try
+            if (GeneraListView.SelectedItems == null)
             {
-                base.OnAppearing();
-
-                this.LogInfo("GeneraListPage appearing");
-
-                // Ensure ViewModel is available
-                if (_viewModel == null)
-                {
-                    this.LogError("ViewModel is null in OnAppearing");
-                    return;
-                }
-
-                // Fade in animation like FamiliesListPage
-                await RootGrid.FadeTo(1, 500);
-
-                // Load data
-                await _viewModel.OnAppearingAsync();
-
-                this.LogInfo("GeneraListPage appeared successfully");
+                this.LogInfo("Initializing ListView.SelectedItems");
+                await Task.Delay(100);
             }
-            catch (Exception ex)
-            {
-                this.LogError(ex, "Error in GeneraListPage OnAppearing");
-            }
+        }, "Error checking SelectedItems");
+
+        await PerformEntranceAnimation();
+
+        this.LogInfo("Refreshing data on page appearing");
+        await _viewModel.OnAppearingAsync();
+
+        if (_viewModel.RefreshCommand?.CanExecute(null) == true)
+        {
+            await _viewModel.RefreshCommand.ExecuteAsync(null);
         }
+
+        SyncSelectionMode();
+        UpdateFabVisual();
+
+        this.LogInfo($"Final check - ListView.SelectedItems: {(GeneraListView.SelectedItems != null ? "OK" : "NULL")}");
     }
 
     /// <summary>
-    /// Handle page disappearing - cleanup if needed
+    /// Handle page disappearing lifecycle with exit animations
     /// </summary>
-    protected override void OnDisappearing()
+    protected override async void OnDisappearing()
     {
-        try
+        base.OnDisappearing();
+        await PerformExitAnimation();
+    }
+
+    #region Animation Management
+
+    /// <summary>
+    /// Perform entrance animation for smooth page transition
+    /// </summary>
+    private async Task PerformEntranceAnimation()
+    {
+        await this.SafeAnimationExecuteAsync(async () =>
         {
-            base.OnDisappearing();
-            this.LogInfo("GeneraListPage disappearing");
-        }
-        catch (Exception ex)
+            // Complete page entrance animation with FAB delay
+            await RootGrid.PerformCompletePageEntranceAsync(FabButton);
+        }, "Page entrance animation");
+    }
+
+    /// <summary>
+    /// Perform exit animation for smooth page transition
+    /// </summary>
+    private async Task PerformExitAnimation()
+    {
+        await this.SafeAnimationExecuteAsync(async () =>
         {
-            this.LogError(ex, "Error in GeneraListPage OnDisappearing");
+            // Complete page exit animation
+            await RootGrid.PerformCompletePageExitAsync(FabButton);
+        }, "Page exit animation");
+    }
+
+    #endregion
+
+    #region FAB Visual Management
+
+    /// <summary>
+    /// Update FAB appearance based on current selection state and connectivity
+    /// </summary>
+    private void UpdateFabVisual()
+    {
+        var success = this.SafeExecute(() =>
+        {
+            var selectedCount = _viewModel?.SelectedItems?.Count ?? 0;
+            this.LogInfo($"Updating FAB for {selectedCount} selected items");
+
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                FabButton.IsVisible = true;
+
+                if (selectedCount > 0)
+                {
+                    var errorColor = Application.Current?.Resources.TryGetValue("ErrorColor", out var error) == true
+                        ? (Color)error
+                        : Color.FromArgb(ColorConstants.ERROR_COLOR);
+
+                    FabButton.BackgroundColor = errorColor;
+                    FabButton.Text = $"{TextConstants.DELETE_ITEM} ({selectedCount})";
+                    this.LogInfo($"Set to DELETE mode: {TextConstants.DELETE_ITEM} ({selectedCount})");
+                }
+                else if (_viewModel?.IsMultiSelectMode == true)
+                {
+                    var grayColor = Application.Current?.Resources.TryGetValue("Gray500", out var gray) == true
+                        ? (Color)gray
+                        : Color.FromArgb(ColorConstants.GRAY_500);
+
+                    FabButton.BackgroundColor = grayColor;
+                    FabButton.Text = TextConstants.CANCEL_CHANGES;
+                    this.LogInfo("Set to CANCEL mode");
+                }
+                else
+                {
+                    var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
+                        ? (Color)primary
+                        : Color.FromArgb(ColorConstants.PRIMARY_COLOR);
+
+                    FabButton.BackgroundColor = primaryColor;
+                    FabButton.Text = "Add Genus"; // Genus-specific text
+                    this.LogInfo("Set to ADD mode");
+                }
+
+                this.LogSuccess($"FAB updated successfully - Text: {FabButton.Text}");
+            });
+        }, "UpdateFabVisual");
+
+        if (!success)
+        {
+            Device.BeginInvokeOnMainThread(() =>
+            {
+                FabButton.IsVisible = true;
+                FabButton.Text = "Add Genus";
+
+                var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
+                    ? (Color)primary
+                    : Color.FromArgb(ColorConstants.PRIMARY_COLOR);
+                FabButton.BackgroundColor = primaryColor;
+            });
         }
     }
+
+    #endregion
+
+    #region Toolbar Event Handlers
 
     /// <summary>
     /// Handle select all toolbar item with proper SelectionMode synchronization
@@ -224,70 +315,45 @@ public partial class GeneraListPage : ContentPage
                 }, "ListView clear error");
             });
 
-            await this.ShowSuccessToast("🧹 Cleared selections and filters");
+            // ✅ FIXED: Remove toast - clear selections doesn't need confirmation
+            // await this.ShowSuccessToast("🧹 Cleared selections and filters");
 
             this.LogSuccess("Clear All completed successfully");
         }, "Clear All failed");
     }
 
+    #endregion
+
+    #region Search Bar Event Handlers
+
     /// <summary>
-    /// Update FAB appearance based on selection state with proper error handling
+    /// Handle search bar focus with visual feedback animation
     /// </summary>
-    private void UpdateFabVisual()
+    private async void OnSearchFocused(object sender, FocusEventArgs e)
     {
-        var success = this.SafeExecute(() =>
+        await this.SafeAnimationExecuteAsync(async () =>
         {
-            var selectedCount = _viewModel?.SelectedItems?.Count ?? 0;
-            this.LogInfo($"Updating FAB for {selectedCount} selected items");
-
-            Device.BeginInvokeOnMainThread(() =>
+            if (sender is Entry entry && entry.Parent?.Parent is Border border)
             {
-                FabButton.IsVisible = true;
+                await border.ScaleTo(AnimationConstants.BORDER_FOCUS_SCALE, AnimationConstants.BORDER_FOCUS_DURATION, AnimationConstants.FEEDBACK_EASING);
+                border.Stroke = Application.Current?.Resources["Primary"] as Color ?? Colors.Blue;
+            }
+        }, "Search focus animation");
+    }
 
-                if (selectedCount > 0)
-                {
-                    var errorColor = Application.Current?.Resources.TryGetValue("ErrorColor", out var error) == true
-                        ? (Color)error
-                        : Color.FromArgb("#F44336");
-
-                    FabButton.BackgroundColor = errorColor;
-                    FabButton.Text = $"Delete ({selectedCount})";
-                    this.LogInfo($"Set to DELETE mode: Delete ({selectedCount})");
-                }
-                else if (_viewModel?.IsMultiSelectMode == true)
-                {
-                    var grayColor = Application.Current?.Resources.TryGetValue("Gray500", out var gray) == true
-                        ? (Color)gray
-                        : Color.FromArgb("#9E9E9E");
-
-                    FabButton.BackgroundColor = grayColor;
-                    FabButton.Text = "Cancel";
-                    this.LogInfo("Set to CANCEL mode");
-                }
-                else
-                {
-                    var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
-                        ? (Color)primary
-                        : Color.FromArgb("#A47764");
-
-                    FabButton.BackgroundColor = primaryColor;
-                    FabButton.Text = "Add Genus";
-                    this.LogInfo("Set to ADD mode");
-                }
-
-                this.LogSuccess($"FAB updated successfully - Text: {FabButton.Text}");
-            });
-        }, "UpdateFabVisual");
-
-        if (!success)
+    /// <summary>
+    /// Handle search bar unfocus with visual feedback animation
+    /// </summary>
+    private async void OnSearchUnfocused(object sender, FocusEventArgs e)
+    {
+        await this.SafeAnimationExecuteAsync(async () =>
         {
-            Device.BeginInvokeOnMainThread(() =>
+            if (sender is Entry entry && entry.Parent?.Parent is Border border)
             {
-                FabButton.IsVisible = true;
-                FabButton.Text = "Add Genus";
-                FabButton.BackgroundColor = Color.FromArgb("#A47764");
-            });
-        }
+                await border.ScaleTo(AnimationConstants.FEEDBACK_SCALE_NORMAL, AnimationConstants.BORDER_FOCUS_DURATION, AnimationConstants.FEEDBACK_EASING);
+                border.Stroke = Application.Current?.Resources["Gray300"] as Color ?? Colors.Gray;
+            }
+        }, "Search unfocus animation");
     }
 
     /// <summary>
@@ -301,38 +367,93 @@ public partial class GeneraListPage : ContentPage
         }, "Search text changed error");
     }
 
-    /// <summary>
-    /// Handle search focused event
-    /// </summary>
-    private void OnSearchFocused(object sender, FocusEventArgs e)
-    {
-        try
-        {
-            this.LogInfo("Search focused");
-        }
-        catch (Exception ex)
-        {
-            this.LogError(ex, "Error in search focused");
-        }
-    }
+    #endregion
+
+    #region FAB Action Handler
 
     /// <summary>
-    /// Handle search unfocused event
+    /// Handle FAB press with context-aware actions (Add/Delete/Cancel)
     /// </summary>
-    private void OnSearchUnfocused(object sender, FocusEventArgs e)
+    private async void OnFabPressed(object sender, EventArgs e)
     {
-        try
+        await this.SafeExecuteAsync(async () =>
         {
-            this.LogInfo("Search unfocused");
-        }
-        catch (Exception ex)
-        {
-            this.LogError(ex, "Error in search unfocused");
-        }
+            // Perform tap feedback animation
+            await this.SafeAnimationExecuteAsync(async () =>
+            {
+                await FabButton.PerformTapFeedbackAsync();
+            }, "FAB tap feedback");
+
+            var selectedCount = _viewModel?.SelectedItems?.Count ?? 0;
+            this.LogInfo($"FAB pressed - Selected: {selectedCount}, MultiSelect: {_viewModel?.IsMultiSelectMode}");
+
+            if (selectedCount > 0)
+            {
+                this.LogInfo($"Executing unified delete for {selectedCount} items");
+
+                // Unified delete flow through ViewModel only
+                if (_viewModel?.DeleteSelectedCommand?.CanExecute(null) == true)
+                {
+                    await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
+                    this.LogSuccess("Unified delete completed via ViewModel");
+                }
+
+                // UI cleanup after ViewModel handles the delete
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    this.SafeExecute(() =>
+                    {
+                        GeneraListView.SelectedItems?.Clear();
+                        GeneraListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
+
+                        if (_viewModel?.Items != null)
+                        {
+                            for (int i = 0; i < _viewModel.Items.Count; i++)
+                            {
+                                GeneraListView.RefreshItem(i);
+                            }
+                        }
+
+                        UpdateFabVisual();
+                    }, "UI cleanup error");
+                });
+            }
+            else if (_viewModel?.IsMultiSelectMode == true)
+            {
+                this.LogInfo("Canceling multi-select mode");
+
+                if (_viewModel != null)
+                {
+                    _viewModel.IsMultiSelectMode = false;
+                }
+
+                UpdateFabVisual();
+            }
+            else
+            {
+                this.LogInfo("Adding new genus");
+
+                if (_viewModel?.AddNewCommand?.CanExecute(null) == true)
+                {
+                    await _viewModel.AddNewCommand.ExecuteAsync(null);
+                }
+                else
+                {
+                    await this.SafeNavigationExecuteAsync(async () =>
+                    {
+                        await Shell.Current.GoToAsync("genusedit");
+                    }, "genusedit");
+                }
+            }
+        }, "FAB action failed");
     }
 
+    #endregion
+
+    #region Filter and Sort Handlers
+
     /// <summary>
-    /// Handle filter button tapped
+    /// Handle filter selection with action sheet and apply filter command
     /// </summary>
     private async void OnFilterTapped(object sender, EventArgs e)
     {
@@ -340,7 +461,10 @@ public partial class GeneraListPage : ContentPage
         {
             if (sender is Border border)
             {
-                await border.PerformTapFeedbackAsync();
+                await this.SafeAnimationExecuteAsync(async () =>
+                {
+                    await border.PerformTapFeedbackAsync();
+                }, "Filter tap feedback");
             }
 
             string[] options = { "All", "Active", "Inactive" };
@@ -362,7 +486,7 @@ public partial class GeneraListPage : ContentPage
     }
 
     /// <summary>
-    /// Handle sort button tapped
+    /// Handle sort selection with action sheet and apply sort command
     /// </summary>
     private async void OnSortTapped(object sender, EventArgs e)
     {
@@ -370,7 +494,10 @@ public partial class GeneraListPage : ContentPage
         {
             if (sender is Border border)
             {
-                await border.PerformTapFeedbackAsync();
+                await this.SafeAnimationExecuteAsync(async () =>
+                {
+                    await border.PerformTapFeedbackAsync();
+                }, "Sort tap feedback");
             }
 
             string[] options = { "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First" };
@@ -380,9 +507,20 @@ public partial class GeneraListPage : ContentPage
             {
                 _viewModel.SortOrder = result;
                 this.LogInfo($"Sort order changed to: {result}");
+
+                if (_viewModel.ToggleSortCommand?.CanExecute(null) == true)
+                {
+                    _viewModel.ToggleSortCommand.Execute(null);
+                }
+
+                await this.ShowInfoToast($"Sorted by: {result}");
             }
         }, "Sort error");
     }
+
+    #endregion
+
+    #region Syncfusion ListView Event Handlers
 
     /// <summary>
     /// Handle item tap for selection or navigation based on current mode
@@ -394,6 +532,8 @@ public partial class GeneraListPage : ContentPage
             if (e.DataItem is GenusItemViewModel item)
             {
                 this.LogInfo($"Item tapped: {item.Name}");
+                this.LogInfo($"Current IsMultiSelectMode: {_viewModel?.IsMultiSelectMode}");
+                this.LogInfo($"Current SelectionMode: {GeneraListView.SelectionMode}");
 
                 if (_viewModel?.IsMultiSelectMode == true)
                 {
@@ -417,21 +557,32 @@ public partial class GeneraListPage : ContentPage
                     }
 
                     UpdateFabVisual();
+
+                    if (_viewModel?.SelectedItems?.Count == 0)
+                    {
+                        if (_viewModel != null)
+                        {
+                            _viewModel.IsMultiSelectMode = false;
+                        }
+                    }
                 }
                 else
                 {
-                    this.LogInfo("Single-select mode - navigating to edit");
-                    if (_viewModel?.NavigateToEditCommand?.CanExecute(item) == true)
+                    this.LogInfo($"Normal mode - navigating to edit: {item.Name}");
+                    Device.BeginInvokeOnMainThread(async () =>
                     {
-                        _viewModel.NavigateToEditCommand.Execute(item);
-                    }
+                        if (_viewModel?.NavigateToEditCommand?.CanExecute(item) == true)
+                        {
+                            await _viewModel.NavigateToEditCommand.ExecuteAsync(item);
+                        }
+                    });
                 }
             }
         }, "ItemTapped error");
     }
 
     /// <summary>
-    /// Handle item long press to enter multi-select mode
+    /// Handle long press to activate multi-selection mode
     /// </summary>
     private void OnItemLongPress(object sender, Syncfusion.Maui.ListView.ItemLongPressEventArgs e)
     {
@@ -439,21 +590,36 @@ public partial class GeneraListPage : ContentPage
         {
             if (e.DataItem is GenusItemViewModel item)
             {
-                this.LogInfo($"Long press on: {item.Name}");
+                this.LogInfo($"Long press: {item.Name}");
 
                 if (_viewModel?.IsMultiSelectMode != true)
                 {
-                    this.LogInfo("Entering multi-select mode");
-                    _viewModel.IsMultiSelectMode = true;
+                    if (_viewModel != null)
+                    {
+                        _viewModel.IsMultiSelectMode = true;
+                    }
+                    this.LogSuccess("Multi-select mode ACTIVATED");
                 }
 
                 if (!item.IsSelected)
                 {
                     item.IsSelected = true;
-                    _viewModel?.SelectedItems?.Add(item);
-                    GeneraListView.SelectedItems?.Add(item);
-                    this.LogInfo($"Selected via long press: {item.Name}");
+                    if (_viewModel?.SelectedItems != null && !_viewModel.SelectedItems.Contains(item))
+                    {
+                        _viewModel.SelectedItems.Add(item);
+                    }
+                    this.LogSuccess($"Item selected: {item.Name}");
                 }
+
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    var index = _viewModel?.Items?.IndexOf(item) ?? -1;
+                    if (index >= 0)
+                    {
+                        GeneraListView.RefreshItem(index);
+                        this.LogInfo($"Visual refresh for index: {index}");
+                    }
+                });
 
                 UpdateFabVisual();
             }
@@ -461,7 +627,7 @@ public partial class GeneraListPage : ContentPage
     }
 
     /// <summary>
-    /// Handle selection changed event with proper synchronization
+    /// Handle native selection changes and sync with ViewModel
     /// </summary>
     private void OnSelectionChanged(object sender, Syncfusion.Maui.ListView.ItemSelectionChangedEventArgs e)
     {
@@ -483,7 +649,24 @@ public partial class GeneraListPage : ContentPage
                 this.LogSuccess($"Synced to ViewModel: {_viewModel.SelectedItems.Count} items");
             }
 
-            UpdateFabVisual();
+            if (_viewModel != null)
+            {
+                var vmSelectedCount = _viewModel.SelectedItems?.Count ?? 0;
+
+                if (vmSelectedCount == 0 && _viewModel.IsMultiSelectMode)
+                {
+                    this.LogInfo("Auto-exiting multi-select mode");
+                    _viewModel.IsMultiSelectMode = false;
+                }
+                else if (vmSelectedCount > 0 && !_viewModel.IsMultiSelectMode)
+                {
+                    _viewModel.IsMultiSelectMode = true;
+                }
+
+                UpdateFabVisual();
+
+                this.LogInfo($"ViewModel updated - MultiSelect: {_viewModel.IsMultiSelectMode}, SelectionMode: {GeneraListView.SelectionMode}");
+            }
 
             if (e.AddedItems?.Count > 0)
             {
@@ -503,6 +686,10 @@ public partial class GeneraListPage : ContentPage
             }
         }, "SelectionChanged error");
     }
+
+    #endregion
+
+    #region Swipe Action Handlers
 
     private const double SWIPE_THRESHOLD = 0.8;
 
@@ -589,23 +776,41 @@ public partial class GeneraListPage : ContentPage
                             await _viewModel.ToggleFavoriteCommand.ExecuteAsync(item);
                         }
 
-                        var message = wasAlreadyFavorite ? "Removed from favorites" : "Added to favorites!";
-                        await this.ShowSuccessToast($"⭐ {message}");
-                    }, "Favorite toggle error");
+                        var message = wasAlreadyFavorite ? "Removed from favorites" : "Added to favorites! ⭐";
+                        await this.ShowSuccessToast(message);
+                    }, "Failed to update favorite status");
                     break;
 
                 case "Left":
-                    this.LogInfo("DELETE action triggered");
+                    this.LogInfo("UNIFIED DELETE action triggered");
 
-                    if (_viewModel?.DeleteSingleCommand?.CanExecute(item) == true)
+                    if (_viewModel?.IsConnected != true)
                     {
-                        await _viewModel.DeleteSingleCommand.ExecuteAsync(item);
+                        await this.ShowWarningToast("Cannot delete while offline");
+                        break;
                     }
+
+                    await this.SafeExecuteAsync(async () =>
+                    {
+                        this.LogInfo($"Calling UNIFIED DeleteSingleCommand for: {item.Name}");
+
+                        // Unified delete flow through ViewModel only
+                        if (_viewModel?.DeleteSingleCommand?.CanExecute(item) == true)
+                        {
+                            await _viewModel.DeleteSingleCommand.ExecuteAsync(item);
+                            this.LogSuccess("UNIFIED delete completed via ViewModel");
+                        }
+                    }, "UNIFIED Delete failed");
+                    break;
+
+                default:
+                    this.LogWarning($"Unknown swipe direction: {direction}");
                     break;
             }
 
             GeneraListView.ResetSwipeItem();
-        }, "Swipe ended error");
+            this.LogInfo("Auto-reset completed");
+        }, "Swipe action failed");
 
         if (!success)
         {
@@ -613,44 +818,6 @@ public partial class GeneraListPage : ContentPage
         }
     }
 
-    /// <summary>
-    /// Handle FAB press with context-aware actions (Add/Delete/Cancel)
-    /// </summary>
-    private async void OnFabPressed(object sender, EventArgs e)
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            // Perform tap feedback animation
-            await this.SafeAnimationExecuteAsync(async () =>
-            {
-                await FabButton.PerformTapFeedbackAsync();
-            }, "FAB tap feedback");
-
-            var selectedCount = _viewModel?.SelectedItems?.Count ?? 0;
-            this.LogInfo($"FAB pressed - Selected: {selectedCount}, MultiSelect: {_viewModel?.IsMultiSelectMode}");
-
-            if (selectedCount > 0)
-            {
-                this.LogInfo("FAB DELETE action");
-                if (_viewModel?.DeleteSelectedCommand?.CanExecute(null) == true)
-                {
-                    await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
-                }
-            }
-            else if (_viewModel?.IsMultiSelectMode == true)
-            {
-                this.LogInfo("FAB CANCEL action");
-                if (_viewModel?.ToggleMultiSelectCommand?.CanExecute(null) == true)
-                {
-                    _viewModel.ToggleMultiSelectCommand.Execute(null);
-                }
-            }
-            else
-            {
-                this.LogInfo("FAB ADD action");
-                // Navigate to add new genus - seguindo padrão do FamiliesListPage
-                await Shell.Current.GoToAsync("genusedit");
-            }
-        }, "FAB action failed");
-    }
+    #endregion
 }
+            
