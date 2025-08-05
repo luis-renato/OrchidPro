@@ -103,6 +103,7 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
         _familyRepository = familyRepository;
 
         SaveAndContinueCommand = new AsyncRelayCommand(SaveAndCreateAnotherAsync, () => CanCreateAnother);
+        DeleteCommand = new AsyncRelayCommand(DeleteGenusAsync, () => CanDelete);
 
         // Subscribe to family created message
         WeakReferenceMessenger.Default.Register<FamilyCreatedMessage>(this, OnFamilyCreated);
@@ -118,6 +119,7 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
     #region Commands
 
     public IAsyncRelayCommand SaveAndContinueCommand { get; }
+    public IAsyncRelayCommand DeleteCommand { get; }
 
     #endregion
 
@@ -137,6 +139,9 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
             AvailableFamilies = families.OrderBy(f => f.Name).ToList();
 
             this.LogSuccess($"Loaded {AvailableFamilies.Count} families for selection");
+
+            // 🔧 FIX 1: Notify SelectedFamily after families are loaded
+            OnPropertyChanged(nameof(SelectedFamily));
 
         }, "Failed to load available families");
 
@@ -435,6 +440,28 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
         }, "Failed to save and create another");
     }
 
+    /// <summary>
+    /// 🔧 FIX 2: Delete genus with confirmation
+    /// </summary>
+    [RelayCommand]
+    private async Task DeleteGenusAsync()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            if (!EntityId.HasValue) return;
+
+            var confirmed = await ShowConfirmationAsync("Delete Genus", $"Are you sure you want to delete '{Name}'?", "Delete", "Cancel");
+
+            if (confirmed)
+            {
+                await _genusRepository.DeleteAsync(EntityId.Value);
+                this.LogSuccess($"Genus deleted: {Name}");
+                await _navigationService.GoBackAsync();
+            }
+
+        }, "Failed to delete genus");
+    }
+
     #endregion
 
     #region Data Loading
@@ -480,6 +507,8 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
                 OnPropertyChanged(nameof(FamilyContext));
                 OnPropertyChanged(nameof(PageTitle));
                 OnPropertyChanged(nameof(IsEditMode));
+                OnPropertyChanged(nameof(CanDelete));
+                OnPropertyChanged(nameof(SelectedFamily));
             }
 
         }, "Failed to load genus entity data");
@@ -504,7 +533,17 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
                 this.LogInfo($"Parameter: {param.Key} = {param.Value} ({param.Value?.GetType().Name})");
             }
 
-            // Handle family pre-selection
+            // 🔧 FIX 3: Clear family selection for new genus (fresh start)
+            bool isEditMode = query.ContainsKey("GenusId");
+            if (!isEditMode)
+            {
+                // Clear any previous family selection for new genus
+                SelectedFamilyId = null;
+                SelectedFamilyName = string.Empty;
+                this.LogInfo("Cleared family selection for new genus");
+            }
+
+            // Handle family pre-selection (only if explicitly provided)
             if (query.TryGetValue("FamilyId", out var familyIdObj) && familyIdObj != null)
             {
                 if (Guid.TryParse(familyIdObj.ToString(), out var familyId))
@@ -537,6 +576,7 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
             OnPropertyChanged(nameof(PageTitle));
             OnPropertyChanged(nameof(IsEditMode));
             OnPropertyChanged(nameof(FamilyContext));
+            OnPropertyChanged(nameof(SelectedFamily));
 
             this.LogSuccess($"Query attributes applied - IsEditMode: {IsEditMode}, PageTitle: {PageTitle}, Family: {SelectedFamilyName}");
 
@@ -557,6 +597,7 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
             this.LogInfo($"Selected family ID changed: {value}");
             OnPropertyChanged(nameof(FamilyContext));
             OnPropertyChanged(nameof(CanCreateAnother));
+            OnPropertyChanged(nameof(SelectedFamily));
         }, "OnSelectedFamilyIdChanged");
     }
 
@@ -578,6 +619,11 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
     /// Whether we can create another genus (useful for bulk entry)
     /// </summary>
     public bool CanCreateAnother => !IsEditMode && SelectedFamilyId.HasValue;
+
+    /// <summary>
+    /// 🔧 FIX 2: Can delete genus (edit mode only)
+    /// </summary>
+    public bool CanDelete => IsEditMode && EntityId.HasValue;
 
     #endregion
 

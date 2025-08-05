@@ -186,11 +186,20 @@
 
                 </Grid>
 
-                <!-- Save and Add Another Button (only for new genus) -->
-                <Button Text="{Binding SaveAndContinueButtonText}"
+                <!-- 🔧 FIX 2: Save and Add Another Button (only for new genus) -->
+                <Button Text="Save &amp; Add Another"
                         Command="{Binding SaveAndContinueCommand}"
-                        IsVisible="{Binding ShowSaveAndContinue}"
+                        IsVisible="{Binding IsEditMode, Converter={StaticResource InvertedBoolConverter}}"
                         Style="{StaticResource SecondaryButtonStyle}"
+                        Margin="0,8,0,0" />
+
+                <!-- 🔧 FIX 2: Delete Button (only for edit mode) -->
+                <Button Text="Delete"
+                        Command="{Binding DeleteCommand}"
+                        IsVisible="{Binding IsEditMode}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        BackgroundColor="{StaticResource ErrorColor}"
+                        TextColor="White"
                         Margin="0,8,0,0" />
 
             </StackLayout>
