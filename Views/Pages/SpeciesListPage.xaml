@@ -185,72 +185,124 @@
                                 </sflistview:SfListView.EndSwipeTemplate>
 
                                 <!-- Species Item template -->
+                                <!-- Enhanced Item template IGUAL FamiliesListPage/GeneraListPage -->
+                                <!-- Enhanced Item template IGUAL FamiliesListPage/GeneraListPage -->
                                 <sflistview:SfListView.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SpeciesItemViewModel">
-                                        <Grid Padding="15,12" RowDefinitions="Auto,Auto" ColumnDefinitions="Auto,*,Auto" RowSpacing="4">
+                                        <!-- SEM MARGIN - itens grudados seguindo padrão -->
+                                        <Grid Margin="0" BackgroundColor="Transparent">
+                                            <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                                Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                                                StrokeThickness="1"
+                                                Margin="10,2">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="12" />
+                                                </Border.StrokeShape>
 
-                                            <!-- Multi-select checkbox -->
-                                            <CheckBox Grid.Row="0" Grid.Column="0" Grid.RowSpan="2"
-                                                      IsChecked="{Binding IsSelected}"
-                                                      IsVisible="{Binding Source={x:Reference ParentPage}, Path=BindingContext.IsMultiSelectMode}"
-                                                      VerticalOptions="Center"
-                                                      Margin="0,0,10,0" />
+                                                <Grid Padding="20,16" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
 
-                                            <!-- Main content -->
-                                            <Grid Grid.Row="0" Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                <Label Grid.Column="0"
-                                                       Text="{Binding PreferredDisplayName}"
-                                                       FontSize="16"
-                                                       FontAttributes="Bold"
-                                                       TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
-                                                       LineBreakMode="TailTruncation" />
-
-                                                <Label Grid.Column="1"
-                                                       Text="{Binding RecentIndicator}"
-                                                       FontSize="14"
-                                                       VerticalOptions="Center"
-                                                       IsVisible="{Binding RecentIndicator, Converter={StaticResource StringToBoolConverter}}" />
-                                            </Grid>
-
-                                            <!-- Status and characteristics -->
-                                            <Grid Grid.Row="0" Grid.Column="2" RowDefinitions="Auto,Auto" HorizontalOptions="End">
-                                                <!-- Status badge -->
-                                                <Border Grid.Row="0"
-                                                        BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToStatusColorConverter}}"
-                                                        Padding="8,3"
-                                                        HorizontalOptions="End">
-                                                    <Border.StrokeShape>
-                                                        <RoundRectangle CornerRadius="10" />
-                                                    </Border.StrokeShape>
-                                                    <Label Text="{Binding IsActive, Converter={StaticResource BoolToStatusConverter}}"
-                                                           FontSize="10"
+                                                    <!-- Header row -->
+                                                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                                                        <Label Grid.Column="0"
+                                                           Text="{Binding Name}"
+                                                           FontSize="18"
                                                            FontAttributes="Bold"
-                                                           TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
-                                                           HorizontalOptions="Center" />
-                                                </Border>
+                                                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                                                           VerticalOptions="Center" />
 
-                                                <!-- Rarity indicator -->
-                                                <Label Grid.Row="1"
-                                                       Text="{Binding RarityStatus}"
-                                                       FontSize="9"
-                                                       FontAttributes="Bold"
-                                                       TextColor="{AppThemeBinding Light={StaticResource TertiaryContainer}, Dark={StaticResource TertiaryContainerDark}}"
-                                                       HorizontalOptions="End"
-                                                       Margin="0,2,0,0"
-                                                       IsVisible="{Binding RarityStatus, Converter={StaticResource StringToBoolConverter}}" />
-                                            </Grid>
+                                                        <!-- Rarity badge -->
+                                                        <Border Grid.Column="1"
+                                                            BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryContainer}, Dark={StaticResource TertiaryContainerDark}}"
+                                                            Stroke="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                                                            StrokeThickness="1"
+                                                            Padding="8,4"
+                                                            VerticalOptions="Center"
+                                                            IsVisible="{Binding RarityStatus, Converter={StaticResource StringToBoolConverter}}">
+                                                            <Border.StrokeShape>
+                                                                <RoundRectangle CornerRadius="6" />
+                                                            </Border.StrokeShape>
+                                                            <Label Text="{Binding RarityStatus}"
+                                                               FontSize="10"
+                                                               FontAttributes="Bold"
+                                                               TextColor="{AppThemeBinding Light={StaticResource OnTertiaryContainer}, Dark={StaticResource OnTertiaryContainerDark}}"
+                                                               VerticalOptions="Center" />
+                                                        </Border>
 
-                                            <!-- Genus and scientific name info -->
-                                            <Label Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2"
-                                                   Text="{Binding Subtitle}"
-                                                   FontSize="12"
-                                                   TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
-                                                   LineBreakMode="TailTruncation" />
+                                                        <!-- Favorite indicator -->
+                                                        <Label Grid.Column="2"
+                                                           Text="⭐"
+                                                           FontSize="20"
+                                                           TextColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}"
+                                                           IsVisible="{Binding IsFavorite}"
+                                                           VerticalOptions="Center" />
+                                                    </Grid>
 
+                                                    <!-- Genus and scientific info row -->
+                                                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                        <Label Grid.Column="0"
+                                                           Text="{Binding Subtitle}"
+                                                           FontSize="14"
+                                                           TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                           LineBreakMode="TailTruncation"
+                                                           VerticalOptions="Center" />
+
+                                                        <!-- Size category -->
+                                                        <Label Grid.Column="1"
+                                                           Text="{Binding SizeCategory}"
+                                                           FontSize="12"
+                                                           FontAttributes="Italic"
+                                                           TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                           VerticalOptions="Center" />
+                                                    </Grid>
+
+                                                    <!-- Status and characteristics row -->
+                                                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+
+                                                        <!-- Status indicator -->
+                                                        <Border Grid.Column="0"
+                                                            BackgroundColor="{Binding IsActive, 
+                                                                Converter={StaticResource BoolToColorConverter}, 
+                                                                ConverterParameter='Success|Gray300'}"
+                                                            WidthRequest="8"
+                                                            HeightRequest="8"
+                                                            VerticalOptions="Center">
+                                                            <Border.StrokeShape>
+                                                                <Ellipse />
+                                                            </Border.StrokeShape>
+                                                        </Border>
+
+                                                        <!-- Description preview or characteristics -->
+                                                        <Label Grid.Column="1"
+                                                           Text="{Binding CharacteristicsSummary}"
+                                                           FontSize="12"
+                                                           TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                           LineBreakMode="TailTruncation"
+                                                           MaxLines="1"
+                                                           VerticalOptions="Center" />
+
+                                                        <!-- Fragrance indicator -->
+                                                        <StackLayout Grid.Column="2" 
+                                                                 Orientation="Horizontal" 
+                                                                 Spacing="4"
+                                                                 VerticalOptions="Center"
+                                                                 IsVisible="{Binding Fragrance}">
+                                                            <Label Text="🌸"
+                                                               FontSize="14"
+                                                               VerticalOptions="Center" />
+                                                            <Label Text="Fragrant"
+                                                               FontSize="10"
+                                                               FontAttributes="Italic"
+                                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                               VerticalOptions="Center" />
+                                                        </StackLayout>
+
+                                                    </Grid>
+
+                                                </Grid>
+                                            </Border>
                                         </Grid>
                                     </DataTemplate>
                                 </sflistview:SfListView.ItemTemplate>
-
                                 <!-- Empty view genérico -->
                                 <sflistview:SfListView.EmptyView>
                                     <ContentView Style="{StaticResource GenericEmptyStateStyle}" />

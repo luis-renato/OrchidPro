@@ -41,9 +41,6 @@ public class SupabaseSpecies : BaseModel
     [Column("updated_at")]
     public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    [Column("scientific_name")]
-    public string? ScientificName { get; set; }
-
     [Column("common_name")]
     public string? CommonName { get; set; }
 
@@ -99,7 +96,6 @@ public class SupabaseSpecies : BaseModel
             IsFavorite = this.IsFavorite ?? false,
             CreatedAt = this.CreatedAt ?? DateTime.UtcNow,
             UpdatedAt = this.UpdatedAt ?? DateTime.UtcNow,
-            ScientificName = this.ScientificName,
             CommonName = this.CommonName,
             CultivationNotes = this.CultivationNotes,
             HabitatInfo = this.HabitatInfo,
@@ -132,7 +128,6 @@ public class SupabaseSpecies : BaseModel
             IsFavorite = species.IsFavorite,
             CreatedAt = species.CreatedAt,
             UpdatedAt = species.UpdatedAt,
-            ScientificName = species.ScientificName,
             CommonName = species.CommonName,
             CultivationNotes = species.CultivationNotes,
             HabitatInfo = species.HabitatInfo,

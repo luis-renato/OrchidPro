@@ -9,12 +9,14 @@
              Title="{Binding PageTitle}"
              BackgroundColor="White">
 
+    <!-- ToolbarItems REMOVIDO - GenusEditPage não tem ToolbarItems -->
+
     <Grid>
         <!-- Main Content -->
         <ScrollView>
             <StackLayout Padding="16" Spacing="20">
 
-                <!-- Header -->
+                <!-- Header seguindo padrão EXATO do GenusEditPage -->
                 <StackLayout Spacing="8">
                     <Label Text="{Binding PageTitle}"
                            FontSize="28"
@@ -26,19 +28,34 @@
                            FontSize="14" 
                            TextColor="Gray"
                            Opacity="0.8" />
+
+                    <ProgressBar Progress="{Binding FormCompletionProgress}"
+                                ProgressColor="{StaticResource Primary}"
+                                BackgroundColor="{StaticResource Gray200}"
+                                HeightRequest="4"
+                                Margin="0,8,0,0" />
                 </StackLayout>
 
-                <!-- Genus Selection -->
+                <!-- Genus Selection - EXATO como GenusEditPage -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
-                        <Grid ColumnDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                             <Label Grid.Column="0" 
                                    Text="Genus *" 
-                                   Style="{StaticResource FormFieldLabelStyle}" 
+                                   Style="{StaticResource FormFieldLabelStyle}"
                                    VerticalOptions="Center" />
+                            <Button Grid.Column="1"
+                                    Text="+ Create New Genus"
+                                    Command="{Binding CreateNewGenusCommand}"
+                                    FontSize="12"
+                                    BackgroundColor="Transparent"
+                                    TextColor="{StaticResource Primary}"
+                                    Padding="6,0"
+                                    MaximumHeightRequest="16"
+                                    VerticalOptions="Center" />
                         </Grid>
 
-                        <!-- SfComboBox for Genus Selection -->
+                        <!-- SfComboBox EXATO como GenusEditPage -->
                         <sfcombobox:SfComboBox ItemsSource="{Binding AvailableGenera}"
                                                DisplayMemberPath="Name"
                                                TextMemberPath="Name"
@@ -59,7 +76,7 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Species Name Field -->
+                <!-- Name Field EXATO como GenusEditPage -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Name *" Style="{StaticResource FormFieldLabelStyle}" />
@@ -77,20 +94,21 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Scientific Name Field -->
+                <!-- Description Field EXATO como GenusEditPage -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
-                        <Label Text="Scientific Name" Style="{StaticResource FormFieldLabelStyle}" />
+                        <Label Text="Description" Style="{StaticResource FormFieldLabelStyle}" />
 
-                        <Entry Text="{Binding ScientificName}"
-                               Placeholder="e.g., Cattleya mossiae"
-                               FontSize="16"
-                               TextColor="Black"
-                               BackgroundColor="Transparent" />
+                        <Editor Text="{Binding Description}"
+                                Placeholder="Optional description..."
+                                FontSize="16"
+                                TextColor="Black"
+                                BackgroundColor="Transparent"
+                                HeightRequest="80" />
                     </StackLayout>
                 </ContentView>
 
-                <!-- Common Name Field -->
+                <!-- Common Name (Species-specific) -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Common Name" Style="{StaticResource FormFieldLabelStyle}" />
@@ -103,24 +121,251 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Description Field -->
+                <!-- Classification Section -->
+                <Label Text="Classification" 
+                       FontSize="18" 
+                       FontAttributes="Bold" 
+                       TextColor="{StaticResource Primary}" 
+                       Margin="0,16,0,8" />
+
+                <!-- Size Category -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
-                        <Label Text="Description" Style="{StaticResource FormFieldLabelStyle}" />
+                        <Label Text="Size Category" Style="{StaticResource FormFieldLabelStyle}" />
 
-                        <Editor Text="{Binding Description}"
-                                Placeholder="General description of the species..."
-                                FontSize="16"
-                                TextColor="Black"
-                                BackgroundColor="Transparent"
-                                HeightRequest="80" />
+                        <sfcombobox:SfComboBox ItemsSource="{Binding SizeCategories}"
+                                               SelectedItem="{Binding SizeCategory}"
+                                               Placeholder="Select size category..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent" />
                     </StackLayout>
                 </ContentView>
 
-                <!-- Settings -->
+                <!-- Rarity Status -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Rarity Status" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <sfcombobox:SfComboBox ItemsSource="{Binding RarityStatuses}"
+                                               SelectedItem="{Binding RarityStatus}"
+                                               Placeholder="Select rarity status..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Growth Habit -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Growth Habit" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <sfcombobox:SfComboBox ItemsSource="{Binding GrowthHabits}"
+                                               SelectedItem="{Binding GrowthHabit}"
+                                               Placeholder="Select growth habit..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Flowering Section -->
+                <Label Text="Flowering" 
+                       FontSize="18" 
+                       FontAttributes="Bold" 
+                       TextColor="{StaticResource Primary}" 
+                       Margin="0,16,0,8" />
+
+                <!-- Flowering Season -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Flowering Season" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <sfcombobox:SfComboBox ItemsSource="{Binding FloweringSeasons}"
+                                               SelectedItem="{Binding FloweringSeason}"
+                                               Placeholder="Select flowering season..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Flower Colors -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Flower Colors" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Entry Text="{Binding FlowerColors}"
+                               Placeholder="e.g., Purple, White, Pink"
+                               FontSize="16"
+                               TextColor="Black"
+                               BackgroundColor="Transparent" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Bloom Duration -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Bloom Duration" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Entry Text="{Binding BloomDuration}"
+                               Placeholder="e.g., 2-3 weeks, 1 month"
+                               FontSize="16"
+                               TextColor="Black"
+                               BackgroundColor="Transparent" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Cultivation Section -->
+                <Label Text="Cultivation Requirements" 
+                       FontSize="18" 
+                       FontAttributes="Bold" 
+                       TextColor="{StaticResource Primary}" 
+                       Margin="0,16,0,8" />
+
+                <!-- Temperature Preference -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Temperature Preference" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <sfcombobox:SfComboBox ItemsSource="{Binding TemperaturePreferences}"
+                                               SelectedItem="{Binding TemperaturePreference}"
+                                               Placeholder="Select temperature preference..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Light Requirements -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Light Requirements" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <sfcombobox:SfComboBox ItemsSource="{Binding LightRequirementsList}"
+                                               SelectedItem="{Binding LightRequirements}"
+                                               Placeholder="Select light requirements..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Humidity Preference -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Humidity Preference" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <sfcombobox:SfComboBox ItemsSource="{Binding HumidityPreferences}"
+                                               SelectedItem="{Binding HumidityPreference}"
+                                               Placeholder="Select humidity preference..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Cultivation Notes -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Cultivation Notes" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Editor Text="{Binding CultivationNotes}"
+                                Placeholder="Detailed cultivation notes..."
+                                FontSize="16"
+                                TextColor="Black"
+                                BackgroundColor="Transparent"
+                                HeightRequest="100" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Habitat Info -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Habitat Information" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Editor Text="{Binding HabitatInfo}"
+                                Placeholder="Natural habitat information..."
+                                FontSize="16"
+                                TextColor="Black"
+                                BackgroundColor="Transparent"
+                                HeightRequest="100" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Settings EXATO como GenusEditPage COM campo Fragrance -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormSettingsStackStyle}">
                         <Label Text="Settings" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <!-- Fragrance Toggle (Species-specific) -->
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Label Grid.Column="0"
+                                   Text="🌸"
+                                   FontSize="24"
+                                   VerticalOptions="Center" />
+
+                            <StackLayout Grid.Column="1" 
+                                        Margin="12,0,0,0"
+                                        VerticalOptions="Center">
+                                <Label Text="Fragrant"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="Black" />
+                                <Label Text="Species has fragrance"
+                                       FontSize="12"
+                                       TextColor="Gray" />
+                            </StackLayout>
+
+                            <Switch Grid.Column="2"
+                                    IsToggled="{Binding Fragrance}"
+                                    OnColor="{StaticResource Primary}"
+                                    ThumbColor="White"
+                                    VerticalOptions="Center" />
+                        </Grid>
 
                         <!-- Active Toggle -->
                         <Grid ColumnDefinitions="Auto,*,Auto">
@@ -143,13 +388,13 @@
 
                             <Switch Grid.Column="2"
                                     IsToggled="{Binding IsActive}"
-                                    OnColor="{StaticResource Primary}"
+                                    OnColor="{StaticResource SuccessColor}"
                                     ThumbColor="White"
                                     VerticalOptions="Center" />
                         </Grid>
 
                         <!-- Favorite Toggle -->
-                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,16,0,0">
+                        <Grid ColumnDefinitions="Auto,*,Auto">
                             <Label Grid.Column="0"
                                    Text="⭐"
                                    FontSize="24"
@@ -169,7 +414,7 @@
 
                             <Switch Grid.Column="2"
                                     IsToggled="{Binding IsFavorite}"
-                                    OnColor="{StaticResource Primary}"
+                                    OnColor="{StaticResource WarningColor}"
                                     ThumbColor="White"
                                     VerticalOptions="Center" />
                         </Grid>
@@ -177,33 +422,47 @@
                     </StackLayout>
                 </ContentView>
 
+                <!-- Action Buttons EXATOS como GenusEditPage -->
+                <Grid ColumnDefinitions="*,*" 
+                      ColumnSpacing="16"
+                      Margin="0,24,0,0">
+
+                    <Button Grid.Column="0"
+                            Text="Cancel"
+                            Style="{StaticResource SecondaryButtonStyle}"
+                            Command="{Binding CancelCommand}" />
+
+                    <Button Grid.Column="1"
+                            Text="{Binding SaveButtonText}"
+                            Style="{StaticResource DynamicPrimaryButtonStyle}"
+                            BackgroundColor="{Binding SaveButtonColor}"
+                            Command="{Binding SaveWithGenusCommand}"
+                            IsEnabled="{Binding CanSave}" />
+
+                </Grid>
+
+                <!-- Save and Add Another Button (only for new species) -->
+                <Button Text="Save &amp; Add Another"
+                        Command="{Binding SaveAndContinueCommand}"
+                        IsVisible="{Binding IsEditMode, Converter={StaticResource InvertedBoolConverter}}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        Margin="0,8,0,0" />
+
+                <!-- Delete Button (only for edit mode) -->
+                <Button Text="Delete"
+                        Command="{Binding DeleteCommand}"
+                        IsVisible="{Binding IsEditMode}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        BackgroundColor="{StaticResource ErrorColor}"
+                        TextColor="White"
+                        Margin="0,8,0,0" />
+
             </StackLayout>
         </ScrollView>
 
-        <!-- Loading overlay -->
-        <ContentView Style="{StaticResource LoadingOverlayStyle}" />
-
-        <!-- Action buttons overlay -->
-        <StackLayout VerticalOptions="End"
-                     Margin="16"
-                     Spacing="12">
-
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                <Button Grid.Column="0"
-                        Text="💾 Save Species"
-                        Command="{Binding SaveCommand}"
-                        Style="{StaticResource PrimaryButtonStyle}"
-                        BackgroundColor="{StaticResource Primary}"
-                        TextColor="White" />
-
-                <Button Grid.Column="1"
-                        Text="💾➕ Save &amp; Add Another"
-                        Command="{Binding SaveAndContinueCommand}"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        BackgroundColor="LightGray"
-                        TextColor="Black" />
-            </Grid>
-        </StackLayout>
+        <!-- Loading Overlay EXATO como GenusEditPage -->
+        <ContentView Style="{StaticResource SavingOverlayStyle}" />
 
     </Grid>
+
 </ContentPage>

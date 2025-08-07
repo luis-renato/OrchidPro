@@ -7,15 +7,16 @@ using OrchidPro.Models;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
+using System.Collections.ObjectModel;
 
 namespace OrchidPro.ViewModels.Species;
 
 /// <summary>
-/// MINIMAL Species edit ViewModel - following exact pattern of GenusEditViewModel.
+/// MINIMAL Species edit ViewModel following EXACT pattern of GenusEditViewModel.
 /// Uses BaseEditViewModel for ALL common functionality + genus relationship management.
-/// Only species-specific logic implemented here.
+/// NO custom save logic - uses base SaveCommand exactly like GenusEditViewModel.
 /// </summary>
-public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
+public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>, IQueryAttributable
 {
     #region Private Fields
 
@@ -24,7 +25,7 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     #endregion
 
-    #region Observable Properties
+    #region Observable Properties - Following GenusEditViewModel Pattern
 
     [ObservableProperty]
     private Guid? selectedGenusId;
@@ -62,12 +63,87 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
         }
     }
 
-    #region ComboBox Options Properties (Simplified - only basic ones)
+    #endregion
 
-    // Removed complex ComboBox options to match the simplified layout
-    // Focusing on essential fields: Genus, Name, Scientific Name, Common Name, Description
+    #region Species-Specific Properties
+
+    [ObservableProperty]
+    private string commonName = string.Empty;
+
+    [ObservableProperty]
+    private string sizeCategory = "Medium";
+
+    [ObservableProperty]
+    private string rarityStatus = "Common";
+
+    [ObservableProperty]
+    private bool fragrance = false;
+
+    [ObservableProperty]
+    private string cultivationNotes = string.Empty;
+
+    [ObservableProperty]
+    private string habitatInfo = string.Empty;
+
+    [ObservableProperty]
+    private string floweringSeason = string.Empty;
+
+    [ObservableProperty]
+    private string flowerColors = string.Empty;
+
+    [ObservableProperty]
+    private string temperaturePreference = string.Empty;
+
+    [ObservableProperty]
+    private string lightRequirements = string.Empty;
+
+    [ObservableProperty]
+    private string humidityPreference = string.Empty;
+
+    [ObservableProperty]
+    private string growthHabit = string.Empty;
+
+    [ObservableProperty]
+    private string bloomDuration = string.Empty;
 
     #endregion
+
+    #region ComboBox Options
+
+    public ObservableCollection<string> SizeCategories { get; } = new()
+    {
+        "Miniature", "Small", "Medium", "Large", "Giant"
+    };
+
+    public ObservableCollection<string> RarityStatuses { get; } = new()
+    {
+        "Common", "Uncommon", "Rare", "Very Rare", "Extinct"
+    };
+
+    public ObservableCollection<string> FloweringSeasons { get; } = new()
+    {
+        "Spring", "Summer", "Autumn", "Winter", "Year-round", "Variable"
+    };
+
+    public ObservableCollection<string> TemperaturePreferences { get; } = new()
+    {
+        "Cool", "Intermediate", "Warm"
+    };
+
+    public ObservableCollection<string> LightRequirementsList { get; } = new()
+    {
+        "Low", "Medium", "High", "Very High"
+    };
+
+    public ObservableCollection<string> HumidityPreferences { get; } = new()
+    {
+        "Low", "Medium", "High"
+    };
+
+    public ObservableCollection<string> GrowthHabits { get; } = new()
+    {
+        "Epiphyte", "Terrestrial", "Lithophyte"
+    };
 
     #endregion
 
@@ -76,9 +152,27 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
     public override string EntityName => "Species";
     public override string EntityNamePlural => "Species";
 
+    /// <summary>
+    /// Override Name property to notify CanSave changes
+    /// </summary>
+    public new string Name
+    {
+        get => base.Name;
+        set
+        {
+            if (base.Name != value)
+            {
+                base.Name = value;
+                OnPropertyChanged();
+                OnPropertyChanged(nameof(CanSave));
+                OnPropertyChanged(nameof(CanCreateAnother));
+            }
+        }
+    }
+
     #endregion
 
-    #region Page Title Management
+    #region Page Title Management - Following GenusEditViewModel Pattern
 
     /// <summary>
     /// Dynamic page title based on edit mode state and genus context
@@ -86,14 +180,29 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
     public new string PageTitle => IsEditMode ? "Edit Species" : "New Species";
 
     /// <summary>
+    /// Current edit mode state for UI binding
+    /// </summary>
+    public bool IsEditMode => _isEditMode;
+
+    /// <summary>
     /// Genus context for display
     /// </summary>
     public string GenusContext =>
         !string.IsNullOrEmpty(SelectedGenusName) ? $"in {SelectedGenusName}" : "";
 
+    /// <summary>
+    /// Can create another species property
+    /// </summary>
+    public bool CanCreateAnother => CanSave && SelectedGenusId.HasValue;
+
+    /// <summary>
+    /// Can save species (genus selected + valid name)
+    /// </summary>
+    public bool CanSave => !string.IsNullOrWhiteSpace(Name) && SelectedGenusId.HasValue;
+
     #endregion
 
-    #region Constructor
+    #region Constructor - Following GenusEditViewModel Pattern
 
     /// <summary>
     /// Initialize species edit ViewModel with enhanced base functionality and genus management
@@ -107,7 +216,7 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
         SaveAndContinueCommand = new AsyncRelayCommand(SaveAndCreateAnotherAsync, () => CanCreateAnother);
         DeleteCommand = new AsyncRelayCommand(DeleteSpeciesAsync, () => CanDelete);
 
-        // Subscribe to genus created message (if we add genus creation later)
+        // Subscribe to genus created message
         WeakReferenceMessenger.Default.Register<GenusCreatedMessage>(this, OnGenusCreated);
 
         this.LogInfo("Initialized - using base functionality with genus relationship management");
@@ -125,7 +234,133 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     #endregion
 
-    #region Genus Management
+    #region Save Operations
+
+    /// <summary>
+    /// Override save to include genus relationship - EXACT pattern from GenusEditViewModel
+    /// </summary>
+    [RelayCommand]
+    private async Task SaveWithGenusAsync()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            if (!ValidateForSave())
+            {
+                await this.ShowErrorToast("Please correct the validation errors before saving.");
+                return;
+            }
+
+            this.LogInfo($"Saving species: {Name} in genus {SelectedGenusName}");
+
+            // Create or update the species
+            var species = new Models.Species
+            {
+                Id = EntityId ?? Guid.NewGuid(),
+                GenusId = SelectedGenusId!.Value,
+                Name = Name.Trim(),
+                Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
+                CommonName = string.IsNullOrWhiteSpace(CommonName) ? null : CommonName.Trim(),
+                SizeCategory = SizeCategory,
+                RarityStatus = RarityStatus,
+                Fragrance = Fragrance,
+                CultivationNotes = string.IsNullOrWhiteSpace(CultivationNotes) ? null : CultivationNotes.Trim(),
+                HabitatInfo = string.IsNullOrWhiteSpace(HabitatInfo) ? null : HabitatInfo.Trim(),
+                FloweringSeason = string.IsNullOrWhiteSpace(FloweringSeason) ? null : FloweringSeason,
+                FlowerColors = string.IsNullOrWhiteSpace(FlowerColors) ? null : FlowerColors.Trim(),
+                TemperaturePreference = string.IsNullOrWhiteSpace(TemperaturePreference) ? null : TemperaturePreference,
+                LightRequirements = string.IsNullOrWhiteSpace(LightRequirements) ? null : LightRequirements,
+                HumidityPreference = string.IsNullOrWhiteSpace(HumidityPreference) ? null : HumidityPreference,
+                GrowthHabit = string.IsNullOrWhiteSpace(GrowthHabit) ? null : GrowthHabit,
+                BloomDuration = string.IsNullOrWhiteSpace(BloomDuration) ? null : BloomDuration.Trim(),
+                // ScientificName será gerado automaticamente ou deixado nulo
+                ScientificName = null,
+                IsActive = IsActive,
+                IsFavorite = IsFavorite,
+                CreatedAt = IsEditMode ? CreatedAt : DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
+            };
+
+            Models.Species savedSpecies;
+            if (IsEditMode)
+            {
+                savedSpecies = await _speciesRepository.UpdateAsync(species);
+                this.LogSuccess($"Updated species: {savedSpecies.Name}");
+            }
+            else
+            {
+                savedSpecies = await _speciesRepository.CreateAsync(species);
+                this.LogSuccess($"Created species: {savedSpecies.Name}");
+            }
+
+            // Update local data
+            EntityId = savedSpecies.Id;
+            UpdatedAt = savedSpecies.UpdatedAt;
+
+            // Clear unsaved changes state
+            HasUnsavedChanges = false;
+
+            // Show toast instead of alert
+            await this.ShowSuccessToast($"Species '{savedSpecies.Name}' saved successfully!");
+
+            // Navigate back
+            await _navigationService.GoBackAsync();
+
+        }, "Failed to save species");
+    }
+
+    #endregion
+
+    #region Validation
+
+    /// <summary>
+    /// Validate genus selection
+    /// </summary>
+    private bool ValidateGenusSelection()
+    {
+        return this.SafeExecute(() =>
+        {
+            if (!SelectedGenusId.HasValue)
+            {
+                this.LogWarning("Validation failed: No genus selected");
+                return false;
+            }
+
+            return true;
+
+        }, fallbackValue: false, operationName: "ValidateGenusSelection");
+    }
+
+    /// <summary>
+    /// Enhanced pre-save validation
+    /// </summary>
+    private bool ValidateForSave()
+    {
+        return this.SafeExecute(() =>
+        {
+            var isValid = true;
+
+            // Validate genus selection
+            if (!ValidateGenusSelection())
+            {
+                isValid = false;
+            }
+
+            // Validate name is not empty (base validation should handle this)
+            if (string.IsNullOrWhiteSpace(Name))
+            {
+                isValid = false;
+                this.LogWarning("Validation failed: Name is required");
+            }
+
+            this.LogInfo($"Species validation complete: {isValid}");
+            return isValid;
+
+        }, fallbackValue: false, operationName: "ValidateForSave");
+    }
+
+    #endregion
+
+    #region Genus Management - Following GenusEditViewModel Pattern
 
     /// <summary>
     /// Load available genera for selection dropdown
@@ -163,15 +398,16 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
             SelectedGenusId = genus?.Id;
             SelectedGenusName = genus?.Name ?? string.Empty;
 
-            // Update entity genus if we're in edit mode and have entity
-            if (genus != null && EntityId.HasValue)
-            {
-                // The entity will be updated in validation before save
-                OnPropertyChanged(nameof(GenusContext));
-                this.LogInfo($"Will update species genus to: {genus.Name}");
-            }
+            // Update UI
+            OnPropertyChanged(nameof(SelectedGenus));
+            OnPropertyChanged(nameof(GenusContext));
+            OnPropertyChanged(nameof(CanSave));
+            OnPropertyChanged(nameof(CanCreateAnother));
 
-        }, "SetSelectedGenus");
+            // Mark as having changes if we're not initializing
+            HasUnsavedChanges = true;
+
+        }, "Set Selected Genus");
     }
 
     /// <summary>
@@ -181,210 +417,238 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
     {
         this.SafeExecute(() =>
         {
-            this.LogInfo($"Received GenusCreatedMessage: {message.GenusName}");
-
-            // Reload genera to include the new one
+            this.LogInfo($"Genus created message received: {message.GenusName}");
             _ = Task.Run(LoadAvailableGeneraAsync);
-
-        }, "OnGenusCreated");
+        }, "Handle Genus Created");
     }
 
     #endregion
 
-    #region Override Save Success
+    #region Species-Specific Operations - Following GenusEditViewModel Pattern
 
     /// <summary>
-    /// Override OnSaveSuccessAsync to handle genus relationship and messaging
+    /// Save and create another species - EXACT pattern from GenusEditViewModel
     /// </summary>
-    protected override async Task OnSaveSuccessAsync(Models.Species savedEntity)
+    [RelayCommand]
+    private async Task SaveAndCreateAnotherAsync()
     {
-        await base.OnSaveSuccessAsync(savedEntity);
-
-        // Update genus relationship if needed
-        if (SelectedGenusId.HasValue && savedEntity.GenusId != SelectedGenusId.Value)
+        await this.SafeExecuteAsync(async () =>
         {
-            savedEntity.GenusId = SelectedGenusId.Value;
-        }
-
-        // Send species created message if it was a new species
-        if (!IsEditMode)
-        {
-            SendSpeciesCreatedMessage(savedEntity.Name);
-        }
-    }
-
-    /// <summary>
-    /// Send species created message for other ViewModels
-    /// </summary>
-    private void SendSpeciesCreatedMessage(string speciesName)
-    {
-        this.SafeExecute(() =>
-        {
-            var message = new SpeciesCreatedMessage { SpeciesName = speciesName };
-            WeakReferenceMessenger.Default.Send(message);
-            this.LogInfo($"Sent SpeciesCreatedMessage: {speciesName}");
-        }, "SendSpeciesCreatedMessage");
-    }
-
-    #endregion
-
-    #region Entity Loading Override
-
-    /// <summary>
-    /// Override ApplyQueryAttributes to set genus relationship when entity is loaded
-    /// </summary>
-    public override void ApplyQueryAttributes(IDictionary<string, object> query)
-    {
-        base.ApplyQueryAttributes(query);
-
-        // After base loads the entity, set the genus selection
-        if (EntityId.HasValue)
-        {
-            _ = Task.Run(async () =>
+            if (SelectedGenusId == null)
             {
-                await LoadAvailableGeneraAsync();
-                await SetGenusSelectionFromEntity();
-            });
-        }
+                await this.ShowErrorToast("Please select a genus first");
+                return;
+            }
+
+            // Remember current genus selection
+            var currentGenusId = SelectedGenusId;
+            var currentGenusName = SelectedGenusName;
+
+            // Save current entity using SaveWithGenus
+            await SaveWithGenusAsync();
+
+            if (!HasUnsavedChanges) // Save was successful
+            {
+                // Reset form for new entry - EXACT pattern from GenusEditViewModel
+                Name = string.Empty;
+                Description = string.Empty;
+                CommonName = string.Empty;
+                SizeCategory = "Medium";
+                RarityStatus = "Common";
+                Fragrance = false;
+                CultivationNotes = string.Empty;
+                HabitatInfo = string.Empty;
+                FloweringSeason = string.Empty;
+                FlowerColors = string.Empty;
+                TemperaturePreference = string.Empty;
+                LightRequirements = string.Empty;
+                HumidityPreference = string.Empty;
+                GrowthHabit = string.Empty;
+                BloomDuration = string.Empty;
+                IsActive = true;
+                IsFavorite = false;
+                EntityId = null;
+                _isEditMode = false;
+                HasUnsavedChanges = false;
+            }
+
+            // Restore genus selection
+            SelectedGenusId = currentGenusId;
+            SelectedGenusName = currentGenusName;
+
+            OnPropertyChanged(nameof(GenusContext));
+            OnPropertyChanged(nameof(PageTitle));
+            OnPropertyChanged(nameof(IsEditMode));
+            OnPropertyChanged(nameof(SelectedGenus));
+
+            this.LogSuccess($"Ready to create another species in {currentGenusName}");
+
+        }, "Failed to save and create another");
     }
 
     /// <summary>
-    /// Set genus selection based on loaded entity
+    /// Delete species with confirmation - EXACT pattern from GenusEditViewModel
     /// </summary>
-    private async Task SetGenusSelectionFromEntity()
+    [RelayCommand]
+    private async Task DeleteSpeciesAsync()
     {
         await this.SafeExecuteAsync(async () =>
         {
             if (!EntityId.HasValue) return;
 
-            // Get the current entity
-            var entity = await _speciesRepository.GetByIdAsync(EntityId.Value);
-            if (entity != null && entity.GenusId != Guid.Empty)
+            var confirmed = await ShowConfirmationAsync("Delete Species", $"Are you sure you want to delete '{Name}'?", "Delete", "Cancel");
+
+            if (confirmed)
             {
-                this.LogInfo($"Setting genus selection from entity: {entity.Name}");
-
-                var genus = AvailableGenera.FirstOrDefault(g => g.Id == entity.GenusId);
-                if (genus != null)
-                {
-                    SetSelectedGenus(genus);
-                    this.LogSuccess($"Set genus: {genus.Name}");
-                }
-                else
-                {
-                    this.LogWarning($"Genus with ID {entity.GenusId} not found in available genera");
-                }
-            }
-
-        }, "SetGenusSelectionFromEntity");
-    }
-
-    #endregion
-
-    #region Additional Commands
-
-    /// <summary>
-    /// Save current species and create another one
-    /// </summary>
-    private async Task SaveAndCreateAnotherAsync()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            this.LogInfo("Save and continue workflow started");
-
-            // Ensure genus is set before saving
-            if (SelectedGenusId.HasValue && !string.IsNullOrWhiteSpace(Name))
-            {
-                // Create new entity with current form data
-                var newSpecies = new Models.Species
-                {
-                    Name = Name,
-                    Description = Description,
-                    GenusId = SelectedGenusId.Value,
-                    IsActive = IsActive,
-                    IsFavorite = IsFavorite
-                };
-
-                var saved = await _speciesRepository.CreateAsync(newSpecies);
-                if (saved != null)
-                {
-                    await this.ShowSuccessToast($"Species '{saved.Name}' saved successfully");
-
-                    // Clear form for new entry but keep genus selection
-                    var currentGenus = SelectedGenus;
-                    ClearFormForNewEntry();
-
-                    // Restore genus selection
-                    if (currentGenus != null)
-                    {
-                        SetSelectedGenus(currentGenus);
-                    }
-
-                    this.LogSuccess("Ready for new species entry with same genus");
-                }
-            }
-            else
-            {
-                await ShowErrorAsync("Validation Error", "Please select a genus and enter a species name.");
-            }
-
-        }, "Save and Continue");
-    }
-
-    /// <summary>
-    /// Clear form for new entry
-    /// </summary>
-    private void ClearFormForNewEntry()
-    {
-        Name = string.Empty;
-        Description = string.Empty;
-        IsActive = true;
-        IsFavorite = false;
-        _isEditMode = false;
-        EntityId = null;
-
-        OnPropertyChanged(nameof(PageTitle));
-        OnPropertyChanged(nameof(IsEditMode));
-    }
-
-    /// <summary>
-    /// Delete species with confirmation
-    /// </summary>
-    private async Task DeleteSpeciesAsync()
-    {
-        if (!EntityId.HasValue) return;
-
-        await this.SafeExecuteAsync(async () =>
-        {
-            var confirmTitle = $"Delete {Name}?";
-            var confirmMessage = "Are you sure you want to delete this species?";
-
-            var confirmed = await ShowConfirmAsync(confirmTitle, confirmMessage);
-            if (!confirmed) return;
-
-            var success = await _speciesRepository.DeleteAsync(EntityId.Value);
-            if (success)
-            {
-                await this.ShowSuccessToast($"Species '{Name}' deleted successfully");
-                await _navigationService.GoBackAsync();
+                await _speciesRepository.DeleteAsync(EntityId.Value);
                 this.LogSuccess($"Species deleted: {Name}");
-            }
-            else
-            {
-                await ShowErrorAsync("Delete Failed", "Unable to delete the species. Please try again.");
-                this.LogError($"Failed to delete species: {Name}");
+                await _navigationService.GoBackAsync();
             }
 
-        }, $"Delete Species: {Name}");
+        }, "Failed to delete species");
+    }
+
+    /// <summary>
+    /// Create new genus command
+    /// </summary>
+    [RelayCommand]
+    private async Task CreateNewGenusAsync()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            await _navigationService.NavigateToAsync("//genera/edit");
+        }, "CreateNewGenus");
     }
 
     #endregion
 
-    #region Can Execute Properties
+    #region Override Save Success for Messaging - EXACT pattern from GenusEditViewModel
 
     /// <summary>
-    /// Can create another species (needs genus selection)
+    /// Override OnSaveSuccessAsync to send species created message
     /// </summary>
-    public bool CanCreateAnother => !IsBusy && SelectedGenusId.HasValue;
+    protected override async Task OnSaveSuccessAsync(Models.Species savedEntity)
+    {
+        await base.OnSaveSuccessAsync(savedEntity);
+
+        // Send species created message if it was a new species
+        if (!IsEditMode)
+        {
+            WeakReferenceMessenger.Default.Send(new SpeciesCreatedMessage { SpeciesName = savedEntity.Name ?? string.Empty });
+        }
+    }
+
+    #endregion
+
+    #region Data Loading - Following GenusEditViewModel Pattern
+
+    /// <summary>
+    /// Load species data for editing - EXACT pattern from GenusEditViewModel
+    /// </summary>
+    private async Task LoadSpeciesDataAsync(Guid speciesId)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            this.LogInfo($"Loading species data: {speciesId}");
+
+            var species = await _speciesRepository.GetByIdAsync(speciesId);
+            if (species != null)
+            {
+                // Populate basic fields - handled by BaseEditViewModel automatically
+                EntityId = species.Id;
+                Name = species.Name;
+                Description = species.Description ?? string.Empty;
+                IsActive = species.IsActive;
+                IsFavorite = species.IsFavorite;
+
+                // Load species-specific properties
+                CommonName = species.CommonName ?? string.Empty;
+                SizeCategory = species.SizeCategory ?? "Medium";
+                RarityStatus = species.RarityStatus ?? "Common";
+                Fragrance = species.Fragrance ?? false;
+                CultivationNotes = species.CultivationNotes ?? string.Empty;
+                HabitatInfo = species.HabitatInfo ?? string.Empty;
+                FloweringSeason = species.FloweringSeason ?? string.Empty;
+                FlowerColors = species.FlowerColors ?? string.Empty;
+                TemperaturePreference = species.TemperaturePreference ?? string.Empty;
+                LightRequirements = species.LightRequirements ?? string.Empty;
+                HumidityPreference = species.HumidityPreference ?? string.Empty;
+                GrowthHabit = species.GrowthHabit ?? string.Empty;
+                BloomDuration = species.BloomDuration ?? string.Empty;
+
+                // Set genus relationship
+                SelectedGenusId = species.GenusId;
+                var genus = AvailableGenera?.FirstOrDefault(g => g.Id == species.GenusId);
+                SelectedGenusName = genus?.Name ?? string.Empty;
+
+                OnPropertyChanged(nameof(SelectedGenus));
+                OnPropertyChanged(nameof(GenusContext));
+
+                _isEditMode = true;
+                HasUnsavedChanges = false;
+
+                this.LogSuccess($"Species data loaded: {species.Name}");
+            }
+
+        }, "Failed to load species data");
+    }
+
+    #endregion
+
+    #region Navigation and Query Attributes - Following GenusEditViewModel Pattern
+
+    /// <summary>
+    /// Apply query attributes for navigation - EXACT pattern from GenusEditViewModel
+    /// </summary>
+    public new async void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            this.LogInfo($"ApplyQueryAttributes for Species with {query.Count} parameters");
+
+            // Load available genera first
+            await LoadAvailableGeneraAsync();
+
+            // Check for species ID or entity parameter
+            Guid? speciesId = null;
+
+            if (query.TryGetValue("speciesId", out var idValue))
+            {
+                speciesId = this.ConvertToGuid(idValue);
+            }
+            else if (query.TryGetValue("species", out var entityValue) && entityValue is Models.Species species)
+            {
+                speciesId = species.Id;
+            }
+
+            if (speciesId.HasValue && speciesId.Value != Guid.Empty)
+            {
+                await LoadSpeciesDataAsync(speciesId.Value);
+            }
+
+            // Handle genus pre-selection for new species
+            if (query.TryGetValue("genusId", out var genusIdValue))
+            {
+                var genusId = this.ConvertToGuid(genusIdValue);
+                if (genusId.HasValue)
+                {
+                    SetSelectedGenus(AvailableGenera?.FirstOrDefault(g => g.Id == genusId.Value));
+                }
+            }
+
+        }, "Apply Query Attributes");
+    }
+
+    /// <summary>
+    /// Convert object to Guid safely
+    /// </summary>
+    private Guid? ConvertToGuid(object obj)
+    {
+        if (obj == null) return null;
+        if (obj is Guid guid) return guid;
+        if (obj is string str && Guid.TryParse(str, out var parsedGuid)) return parsedGuid;
+        return null;
+    }
 
     #endregion
 }
