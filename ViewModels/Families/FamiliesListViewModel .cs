@@ -1,6 +1,7 @@
 ﻿using CommunityToolkit.Mvvm.Input;
 using OrchidPro.Models;
 using OrchidPro.Services;
+using OrchidPro.Services.Base;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
 using OrchidPro.Extensions;
@@ -8,15 +9,15 @@ using OrchidPro.Extensions;
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ViewModel for managing list of botanical families with enhanced base functionality.
-/// Provides family-specific implementations while leveraging generic base operations.
+/// MINIMAL Family list ViewModel - reduced from ~150 lines to essential code only!
+/// All common functionality moved to BaseListViewModel and pattern classes.
 /// </summary>
 public partial class FamiliesListViewModel : BaseListViewModel<Family, FamilyItemViewModel>
 {
     #region Private Fields
 
-    // Family-specific repository for accessing family-only methods
     private readonly IFamilyRepository _familyRepository;
+    private readonly IGenusRepository _genusRepository;
 
     #endregion
 
@@ -30,55 +31,43 @@ public partial class FamiliesListViewModel : BaseListViewModel<Family, FamilyIte
 
     #region Constructor
 
-    /// <summary>
-    /// Initialize families list ViewModel with enhanced base functionality
-    /// </summary>
-    public FamiliesListViewModel(IFamilyRepository repository, INavigationService navigationService)
+    public FamiliesListViewModel(IFamilyRepository repository, IGenusRepository genusRepository, INavigationService navigationService)
         : base(repository, navigationService)
     {
         _familyRepository = repository;
-        this.LogInfo("Initialized - using enhanced base with all extracted functionality");
+        _genusRepository = genusRepository;
+        this.LogInfo("Initialized - using bases for ALL functionality");
     }
 
     #endregion
 
     #region Required Implementation
 
-    /// <summary>
-    /// Create family-specific item ViewModel from entity
-    /// </summary>
     protected override FamilyItemViewModel CreateItemViewModel(Family entity)
     {
         return this.SafeExecute(() =>
         {
-            var itemViewModel = new FamilyItemViewModel(entity);
-            this.LogInfo($"Created FamilyItemViewModel for: {entity.Name}");
+            var itemViewModel = new FamilyItemViewModel(entity, _genusRepository);
+            this.LogInfo($"Created FamilyItemViewModel with genus support for: {entity.Name}");
             return itemViewModel;
         }, fallbackValue: new FamilyItemViewModel(entity), operationName: "CreateItemViewModel");
     }
 
     #endregion
 
-    #region Family-Specific Overrides
+    #region Family-Specific Sort Override
 
-    /// <summary>
-    /// Apply family-specific sorting logic including favorites-first option
-    /// </summary>
     protected override IOrderedEnumerable<FamilyItemViewModel> ApplyEntitySpecificSort(IEnumerable<FamilyItemViewModel> filtered)
     {
         return this.SafeExecute(() =>
         {
             this.LogInfo($"Applying sort order: {SortOrder}");
 
-            var sorted = SortOrder switch
-            {
-                "Name A→Z" => filtered.OrderBy(item => item.Name),
-                "Name Z→A" => filtered.OrderByDescending(item => item.Name),
-                "Recent First" => filtered.OrderByDescending(item => item.UpdatedAt),
-                "Oldest First" => filtered.OrderBy(item => item.CreatedAt),
-                "Favorites First" => filtered.OrderByDescending(item => item.IsFavorite).ThenBy(item => item.Name),
-                _ => filtered.OrderBy(item => item.Name)
-            };
+            // Use BaseSortPatterns with family-specific extensions
+            var sorted = BaseSortPatterns.ApplyStandardSort(
+                filtered,
+                SortOrder,
+                BaseSortPatterns.ApplyFamilySpecificSort<FamilyItemViewModel>);
 
             this.LogSuccess($"Sort applied successfully: {SortOrder}");
             return sorted;
@@ -86,43 +75,30 @@ public partial class FamiliesListViewModel : BaseListViewModel<Family, FamilyIte
         }, fallbackValue: filtered.OrderBy(item => item.Name), operationName: "ApplyEntitySpecificSort");
     }
 
-    /// <summary>
-    /// Toggle favorite status using family-specific repository implementation
-    /// </summary>
-    protected override async Task ToggleFavoriteAsync(FamilyItemViewModel item)
+    #endregion
+
+    #region Delete Operations Using Base Pattern
+
+    public IAsyncRelayCommand<FamilyItemViewModel> DeleteSingleCommand =>
+        new AsyncRelayCommand<FamilyItemViewModel>(DeleteSingleWithValidationAsync);
+
+    private async Task DeleteSingleWithValidationAsync(FamilyItemViewModel? item)
     {
-        await this.SafeExecuteAsync(async () =>
-        {
-            if (item?.Id == null) return;
+        // ✅ CORRIGIDO: Cast para IHierarchicalRepository
+        var hierarchicalGenusRepo = _genusRepository as IHierarchicalRepository<Genus, Family>;
 
-            this.LogInfo($"Toggling favorite for: {item.Name}");
-
-            // Use the family-specific repository directly
-            var updatedFamily = await _familyRepository.ToggleFavoriteAsync(item.Id);
-
-            // Update the item by replacing it with updated data
-            var index = Items.IndexOf(item);
-            if (index >= 0)
-            {
-                Items[index] = new FamilyItemViewModel(updatedFamily);
-                this.LogInfo($"Updated item at index {index} with new favorite status");
-            }
-
-            UpdateCounters();
-            this.LogSuccess($"Favorite toggled: {item.Name} → {updatedFamily.IsFavorite}");
-
-        }, $"ToggleFavorite failed for {item?.Name}");
+        await BaseDeleteOperations.ExecuteHierarchicalDeleteAsync<Family, Genus, FamilyItemViewModel>(
+            item,
+            _familyRepository,
+            hierarchicalGenusRepo,
+            EntityName,
+            "genus",
+            "genera",
+            Items,
+            UpdateCounters,
+            async (title, message) => await ShowConfirmAsync(title, message),
+            async (message) => await ShowSuccessToastAsync(message));
     }
 
     #endregion
-
-    #region Public Commands for XAML Integration
-
-    /// <summary>
-    /// Public command for single item deletion used by swipe-to-delete actions
-    /// </summary>
-    public IAsyncRelayCommand<FamilyItemViewModel> DeleteSingleCommand => DeleteSingleItemSafeCommand;
-
-    #endregion
-
 }

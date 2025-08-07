@@ -115,11 +115,12 @@
                          ContentTemplate="{DataTemplate pages:FamiliesListPage}" />
         </Tab>
 
-        <!-- Future: Genera -->
-        <Tab Title="Genera" IsEnabled="False">
+        <!-- Genera management tab -->
+        <Tab Title="Genera">
             <ShellContent Title="Genera" 
                          Icon="genus.png" 
-                         Route="genera" />
+                         Route="genera" 
+                         ContentTemplate="{DataTemplate pages:GeneraListPage}" />
         </Tab>
 
         <!-- Future: Species -->
@@ -143,13 +144,6 @@
     <!-- Settings Section -->
     <FlyoutItem Title="Settings" Icon="settings.png" IsEnabled="False">
         <ShellContent Route="settings" />
-    </FlyoutItem>
-
-    <!-- Debug section (only visible in debug builds) -->
-    <FlyoutItem x:Name="DebugSection" Title="🧪 Debug Tools" Icon="debug.png" FlyoutDisplayOptions="AsMultipleItems">
-        <ShellContent Title="Test Sync" 
-                     Route="testsync" 
-                     ContentTemplate="{DataTemplate pages:TestSyncPage}" />
     </FlyoutItem>
 
 </Shell>

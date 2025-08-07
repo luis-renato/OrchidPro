@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:vm="clr-namespace:OrchidPro.ViewModels.Families"
+             xmlns:vm="clr-namespace:OrchidPro.ViewModels.Genera"
              xmlns:mct="clr-namespace:CommunityToolkit.Maui.Behaviors;assembly=CommunityToolkit.Maui"
              xmlns:sflistview="clr-namespace:Syncfusion.Maui.ListView;assembly=Syncfusion.Maui.ListView"
              xmlns:sfpulltorefresh="clr-namespace:Syncfusion.Maui.PullToRefresh;assembly=Syncfusion.Maui.PullToRefresh"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              xmlns:sfbutton="clr-namespace:Syncfusion.Maui.Buttons;assembly=Syncfusion.Maui.Buttons"
-             x:Class="OrchidPro.Views.Pages.FamiliesListPage"
-             x:DataType="vm:FamiliesListViewModel"
+             x:Class="OrchidPro.Views.Pages.GeneraListPage"
+             x:DataType="vm:GeneraListViewModel"
              x:Name="ParentPage"
-             Title="Families"
+             Title="Genera"
              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
              Shell.NavBarIsVisible="True"
              Shell.BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
@@ -36,7 +36,7 @@
                                StatusBarStyle="LightContent" />
     </ContentPage.Behaviors>
 
-    <!-- ✅ GRID SIMPLES IGUAL AO EXEMPLO QUE FUNCIONA -->
+    <!-- Grid simples igual ao exemplo que funciona -->
     <Grid x:Name="RootGrid" Opacity="0">
 
         <!-- Main content card -->
@@ -65,7 +65,7 @@
                                TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
                                VerticalOptions="Center">
                             <Label.Text>
-                                <MultiBinding StringFormat="{}{0} families • {1} active • {2} favorites">
+                                <MultiBinding StringFormat="{}{0} genera • {1} active • {2} favorites">
                                     <Binding Path="TotalCount" />
                                     <Binding Path="ActiveCount" />
                                     <Binding Path="FavoriteCount" FallbackValue="0" />
@@ -91,7 +91,7 @@
                 <!-- Main content with search and list -->
                 <Grid Grid.Row="1" RowDefinitions="Auto,*">
 
-                    <!-- ✅ TEMPLATE 5: Search bar usando templates -->
+                    <!-- Search bar usando templates -->
                     <Border Grid.Row="0" Style="{StaticResource SearchBarContainerStyle}">
 
                         <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="10" Padding="2,0,0,0">
@@ -103,7 +103,7 @@
 
                                     <Entry Grid.Column="1"
                                            Text="{Binding SearchText}"
-                                           Placeholder="Search families..."
+                                           Placeholder="Search genera and families..."
                                            Style="{StaticResource SearchEntryStyle}"
                                            ReturnCommand="{Binding ApplyFilterCommand}"
                                            Focused="OnSearchFocused"
@@ -142,8 +142,8 @@
                                                      RefreshCommand="{Binding RefreshCommand}">
                         <sfpulltorefresh:SfPullToRefresh.PullableContent>
 
-                            <!-- ✅ CORRIGIDO: ListView com cores do ResourceDictionary -->
-                            <sflistview:SfListView x:Name="FamilyListView"
+                            <!-- ListView com cores do ResourceDictionary -->
+                            <sflistview:SfListView x:Name="GeneraListView"
                                                ItemsSource="{Binding Items}"
                                                SelectionMode="Multiple"
                                                SelectionGesture="LongPress"
@@ -163,7 +163,7 @@
                                                SwipeOffset="90"
                                                SwipeThreshold="90">
 
-                                <!-- ✅ CORRIGIDO: StartSwipeTemplate - usar WarningColor -->
+                                <!-- StartSwipeTemplate - usar WarningColor -->
                                 <sflistview:SfListView.StartSwipeTemplate>
                                     <DataTemplate>
                                         <Grid BackgroundColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}" 
@@ -178,7 +178,7 @@
                                     </DataTemplate>
                                 </sflistview:SfListView.StartSwipeTemplate>
 
-                                <!-- ✅ CORRIGIDO: EndSwipeTemplate - usar ErrorColor -->
+                                <!-- EndSwipeTemplate - usar ErrorColor -->
                                 <sflistview:SfListView.EndSwipeTemplate>
                                     <DataTemplate>
                                         <Grid BackgroundColor="{AppThemeBinding Light={StaticResource ErrorColor}, Dark={StaticResource ErrorColor}}" 
@@ -193,9 +193,10 @@
                                     </DataTemplate>
                                 </sflistview:SfListView.EndSwipeTemplate>
 
-                                <!-- Enhanced Item template with Genus Count -->
+                                <!-- Item template com padding corrigido -->
                                 <sflistview:SfListView.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:FamilyItemViewModel">
+                                    <DataTemplate x:DataType="vm:GenusItemViewModel">
+                                        <!-- SEM MARGIN - itens grudados -->
                                         <Grid Margin="0" BackgroundColor="Transparent">
                                             <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
                                                 Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
@@ -207,8 +208,8 @@
 
                                                 <Grid Padding="20,16" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
 
-                                                    <!-- Header row with optimized layout -->
-                                                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                                    <!-- Header row -->
+                                                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
                                                         <Label Grid.Column="0"
                                                            Text="{Binding Name}"
                                                            FontSize="18"
@@ -217,14 +218,12 @@
                                                            LineBreakMode="TailTruncation"
                                                            VerticalOptions="Center" />
 
-                                                        <!-- Favorite Star -->
                                                         <Label Grid.Column="1"
                                                            Text="⭐"
                                                            FontSize="16"
                                                            IsVisible="{Binding IsFavorite}"
                                                            VerticalOptions="Center" />
 
-                                                        <!-- Active/Inactive Badge -->
                                                         <Border Grid.Column="2"
                                                             BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#4CAF50|#F44336'}"
                                                             Padding="12,6"
@@ -248,53 +247,19 @@
                                                        MaxLines="1"
                                                        IsVisible="{Binding DescriptionPreview, Converter={StaticResource StringToBoolConverter}}" />
 
-                                                    <!-- Creation date with genus count badge -->
-                                                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                        <Label Grid.Column="0"
-                                                           Text="{Binding CreatedAt, StringFormat='Created {0:dd/MM/yyyy}'}"
-                                                           FontSize="12"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
-                                                           VerticalOptions="Center" />
-
-                                                        <!-- Genus Count Badge -->
-                                                        <Border Grid.Column="1"
-                                                                BackgroundColor="{AppThemeBinding Light=#E3F2FD, Dark=#1E3A8A}"
-                                                                Stroke="{AppThemeBinding Light=#BBDEFB, Dark=#3B82F6}"
-                                                                StrokeThickness="1"
-                                                                Padding="8,4"
-                                                                VerticalOptions="Center"
-                                                                IsVisible="{Binding IsLoadingGenusCount, Converter={StaticResource InvertedBoolConverter}}">
-                                                            <Border.StrokeShape>
-                                                                <RoundRectangle CornerRadius="10" />
-                                                            </Border.StrokeShape>
-                                                            <StackLayout Orientation="Horizontal" Spacing="4">
-                                                                <Label Text="🌱"
-                                                                       FontSize="11"
-                                                                       VerticalOptions="Center" />
-                                                                <Label Text="{Binding GenusCount}"
-                                                                       FontSize="11"
-                                                                       FontAttributes="Bold"
-                                                                       TextColor="{AppThemeBinding Light=#1976D2, Dark=#60A5FA}"
-                                                                       VerticalOptions="Center" />
-                                                            </StackLayout>
-                                                        </Border>
-
-                                                        <!-- Loading Genus Count -->
-                                                        <ActivityIndicator Grid.Column="1"
-                                                                           IsRunning="{Binding IsLoadingGenusCount}"
-                                                                           Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                                           WidthRequest="20"
-                                                                           HeightRequest="20"
-                                                                           VerticalOptions="Center" />
-                                                    </Grid>
-
+                                                    <!-- Creation date -->
+                                                    <Label Grid.Row="2"
+                                                       Text="{Binding CreatedAt, StringFormat='Created {0:dd/MM/yyyy}'}"
+                                                       FontSize="12"
+                                                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
+                                                       VerticalOptions="Center" />
                                                 </Grid>
                                             </Border>
                                         </Grid>
                                     </DataTemplate>
                                 </sflistview:SfListView.ItemTemplate>
 
-                                <!-- ✅ TEMPLATE 2: Empty view genérico (sem botão redundante) -->
+                                <!-- Empty view genérico (sem botão redundante) -->
                                 <sflistview:SfListView.EmptyView>
                                     <ContentView Style="{StaticResource GenericEmptyStateStyle}" />
                                 </sflistview:SfListView.EmptyView>
@@ -308,12 +273,12 @@
             </Grid>
         </Border>
 
-        <!-- ✅ TEMPLATE 1: LOADING OVERLAY USANDO TEMPLATE -->
+        <!-- Loading overlay usando template -->
         <ContentView Style="{StaticResource LoadingOverlayStyle}" />
 
-        <!-- ✅ TEMPLATE 4: FAB usando template -->
+        <!-- FAB usando template -->
         <Button x:Name="FabButton"
-                Text="{Binding FabText, FallbackValue='Add Family'}"
+                Text="{Binding FabText, FallbackValue='Add Genus'}"
                 Style="{StaticResource FabButtonStyle}"
                 IsVisible="True"
                 IsEnabled="{Binding IsConnected, FallbackValue=True}"

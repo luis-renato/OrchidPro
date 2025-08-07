@@ -8,14 +8,17 @@ using OrchidPro.Extensions;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// Supabase database model representing families table.
+/// Supabase database model representing genera table with family relationship.
 /// Maps between database schema and application domain models.
 /// </summary>
-[Table("families")]
-public class SupabaseFamily : BaseModel
+[Table("genera")]
+public class SupabaseGenus : BaseModel
 {
     [PrimaryKey("id", false)]
     public Guid Id { get; set; } = Guid.NewGuid();
+
+    [Column("family_id")]
+    public Guid FamilyId { get; set; }
 
     [Column("user_id")]
     public Guid? UserId { get; set; }
@@ -39,13 +42,14 @@ public class SupabaseFamily : BaseModel
     public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
     /// <summary>
-    /// Convert SupabaseFamily to domain Family model
+    /// Convert SupabaseGenus to domain Genus model
     /// </summary>
-    public Family ToFamily()
+    public Genus ToGenus()
     {
-        return new Family
+        return new Genus
         {
             Id = this.Id,
+            FamilyId = this.FamilyId,
             UserId = this.UserId,
             Name = this.Name ?? string.Empty,
             Description = this.Description,
@@ -57,29 +61,30 @@ public class SupabaseFamily : BaseModel
     }
 
     /// <summary>
-    /// Convert domain Family model to SupabaseFamily
+    /// Convert domain Genus model to SupabaseGenus
     /// </summary>
-    public static SupabaseFamily FromFamily(Family family)
+    public static SupabaseGenus FromGenus(Genus genus)
     {
-        return new SupabaseFamily
+        return new SupabaseGenus
         {
-            Id = family.Id,
-            UserId = family.UserId,
-            Name = family.Name,
-            Description = family.Description,
-            IsActive = family.IsActive,
-            IsFavorite = family.IsFavorite,
-            CreatedAt = family.CreatedAt,
-            UpdatedAt = family.UpdatedAt
+            Id = genus.Id,
+            FamilyId = genus.FamilyId,
+            UserId = genus.UserId,
+            Name = genus.Name,
+            Description = genus.Description,
+            IsActive = genus.IsActive,
+            IsFavorite = genus.IsFavorite,
+            CreatedAt = genus.CreatedAt,
+            UpdatedAt = genus.UpdatedAt
         };
     }
 }
 
 /// <summary>
-/// REFACTORED: Family service implementing ISupabaseEntityService<Family> interface.
-/// Reduced from ~500 lines to minimal implementation focused on Family-specific logic.
+/// REFACTORED: Genus service implementing ISupabaseEntityService<Genus> interface.
+/// Reduced from ~500 lines to minimal implementation focused on Genus-specific logic.
 /// </summary>
-public class SupabaseFamilyService : ISupabaseEntityService<Family>
+public class SupabaseGenusService : ISupabaseEntityService<Genus>
 {
     #region Private Fields
 
@@ -89,43 +94,43 @@ public class SupabaseFamilyService : ISupabaseEntityService<Family>
 
     #region Constructor
 
-    public SupabaseFamilyService(SupabaseService supabaseService)
+    public SupabaseGenusService(SupabaseService supabaseService)
     {
         _supabaseService = supabaseService ?? throw new ArgumentNullException(nameof(supabaseService));
-        this.LogInfo("SupabaseFamilyService initialized - implementing ISupabaseEntityService");
+        this.LogInfo("SupabaseGenusService initialized - implementing ISupabaseEntityService");
     }
 
     #endregion
 
-    #region ISupabaseEntityService<Family> Implementation
+    #region ISupabaseEntityService<Genus> Implementation
 
-    public async Task<IEnumerable<Family>> GetAllAsync()
+    public async Task<IEnumerable<Genus>> GetAllAsync()
     {
         var result = await this.SafeDataExecuteAsync(async () =>
         {
             if (_supabaseService.Client == null)
-                return new List<Family>();
+                return new List<Genus>();
 
             var currentUserId = GetCurrentUserId();
             var response = await _supabaseService.Client
-                .From<SupabaseFamily>()
+                .From<SupabaseGenus>()
                 .Select("*")
                 .Get();
 
             if (response?.Models == null)
-                return new List<Family>();
+                return new List<Genus>();
 
-            // Filter: user families OR system defaults (UserId == null)
-            var filteredFamilies = response.Models.Where(sf =>
-                sf.UserId == currentUserId || sf.UserId == null);
+            // Filter: user genera OR system defaults (UserId == null)
+            var filteredGenera = response.Models.Where(sg =>
+                sg.UserId == currentUserId || sg.UserId == null);
 
-            return filteredFamilies.Select(sf => sf.ToFamily()).OrderBy(f => f.Name).ToList();
-        }, "Families");
+            return filteredGenera.Select(sg => sg.ToGenus()).OrderBy(g => g.Name).ToList();
+        }, "Genera");
 
-        return result.Success && result.Data != null ? result.Data : new List<Family>();
+        return result.Success && result.Data != null ? result.Data : new List<Genus>();
     }
 
-    public async Task<Family?> GetByIdAsync(Guid id)
+    public async Task<Genus?> GetByIdAsync(Guid id)
     {
         var result = await this.SafeDataExecuteAsync(async () =>
         {
@@ -133,17 +138,17 @@ public class SupabaseFamilyService : ISupabaseEntityService<Family>
                 return null;
 
             var response = await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Where(f => f.Id == id)
+                .From<SupabaseGenus>()
+                .Where(g => g.Id == id)
                 .Single();
 
-            return response?.ToFamily();
-        }, "Family");
+            return response?.ToGenus();
+        }, "Genus");
 
         return result.Success ? result.Data : null;
     }
 
-    public async Task<Family?> CreateAsync(Family entity)
+    public async Task<Genus?> CreateAsync(Genus entity)
     {
         var result = await this.SafeDataExecuteAsync(async () =>
         {
@@ -155,18 +160,18 @@ public class SupabaseFamilyService : ISupabaseEntityService<Family>
             entity.UpdatedAt = DateTime.UtcNow;
             entity.UserId = GetCurrentUserId();
 
-            var supabaseFamily = SupabaseFamily.FromFamily(entity);
+            var supabaseGenus = SupabaseGenus.FromGenus(entity);
             var response = await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Insert(supabaseFamily);
+                .From<SupabaseGenus>()
+                .Insert(supabaseGenus);
 
-            return response?.Models?.FirstOrDefault()?.ToFamily() ?? entity;
-        }, "Family");
+            return response?.Models?.FirstOrDefault()?.ToGenus() ?? entity;
+        }, "Genus");
 
         return result.Success ? result.Data : null;
     }
 
-    public async Task<Family?> UpdateAsync(Family entity)
+    public async Task<Genus?> UpdateAsync(Genus entity)
     {
         var result = await this.SafeDataExecuteAsync(async () =>
         {
@@ -174,15 +179,15 @@ public class SupabaseFamilyService : ISupabaseEntityService<Family>
                 return null;
 
             entity.UpdatedAt = DateTime.UtcNow;
-            var supabaseFamily = SupabaseFamily.FromFamily(entity);
+            var supabaseGenus = SupabaseGenus.FromGenus(entity);
 
             await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Where(f => f.Id == entity.Id)
-                .Update(supabaseFamily);
+                .From<SupabaseGenus>()
+                .Where(g => g.Id == entity.Id)
+                .Update(supabaseGenus);
 
             return entity;
-        }, "Family");
+        }, "Genus");
 
         return result.Success ? result.Data : null;
     }
@@ -195,22 +200,22 @@ public class SupabaseFamilyService : ISupabaseEntityService<Family>
                 return false;
 
             await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Where(f => f.Id == id)
+                .From<SupabaseGenus>()
+                .Where(g => g.Id == id)
                 .Delete();
 
             return true;
-        }, "Family");
+        }, "Genus");
 
         return result.Success && result.Data;
     }
 
     public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
     {
-        var families = await GetAllAsync();
-        return families.Any(f =>
-            string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase) &&
-            f.Id != excludeId);
+        var genera = await GetAllAsync();
+        return genera.Any(g =>
+            string.Equals(g.Name, name, StringComparison.OrdinalIgnoreCase) &&
+            g.Id != excludeId);
     }
 
     #endregion

@@ -1,21 +1,21 @@
-﻿using OrchidPro.ViewModels.Families;
+﻿using OrchidPro.ViewModels.Genera;
 using OrchidPro.Constants;
 using OrchidPro.Extensions;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// Page for displaying and managing list of botanical families with advanced UI features.
+/// Page for displaying and managing list of botanical genera with advanced UI features.
 /// Provides CRUD operations, multi-selection, filtering, sorting, and swipe actions.
 /// </summary>
-public partial class FamiliesListPage : ContentPage
+public partial class GeneraListPage : ContentPage
 {
-    private readonly FamiliesListViewModel _viewModel;
+    private readonly GeneraListViewModel _viewModel;
 
     /// <summary>
-    /// Initialize the families list page with dependency injection and event binding
+    /// Initialize the genera list page with dependency injection and event binding
     /// </summary>
-    public FamiliesListPage(FamiliesListViewModel viewModel)
+    public GeneraListPage(GeneraListViewModel viewModel)
     {
         InitializeComponent();
         _viewModel = viewModel;
@@ -58,17 +58,17 @@ public partial class FamiliesListPage : ContentPage
                 ? Syncfusion.Maui.ListView.SelectionMode.Multiple
                 : Syncfusion.Maui.ListView.SelectionMode.None;
 
-            if (FamilyListView.SelectionMode != targetMode)
+            if (GeneraListView.SelectionMode != targetMode)
             {
-                this.LogInfo($"Syncing SelectionMode: {FamilyListView.SelectionMode} → {targetMode}");
-                FamilyListView.SelectionMode = targetMode;
-                this.LogSuccess($"SelectionMode synced to: {FamilyListView.SelectionMode}");
+                this.LogInfo($"Syncing SelectionMode: {GeneraListView.SelectionMode} → {targetMode}");
+                GeneraListView.SelectionMode = targetMode;
+                this.LogSuccess($"SelectionMode synced to: {GeneraListView.SelectionMode}");
             }
 
-            if (!_viewModel.IsMultiSelectMode && FamilyListView.SelectedItems?.Count > 0)
+            if (!_viewModel.IsMultiSelectMode && GeneraListView.SelectedItems?.Count > 0)
             {
                 this.LogInfo("Clearing ListView selections on multi-select exit");
-                FamilyListView.SelectedItems.Clear();
+                GeneraListView.SelectedItems.Clear();
             }
         }, "SyncSelectionMode");
     }
@@ -104,7 +104,7 @@ public partial class FamiliesListPage : ContentPage
 
         await this.SafeExecuteAsync(async () =>
         {
-            if (FamilyListView.SelectedItems == null)
+            if (GeneraListView.SelectedItems == null)
             {
                 this.LogInfo("Initializing ListView.SelectedItems");
                 await Task.Delay(100);
@@ -124,7 +124,7 @@ public partial class FamiliesListPage : ContentPage
         SyncSelectionMode();
         UpdateFabVisual();
 
-        this.LogInfo($"Final check - ListView.SelectedItems: {(FamilyListView.SelectedItems != null ? "OK" : "NULL")}");
+        this.LogInfo($"Final check - ListView.SelectedItems: {(GeneraListView.SelectedItems != null ? "OK" : "NULL")}");
     }
 
     /// <summary>
@@ -207,7 +207,7 @@ public partial class FamiliesListPage : ContentPage
                         : Color.FromArgb(ColorConstants.PRIMARY_COLOR);
 
                     FabButton.BackgroundColor = primaryColor;
-                    FabButton.Text = TextConstants.ADD_FAMILY;
+                    FabButton.Text = "Add Genus"; // Genus-specific text
                     this.LogInfo("Set to ADD mode");
                 }
 
@@ -220,7 +220,7 @@ public partial class FamiliesListPage : ContentPage
             Device.BeginInvokeOnMainThread(() =>
             {
                 FabButton.IsVisible = true;
-                FabButton.Text = TextConstants.ADD_FAMILY;
+                FabButton.Text = "Add Genus";
 
                 var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
                     ? (Color)primary
@@ -243,10 +243,10 @@ public partial class FamiliesListPage : ContentPage
         {
             this.LogInfo("Select All toolbar tapped");
 
-            if (FamilyListView.SelectionMode != Syncfusion.Maui.ListView.SelectionMode.Multiple)
+            if (GeneraListView.SelectionMode != Syncfusion.Maui.ListView.SelectionMode.Multiple)
             {
                 this.LogInfo("Setting ListView to Multiple mode for Select All");
-                FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.Multiple;
+                GeneraListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.Multiple;
             }
 
             if (_viewModel?.SelectAllCommand?.CanExecute(null) == true)
@@ -259,20 +259,20 @@ public partial class FamiliesListPage : ContentPage
             {
                 this.SafeExecute(() =>
                 {
-                    FamilyListView.SelectedItems?.Clear();
+                    GeneraListView.SelectedItems?.Clear();
 
                     foreach (var item in _viewModel.Items)
                     {
-                        if (item.IsSelected && FamilyListView.SelectedItems != null)
+                        if (item.IsSelected && GeneraListView.SelectedItems != null)
                         {
-                            FamilyListView.SelectedItems.Add(item);
+                            GeneraListView.SelectedItems.Add(item);
                             this.LogInfo($"Added {item.Name} to ListView selection");
                         }
                     }
 
                     for (int i = 0; i < _viewModel.Items.Count; i++)
                     {
-                        FamilyListView.RefreshItem(i);
+                        GeneraListView.RefreshItem(i);
                     }
 
                     UpdateFabVisual();
@@ -300,14 +300,14 @@ public partial class FamiliesListPage : ContentPage
             {
                 this.SafeExecute(() =>
                 {
-                    FamilyListView.SelectedItems?.Clear();
-                    FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
+                    GeneraListView.SelectedItems?.Clear();
+                    GeneraListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
 
                     if (_viewModel?.Items != null)
                     {
                         for (int i = 0; i < _viewModel.Items.Count; i++)
                         {
-                            FamilyListView.RefreshItem(i);
+                            GeneraListView.RefreshItem(i);
                         }
                     }
 
@@ -403,14 +403,14 @@ public partial class FamiliesListPage : ContentPage
                 {
                     this.SafeExecute(() =>
                     {
-                        FamilyListView.SelectedItems?.Clear();
-                        FamilyListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
+                        GeneraListView.SelectedItems?.Clear();
+                        GeneraListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
 
                         if (_viewModel?.Items != null)
                         {
                             for (int i = 0; i < _viewModel.Items.Count; i++)
                             {
-                                FamilyListView.RefreshItem(i);
+                                GeneraListView.RefreshItem(i);
                             }
                         }
 
@@ -431,7 +431,7 @@ public partial class FamiliesListPage : ContentPage
             }
             else
             {
-                this.LogInfo("Adding new family");
+                this.LogInfo("Adding new genus");
 
                 if (_viewModel?.AddNewCommand?.CanExecute(null) == true)
                 {
@@ -441,8 +441,8 @@ public partial class FamiliesListPage : ContentPage
                 {
                     await this.SafeNavigationExecuteAsync(async () =>
                     {
-                        await Shell.Current.GoToAsync("familyedit");
-                    }, "familyedit");
+                        await Shell.Current.GoToAsync("genusedit");
+                    }, "genusedit");
                 }
             }
         }, "FAB action failed");
@@ -529,11 +529,11 @@ public partial class FamiliesListPage : ContentPage
     {
         this.SafeExecute(() =>
         {
-            if (e.DataItem is FamilyItemViewModel item)
+            if (e.DataItem is GenusItemViewModel item)
             {
                 this.LogInfo($"Item tapped: {item.Name}");
                 this.LogInfo($"Current IsMultiSelectMode: {_viewModel?.IsMultiSelectMode}");
-                this.LogInfo($"Current SelectionMode: {FamilyListView.SelectionMode}");
+                this.LogInfo($"Current SelectionMode: {GeneraListView.SelectionMode}");
 
                 if (_viewModel?.IsMultiSelectMode == true)
                 {
@@ -543,7 +543,7 @@ public partial class FamiliesListPage : ContentPage
                     {
                         item.IsSelected = false;
                         _viewModel?.SelectedItems?.Remove(item);
-                        FamilyListView.SelectedItems?.Remove(item);
+                        GeneraListView.SelectedItems?.Remove(item);
                         this.LogInfo($"Deselected: {item.Name}");
                     }
                     else
@@ -551,8 +551,8 @@ public partial class FamiliesListPage : ContentPage
                         item.IsSelected = true;
                         if (_viewModel?.SelectedItems != null && !_viewModel.SelectedItems.Contains(item))
                             _viewModel.SelectedItems.Add(item);
-                        if (FamilyListView.SelectedItems != null && !FamilyListView.SelectedItems.Contains(item))
-                            FamilyListView.SelectedItems.Add(item);
+                        if (GeneraListView.SelectedItems != null && !GeneraListView.SelectedItems.Contains(item))
+                            GeneraListView.SelectedItems.Add(item);
                         this.LogInfo($"Selected: {item.Name}");
                     }
 
@@ -588,7 +588,7 @@ public partial class FamiliesListPage : ContentPage
     {
         this.SafeExecute(() =>
         {
-            if (e.DataItem is FamilyItemViewModel item)
+            if (e.DataItem is GenusItemViewModel item)
             {
                 this.LogInfo($"Long press: {item.Name}");
 
@@ -616,7 +616,7 @@ public partial class FamiliesListPage : ContentPage
                     var index = _viewModel?.Items?.IndexOf(item) ?? -1;
                     if (index >= 0)
                     {
-                        FamilyListView.RefreshItem(index);
+                        GeneraListView.RefreshItem(index);
                         this.LogInfo($"Visual refresh for index: {index}");
                     }
                 });
@@ -633,14 +633,14 @@ public partial class FamiliesListPage : ContentPage
     {
         this.SafeExecute(() =>
         {
-            var selectedCount = FamilyListView.SelectedItems?.Count ?? 0;
+            var selectedCount = GeneraListView.SelectedItems?.Count ?? 0;
             this.LogInfo($"NATIVE Selection changed - ListView count: {selectedCount}");
 
-            if (FamilyListView.SelectedItems != null && _viewModel?.SelectedItems != null)
+            if (GeneraListView.SelectedItems != null && _viewModel?.SelectedItems != null)
             {
                 _viewModel.SelectedItems.Clear();
 
-                foreach (FamilyItemViewModel item in FamilyListView.SelectedItems)
+                foreach (GenusItemViewModel item in GeneraListView.SelectedItems)
                 {
                     _viewModel.SelectedItems.Add(item);
                     item.IsSelected = true;
@@ -665,12 +665,12 @@ public partial class FamiliesListPage : ContentPage
 
                 UpdateFabVisual();
 
-                this.LogInfo($"ViewModel updated - MultiSelect: {_viewModel.IsMultiSelectMode}, SelectionMode: {FamilyListView.SelectionMode}");
+                this.LogInfo($"ViewModel updated - MultiSelect: {_viewModel.IsMultiSelectMode}, SelectionMode: {GeneraListView.SelectionMode}");
             }
 
             if (e.AddedItems?.Count > 0)
             {
-                foreach (FamilyItemViewModel item in e.AddedItems)
+                foreach (GenusItemViewModel item in e.AddedItems)
                 {
                     this.LogInfo($"NATIVE Selected: {item.Name}");
                 }
@@ -678,7 +678,7 @@ public partial class FamiliesListPage : ContentPage
 
             if (e.RemovedItems?.Count > 0)
             {
-                foreach (FamilyItemViewModel item in e.RemovedItems)
+                foreach (GenusItemViewModel item in e.RemovedItems)
                 {
                     item.IsSelected = false;
                     this.LogInfo($"NATIVE Deselected: {item.Name}");
@@ -700,7 +700,7 @@ public partial class FamiliesListPage : ContentPage
     {
         this.SafeExecute(() =>
         {
-            if (e.DataItem is FamilyItemViewModel item)
+            if (e.DataItem is GenusItemViewModel item)
             {
                 this.LogInfo($"Swipe starting for {item.Name} - direction: {e.Direction}");
             }
@@ -714,9 +714,9 @@ public partial class FamiliesListPage : ContentPage
     {
         this.SafeExecute(() =>
         {
-            if (e.DataItem is FamilyItemViewModel item)
+            if (e.DataItem is GenusItemViewModel item)
             {
-                var offsetPercent = Math.Abs(e.Offset) / FamilyListView.SwipeOffset;
+                var offsetPercent = Math.Abs(e.Offset) / GeneraListView.SwipeOffset;
                 var direction = e.Direction.ToString();
                 var icon = direction == "Right" ? "⭐" : "🗑️";
 
@@ -735,14 +735,14 @@ public partial class FamiliesListPage : ContentPage
     {
         var success = await this.SafeExecuteAsync(async () =>
         {
-            if (e.DataItem is not FamilyItemViewModel item)
+            if (e.DataItem is not GenusItemViewModel item)
             {
-                this.LogError("DataItem is not FamilyItemViewModel");
+                this.LogError("DataItem is not GenusItemViewModel");
                 return;
             }
 
             var direction = e.Direction.ToString();
-            var offsetPercent = Math.Abs(e.Offset) / FamilyListView.SwipeOffset;
+            var offsetPercent = Math.Abs(e.Offset) / GeneraListView.SwipeOffset;
             var icon = direction == "Right" ? "⭐" : "🗑️";
 
             this.LogInfo($"{icon} Item: {item.Name}, Direction: {direction}, Progress: {offsetPercent:P1}");
@@ -750,7 +750,7 @@ public partial class FamiliesListPage : ContentPage
             if (offsetPercent < SWIPE_THRESHOLD)
             {
                 this.LogWarning($"INSUFFICIENT SWIPE - Need {SWIPE_THRESHOLD:P0}+, got {offsetPercent:P1}");
-                FamilyListView.ResetSwipeItem();
+                GeneraListView.ResetSwipeItem();
                 return;
             }
 
@@ -808,15 +808,16 @@ public partial class FamiliesListPage : ContentPage
                     break;
             }
 
-            FamilyListView.ResetSwipeItem();
+            GeneraListView.ResetSwipeItem();
             this.LogInfo("Auto-reset completed");
         }, "Swipe action failed");
 
         if (!success)
         {
-            FamilyListView.ResetSwipeItem();
+            GeneraListView.ResetSwipeItem();
         }
     }
 
     #endregion
 }
+            

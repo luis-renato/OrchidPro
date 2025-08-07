@@ -1,17 +1,27 @@
-﻿using OrchidPro.Models;
+﻿using CommunityToolkit.Mvvm.Input;
+using CommunityToolkit.Mvvm.Messaging;
+using OrchidPro.Extensions;
+using OrchidPro.Messages;
+using OrchidPro.Models;
+using OrchidPro.Models.Base;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
-using OrchidPro.Extensions;
 
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// ViewModel for editing and creating botanical family records.
-/// Provides family-specific functionality while leveraging enhanced base edit operations.
+/// MINIMAL Family edit ViewModel - uses BaseEditViewModel SaveCommand + only messaging override
 /// </summary>
-public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttributable
+public partial class FamilyEditViewModel : BaseEditViewModel<Family>
 {
+    #region Private Fields
+
+    private readonly IFamilyRepository _familyRepository;
+    private readonly IGenusRepository _genusRepository;
+
+    #endregion
+
     #region Required Base Class Overrides
 
     public override string EntityName => "Family";
@@ -19,62 +29,106 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>, IQueryAttr
 
     #endregion
 
-    #region Page Title Management
-
-    /// <summary>
-    /// Dynamic page title based on edit mode state
-    /// </summary>
-    public new string PageTitle => IsEditMode ? "Edit Family" : "New Family";
-
-    /// <summary>
-    /// Current edit mode state for UI binding
-    /// </summary>
-    public bool IsEditMode => _isEditMode;
-
-    #endregion
-
     #region Constructor
 
-    /// <summary>
-    /// Initialize family edit ViewModel with enhanced base functionality
-    /// </summary>
-    public FamilyEditViewModel(IFamilyRepository familyRepository, INavigationService navigationService)
+    public FamilyEditViewModel(IFamilyRepository familyRepository, IGenusRepository genusRepository, INavigationService navigationService)
         : base(familyRepository, navigationService)
     {
-        this.LogInfo("Initialized - using base functionality with corrections");
+        _familyRepository = familyRepository;
+        _genusRepository = genusRepository;
+
+        // Only delete command is family-specific
+        DeleteWithValidationCommand = new AsyncRelayCommand(DeleteFamilyAsync, () => CanDelete);
+
+        this.LogInfo("Initialized - using base SaveCommand + delete validation");
     }
 
     #endregion
 
-    #region Query Attributes Handling
+    #region Commands
+
+    public IAsyncRelayCommand DeleteWithValidationCommand { get; }
+
+    #endregion
+
+    #region Override Save Success for Messaging
 
     /// <summary>
-    /// Handle navigation parameters and update edit mode state
+    /// ✅ CORRETO: Override OnSaveSuccessAsync para enviar mensagem
     /// </summary>
-    public new void ApplyQueryAttributes(IDictionary<string, object> query)
+    protected override async Task OnSaveSuccessAsync(Family savedEntity)
     {
-        this.SafeExecute(() =>
+        await base.OnSaveSuccessAsync(savedEntity);
+
+        // Send family created message if it was a new family
+        if (!IsEditMode)
         {
-            this.LogInfo($"ApplyQueryAttributes called with {query.Count} parameters");
-
-            // Log all parameters for debugging
-            foreach (var param in query)
-            {
-                this.LogInfo($"Parameter: {param.Key} = {param.Value} ({param.Value?.GetType().Name})");
-            }
-
-            // Call base implementation first
-            base.ApplyQueryAttributes(query);
-
-            // Notify UI of title and mode changes
-            OnPropertyChanged(nameof(PageTitle));
-            OnPropertyChanged(nameof(IsEditMode));
-
-            this.LogSuccess($"Query attributes applied - IsEditMode: {IsEditMode}, PageTitle: {PageTitle}");
-
-        }, "ApplyQueryAttributes");
+            SendFamilyCreatedMessage(savedEntity.Name);
+        }
     }
 
     #endregion
-    
+
+    #region Family-Specific Operations
+
+    /// <summary>
+    /// Delete family with genus count validation
+    /// </summary>
+    private async Task DeleteFamilyAsync()
+    {
+        if (!EntityId.HasValue) return;
+
+        await this.SafeExecuteAsync(async () =>
+        {
+            // Use GetCountByFamilyAsync (exists in IGenusRepository)
+            var genusCount = await _genusRepository.GetCountByFamilyAsync(EntityId.Value, includeInactive: true);
+
+            string message = genusCount > 0
+                ? $"This family has {genusCount} genera. Delete anyway?"
+                : "Are you sure you want to delete this family?";
+
+            // Use ShowConfirmationAsync from BaseEditViewModel
+            var confirmed = await ShowConfirmationAsync("Delete Family", message, "Delete", "Cancel");
+            if (!confirmed) return;
+
+            var success = await _familyRepository.DeleteAsync(EntityId.Value);
+            if (success)
+            {
+                await ShowSuccessAsync("Success", "Family deleted successfully");
+                await _navigationService.GoBackAsync();
+            }
+            else
+            {
+                await ShowErrorAsync("Error", "Failed to delete family");
+            }
+        }, "Delete Family");
+    }
+
+    #endregion
+
+    #region Property Overrides
+
+    /// <summary>
+    /// Can delete - only in edit mode with valid entity
+    /// </summary>
+    public bool CanDelete => IsEditMode && !IsBusy && EntityId.HasValue;
+
+    #endregion
+
+    #region Messaging
+
+    /// <summary>
+    /// Send family created message after successful save
+    /// </summary>
+    private void SendFamilyCreatedMessage(string familyName)
+    {
+        if (EntityId.HasValue && !string.IsNullOrEmpty(familyName))
+        {
+            var message = new FamilyCreatedMessage(EntityId.Value, familyName);
+            WeakReferenceMessenger.Default.Send(message);
+            this.LogInfo($"Sent FamilyCreatedMessage for: {familyName}");
+        }
+    }
+
+    #endregion
 }

@@ -27,7 +27,7 @@
                                             HeightRequest="50" />
 
                     <!-- Mensagem customizada para FamiliesListPage -->
-                    <Label Text="Loading families..."
+                    <Label Text="Loading..."
                            FontSize="16"
                            FontAttributes="Bold"
                            TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"

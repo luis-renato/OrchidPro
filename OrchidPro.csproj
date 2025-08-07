@@ -59,9 +59,13 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Resource Include="Database\schema_orchidpro.sql" />
+	</ItemGroup>
+
+	<ItemGroup>
 		<!-- ✅ CORE MAUI PACKAGES (mantidos) -->
-		<PackageReference Include="Microsoft.Maui.Controls" Version="9.0.81" />
-		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.6" />
+		<PackageReference Include="Microsoft.Maui.Controls" Version="9.0.90" />
+		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.7" />
 
 		<!-- ✅ COMMUNITY TOOLKIT - ESSENCIAL para MVVM (mantidos) -->
 		<PackageReference Include="CommunityToolkit.Maui" Version="12.1.0" />
@@ -69,10 +73,11 @@
 
 		<!-- ✅ SUPABASE - BACKEND DIRETO (mantido) -->
 		<PackageReference Include="Supabase" Version="1.1.1" />
-		<PackageReference Include="Syncfusion.Maui.Buttons" Version="30.1.41" />
-		<PackageReference Include="Syncfusion.Maui.ListView" Version="30.1.41" />
-		<PackageReference Include="Syncfusion.Maui.PullToRefresh" Version="30.1.41" />
-		<PackageReference Include="Syncfusion.Maui.Core" Version="30.1.41" />		
+		<PackageReference Include="Syncfusion.Maui.Buttons" Version="30.1.42" />
+		<PackageReference Include="Syncfusion.Maui.Inputs" Version="30.1.42" />
+		<PackageReference Include="Syncfusion.Maui.ListView" Version="30.1.42" />
+		<PackageReference Include="Syncfusion.Maui.PullToRefresh" Version="30.1.42" />
+		<PackageReference Include="Syncfusion.Maui.Core" Version="30.1.42" />		
 
 		<!-- ✅ VALIDATION (mantido) -->
 		<PackageReference Include="System.ComponentModel.Annotations" Version="5.0.0" />
@@ -83,6 +88,12 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Compile Update="Views\Pages\GenusEditPage.xaml.cs">
+	    <DependentUpon>GenusEditPage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Pages\GeneraListPage.xaml.cs">
+	    <DependentUpon>GeneraListPage.xaml</DependentUpon>
+	  </Compile>
 	  <Compile Update="Views\Pages\FamiliesListPage.xaml.cs">
 	    <DependentUpon>FamiliesListPage.xaml</DependentUpon>
 	  </Compile>
@@ -104,6 +115,12 @@
 		<MauiXaml Update="Resources\Templates\ButtonStylesTemplate.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
+		<MauiXaml Update="Views\Pages\GenusEditPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\Pages\GeneraListPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
 		<MauiXaml Update="Views\Pages\FamiliesListPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
@@ -114,9 +131,6 @@
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Views\Pages\FamilyEditPage.xaml">
-			<Generator>MSBuild:Compile</Generator>
-		</MauiXaml>
-		<MauiXaml Update="Views\Pages\TestSyncPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 	</ItemGroup>

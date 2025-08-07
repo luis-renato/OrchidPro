@@ -4,7 +4,7 @@ using OrchidPro.Models.Base;
 namespace OrchidPro.Services;
 
 /// <summary>
-/// ✅ CORRIGIDO: IFamilyRepository com TODOS os métodos necessários
+/// CORRIGIDO: IFamilyRepository with ToggleFavoriteAsync method
 /// </summary>
 public interface IFamilyRepository : IBaseRepository<Family>
 {

@@ -224,7 +224,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 if (!confirmed)
                 {
                     this.LogInfo("Delete cancelled by user");
-                    return false;
+                    return false; // ✅ FIXED: No toast on cancel, just return
                 }
 
                 IsBusy = true;
@@ -241,15 +241,15 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 return success;
             }, EntityName);
 
-            if (!result.Success)
+            // ✅ FIXED: Only show error toast if operation failed AND was not cancelled
+            if (!result.Success && result.Data == false && !result.Message.Contains("cancelled"))
             {
-                await ShowErrorToastAsync(result.Message);
+                await ShowErrorToastAsync($"Failed to delete {item.Name}: {result.Message}");
             }
 
             IsBusy = false;
         }
     }
-
     #endregion
 
     #region Property Change Handlers
@@ -478,20 +478,17 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     #region Favorites Management
 
     /// <summary>
-    /// Toggle favorite status for an entity (virtual method for override)
+    /// Generic toggle favorite implementation using BaseToggleFavoritePattern
     /// </summary>
     [RelayCommand]
     protected virtual async Task ToggleFavoriteAsync(TItemViewModel item)
     {
-        await this.SafeExecuteAsync(async () =>
-        {
-            if (item?.Id == null) return;
-
-            this.LogInfo($"Base ToggleFavorite called for: {item.Name}");
-            this.LogWarning("Override this method in specific ViewModel if entity supports favorites");
-
-            await Task.CompletedTask;
-        }, "Toggle Favorite");
+        await BaseToggleFavoritePattern.ExecuteToggleFavoriteAsync<T, TItemViewModel>(
+            item,
+            _repository,
+            Items,
+            CreateItemViewModel,
+            UpdateCounters);
     }
 
     #endregion
