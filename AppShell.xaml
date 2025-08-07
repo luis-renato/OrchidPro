@@ -123,12 +123,14 @@
                          ContentTemplate="{DataTemplate pages:GeneraListPage}" />
         </Tab>
 
-        <!-- Future: Species -->
-        <Tab Title="Species" IsEnabled="False">
+        <!-- Species management tab -->
+        <Tab Title="Genera">
             <ShellContent Title="Species" 
                          Icon="species.png" 
-                         Route="species" />
+                         Route="species" 
+                         ContentTemplate="{DataTemplate pages:SpeciesListPage}" />
         </Tab>
+
     </FlyoutItem>
 
     <!-- Plants Management Section -->

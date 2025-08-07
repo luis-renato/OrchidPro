@@ -7,6 +7,7 @@ using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Families;
 using OrchidPro.ViewModels.Genera;
+using OrchidPro.ViewModels.Species;
 using OrchidPro.Views.Pages;
 using Syncfusion.Maui.Core.Hosting;
 
@@ -93,6 +94,8 @@ public static class MauiProgram
             services.AddSingleton<IFamilyRepository, FamilyRepository>();
             services.AddSingleton<SupabaseGenusService>();
             services.AddSingleton<IGenusRepository, GenusRepository>();
+            services.AddSingleton<SupabaseSpeciesService>();
+            services.AddSingleton<ISpeciesRepository, SpeciesRepository>();
 
             // ViewModels with transient lifetime for proper lifecycle management
             services.AddTransient<FamiliesListViewModel>();
@@ -109,6 +112,10 @@ public static class MauiProgram
             services.AddTransient<GenusEditViewModel>();
             services.AddTransient<GenusItemViewModel>();
 
+            services.AddTransient<SpeciesListViewModel>();
+            services.AddTransient<SpeciesEditViewModel>();
+            services.AddTransient<SpeciesItemViewModel>();
+
             // Core application pages
             services.AddTransient<SplashPage>();
             services.AddTransient<LoginPage>();
@@ -119,6 +126,8 @@ public static class MauiProgram
             services.AddTransient<FamilyEditPage>();
             services.AddTransient<GeneraListPage>();
             services.AddTransient<GenusEditPage>();
+            services.AddTransient<SpeciesListPage>();
+            services.AddTransient<SpeciesEditPage>();
 
             // Application shell with singleton lifetime
             services.AddSingleton<AppShell>();
@@ -182,6 +191,7 @@ public static class MauiProgram
             Routing.RegisterRoute("familyedit", typeof(FamilyEditPage));
             Routing.RegisterRoute("families-syncfusion", typeof(FamiliesListPage));
             Routing.RegisterRoute("genusedit", typeof(GenusEditPage));
+            Routing.RegisterRoute("speciesedit", typeof(SpeciesEditPage));
 
             // Future feature placeholder routes
             var futureRoutes = new[]
@@ -243,6 +253,9 @@ public static class MauiProgram
             var familiesListViewModel = services.GetService<FamiliesListViewModel>();
             var genusRepository = services.GetService<IGenusRepository>();
             var generaListViewModel = services.GetService<GeneraListViewModel>();
+            var speciesRepository = services.GetService<ISpeciesRepository>();
+            var speciesListViewModel = services.GetService<SpeciesListViewModel>();
+
 
             // ✅ ADICIONADO: Validar FamilyEditViewModel com genus repository
             var familyEditViewModel = services.GetService<FamilyEditViewModel>();
@@ -253,7 +266,9 @@ public static class MauiProgram
                                  familiesListViewModel != null &&
                                  genusRepository != null &&
                                  generaListViewModel != null &&
-                                 familyEditViewModel != null;
+                                 familyEditViewModel != null &&
+                                 speciesRepository != null &&
+                                 speciesListViewModel != null;
 
             if (allServicesValid)
             {

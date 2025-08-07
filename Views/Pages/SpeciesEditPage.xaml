@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="OrchidPro.Views.Pages.SpeciesEditPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OrchidPro.ViewModels.Species"
+             xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
+             xmlns:sfcombobox="clr-namespace:Syncfusion.Maui.Inputs;assembly=Syncfusion.Maui.Inputs"
+             x:DataType="vm:SpeciesEditViewModel"
+             Title="{Binding PageTitle}"
+             BackgroundColor="White">
+
+    <Grid>
+        <!-- Main Content -->
+        <ScrollView>
+            <StackLayout Padding="16" Spacing="20">
+
+                <!-- Header -->
+                <StackLayout Spacing="8">
+                    <Label Text="{Binding PageTitle}"
+                           FontSize="28"
+                           FontAttributes="Bold"
+                           TextColor="Black"
+                           HorizontalOptions="Start" />
+
+                    <Label Text="Species Information"
+                           FontSize="14" 
+                           TextColor="Gray"
+                           Opacity="0.8" />
+                </StackLayout>
+
+                <!-- Genus Selection -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Label Grid.Column="0" 
+                                   Text="Genus *" 
+                                   Style="{StaticResource FormFieldLabelStyle}" 
+                                   VerticalOptions="Center" />
+                        </Grid>
+
+                        <!-- SfComboBox for Genus Selection -->
+                        <sfcombobox:SfComboBox ItemsSource="{Binding AvailableGenera}"
+                                               DisplayMemberPath="Name"
+                                               TextMemberPath="Name"
+                                               SelectedItem="{Binding SelectedGenus}"
+                                               Placeholder="Select a genus..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="True"
+                                               IsFilteringEnabled="True"
+                                               TextSearchMode="Contains"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent" />
+
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Species Name Field -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Name *" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Entry Text="{Binding Name}"
+                               Placeholder="Enter species name"
+                               FontSize="16"
+                               TextColor="Black"
+                               BackgroundColor="Transparent" />
+
+                        <Label Text="{Binding NameValidationMessage}"
+                               FontSize="12"
+                               TextColor="Red"
+                               IsVisible="{Binding IsNameValid, Converter={StaticResource InvertedBoolConverter}}" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Scientific Name Field -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Scientific Name" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Entry Text="{Binding ScientificName}"
+                               Placeholder="e.g., Cattleya mossiae"
+                               FontSize="16"
+                               TextColor="Black"
+                               BackgroundColor="Transparent" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Common Name Field -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Common Name" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Entry Text="{Binding CommonName}"
+                               Placeholder="Popular or commercial name"
+                               FontSize="16"
+                               TextColor="Black"
+                               BackgroundColor="Transparent" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Description Field -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Description" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Editor Text="{Binding Description}"
+                                Placeholder="General description of the species..."
+                                FontSize="16"
+                                TextColor="Black"
+                                BackgroundColor="Transparent"
+                                HeightRequest="80" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Settings -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormSettingsStackStyle}">
+                        <Label Text="Settings" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <!-- Active Toggle -->
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Label Grid.Column="0"
+                                   Text="🟢"
+                                   FontSize="24"
+                                   VerticalOptions="Center" />
+
+                            <StackLayout Grid.Column="1" 
+                                        Margin="12,0,0,0"
+                                        VerticalOptions="Center">
+                                <Label Text="Active"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="Black" />
+                                <Label Text="Species is available for use"
+                                       FontSize="12"
+                                       TextColor="Gray" />
+                            </StackLayout>
+
+                            <Switch Grid.Column="2"
+                                    IsToggled="{Binding IsActive}"
+                                    OnColor="{StaticResource Primary}"
+                                    ThumbColor="White"
+                                    VerticalOptions="Center" />
+                        </Grid>
+
+                        <!-- Favorite Toggle -->
+                        <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,16,0,0">
+                            <Label Grid.Column="0"
+                                   Text="⭐"
+                                   FontSize="24"
+                                   VerticalOptions="Center" />
+
+                            <StackLayout Grid.Column="1" 
+                                        Margin="12,0,0,0"
+                                        VerticalOptions="Center">
+                                <Label Text="Favorite"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="Black" />
+                                <Label Text="Mark as important species"
+                                       FontSize="12"
+                                       TextColor="Gray" />
+                            </StackLayout>
+
+                            <Switch Grid.Column="2"
+                                    IsToggled="{Binding IsFavorite}"
+                                    OnColor="{StaticResource Primary}"
+                                    ThumbColor="White"
+                                    VerticalOptions="Center" />
+                        </Grid>
+
+                    </StackLayout>
+                </ContentView>
+
+            </StackLayout>
+        </ScrollView>
+
+        <!-- Loading overlay -->
+        <ContentView Style="{StaticResource LoadingOverlayStyle}" />
+
+        <!-- Action buttons overlay -->
+        <StackLayout VerticalOptions="End"
+                     Margin="16"
+                     Spacing="12">
+
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                <Button Grid.Column="0"
+                        Text="💾 Save Species"
+                        Command="{Binding SaveCommand}"
+                        Style="{StaticResource PrimaryButtonStyle}"
+                        BackgroundColor="{StaticResource Primary}"
+                        TextColor="White" />
+
+                <Button Grid.Column="1"
+                        Text="💾➕ Save &amp; Add Another"
+                        Command="{Binding SaveAndContinueCommand}"
+                        Style="{StaticResource SecondaryButtonStyle}"
+                        BackgroundColor="LightGray"
+                        TextColor="Black" />
+            </Grid>
+        </StackLayout>
+
+    </Grid>
+</ContentPage>
