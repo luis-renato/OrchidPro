@@ -10,6 +10,7 @@ namespace OrchidPro.Services;
 /// MINIMAL Species repository - following GenusRepository pattern with BaseHierarchicalRepository.
 /// BaseHierarchicalRepository handles ALL the heavy lifting - this just provides service connection and aliases.
 /// Manages Species -> Genus hierarchical relationship following the same pattern as Genus -> Family.
+/// ✅ CORRIGIDO: Agora faz eager loading do Genus para mostrar GenusName na UI.
 /// </summary>
 public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISpeciesRepository
 {
@@ -25,14 +26,62 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     protected override string EntityTypeName => "Species";
     protected override string ParentEntityTypeName => "Genus";
 
+    /// <summary>
+    /// ✅ CORRIGIDO: Faz eager loading do Genus para carregar GenusName
+    /// </summary>
     protected override async Task<IEnumerable<Species>> GetAllFromServiceAsync()
-        => await _speciesService.GetAllAsync();
+    {
+        return await this.SafeDataExecuteAsync(async () =>
+        {
+            this.LogInfo("Getting all species with genus information (eager loading)");
 
+            // Get species data
+            var species = await _speciesService.GetAllAsync();
+
+            // Get all genera for eager loading
+            var genera = await _genusRepository.GetAllAsync(true); // Include inactive genera
+            var generaDict = genera.ToDictionary(g => g.Id, g => g);
+
+            // Manually populate Genus navigation property
+            foreach (var sp in species)
+            {
+                if (generaDict.TryGetValue(sp.GenusId, out var genus))
+                {
+                    sp.Genus = genus;
+                }
+            }
+
+            this.LogSuccess($"Loaded {species.Count()} species with genus information");
+            return species;
+
+        }, "GetAllFromServiceAsync").ContinueWith(t => t.Result.Data ?? Enumerable.Empty<Species>());
+    }
+
+    /// <summary>
+    /// ✅ CORRIGIDO: Faz eager loading do Genus para um item específico
+    /// </summary>
     protected override async Task<Species?> GetByIdFromServiceAsync(Guid id)
     {
-        // SupabaseSpeciesService doesn't have GetByIdAsync - use base implementation
-        var allSpecies = await GetAllFromServiceAsync();
-        return allSpecies.FirstOrDefault(s => s.Id == id);
+        return await this.SafeDataExecuteAsync(async () =>
+        {
+            this.LogInfo($"Getting species by ID: {id} with genus information");
+
+            // Get all species (cached) and find the one we want
+            var allSpecies = await GetAllFromServiceAsync();
+            var species = allSpecies.FirstOrDefault(s => s.Id == id);
+
+            if (species != null)
+            {
+                this.LogSuccess($"Found species: {species.Name} (Genus: {species.Genus?.Name})");
+            }
+            else
+            {
+                this.LogWarning($"Species not found with ID: {id}");
+            }
+
+            return species;
+
+        }, "GetByIdFromServiceAsync").ContinueWith(t => t.Result.Data);
     }
 
     protected override async Task<Species?> CreateInServiceAsync(Species entity)
@@ -65,7 +114,7 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     {
         _speciesService = speciesService ?? throw new ArgumentNullException(nameof(speciesService));
         _genusRepository = genusRepository ?? throw new ArgumentNullException(nameof(genusRepository));
-        this.LogInfo("SpeciesRepository initialized - BaseHierarchicalRepository handles hierarchical operations!");
+        this.LogInfo("SpeciesRepository initialized - BaseHierarchicalRepository handles hierarchical operations with EAGER LOADING!");
     }
 
     #endregion
@@ -102,7 +151,7 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
                 return new List<Species>();
             }
 
-            // Get all species for all genera in the family
+            // Get all species for all genera in the family (with eager loading)
             var allSpecies = await GetAllAsync(includeInactive);
             var genusIds = genera.Select(g => g.Id).ToHashSet();
 
