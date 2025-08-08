@@ -36,7 +36,7 @@
                                StatusBarStyle="LightContent" />
     </ContentPage.Behaviors>
 
-    <!-- SEGUINDO EXATAMENTE O MESMO PADRÃO DE FamiliesListPage e GeneraListPage -->
+    <!-- ✅ GRID SIMPLES IGUAL AO EXEMPLO QUE FUNCIONA -->
     <Grid x:Name="RootGrid" Opacity="0">
 
         <!-- Main content card -->
@@ -49,7 +49,7 @@
                 <RoundRectangle CornerRadius="16" />
             </Border.StrokeShape>
 
-            <Grid RowDefinitions="Auto,*">
+            <Grid RowDefinitions="Auto,Auto,*">
 
                 <!-- Header with statistics and connection status -->
                 <Border Grid.Row="0" 
@@ -88,232 +88,236 @@
                     </Grid>
                 </Border>
 
-                <!-- Main content with search and list -->
-                <Grid Grid.Row="1" RowDefinitions="Auto,*">
+                <!-- Search bar usando templates -->
+                <Border Grid.Row="1" Style="{StaticResource SearchBarContainerStyle}">
 
-                    <!-- Search bar usando templates -->
-                    <Border Grid.Row="0" Style="{StaticResource SearchBarContainerStyle}">
+                    <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="10" Padding="2,0,0,0">
 
-                        <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="10" Padding="2,0,0,0">
+                        <!-- Search field -->
+                        <Border Grid.Column="0" Style="{StaticResource SearchFieldBorderStyle}" >
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="10,0">
+                                <Label Grid.Column="0" Style="{StaticResource SearchIconStyle}" />
 
-                            <!-- Search field -->
-                            <Border Grid.Column="0" Style="{StaticResource SearchFieldBorderStyle}" >
-                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="10,0">
-                                    <Label Grid.Column="0" Style="{StaticResource SearchIconStyle}" />
+                                <Entry Grid.Column="1"
+                                       Text="{Binding SearchText}"
+                                       Placeholder="Search species, genus, scientific names..."
+                                       Style="{StaticResource SearchEntryStyle}"
+                                       ReturnCommand="{Binding ApplyFilterCommand}"
+                                       Focused="OnSearchFocused"
+                                       Unfocused="OnSearchUnfocused"
+                                       TextChanged="OnSearchTextChanged" />
 
-                                    <Entry Grid.Column="1"
-                                           Text="{Binding SearchText}"
-                                           Placeholder="Search species, genus, scientific names..."
-                                           Style="{StaticResource SearchEntryStyle}"
-                                           ReturnCommand="{Binding ApplyFilterCommand}"
-                                           Focused="OnSearchFocused"
-                                           Unfocused="OnSearchUnfocused"
-                                           TextChanged="OnSearchTextChanged" />
+                                <Button Grid.Column="2"
+                                        Style="{StaticResource SearchClearButtonStyle}"
+                                        Command="{Binding ClearFilterCommand}"
+                                        IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}" />
+                            </Grid>
+                        </Border>
 
-                                    <Button Grid.Column="2"
-                                            Style="{StaticResource SearchClearButtonStyle}"
-                                            Command="{Binding ClearFilterCommand}"
-                                            IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}" />
-                                </Grid>
-                            </Border>
+                        <!-- Filter button -->
+                        <Border Grid.Column="1" Style="{StaticResource SearchActionButtonStyle}">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnFilterTapped" />
+                            </Border.GestureRecognizers>
+                            <Label Style="{StaticResource SearchActionIconStyle}" Text="🎛️" />
+                        </Border>
 
-                            <!-- Filter button -->
-                            <Border Grid.Column="1" Style="{StaticResource SearchActionButtonStyle}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnFilterTapped" />
-                                </Border.GestureRecognizers>
-                                <Label Style="{StaticResource SearchActionIconStyle}" Text="🎛️" />
-                            </Border>
+                        <!-- Sort button -->
+                        <Border Grid.Column="2" Style="{StaticResource SearchActionButtonStyle}">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnSortTapped" />
+                            </Border.GestureRecognizers>
+                            <Label Style="{StaticResource SearchActionIconStyle}" Text="📊" />
+                        </Border>
+                    </Grid>
+                </Border>
 
-                            <!-- Sort button -->
-                            <Border Grid.Column="2" Style="{StaticResource SearchActionButtonStyle}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnSortTapped" />
-                                </Border.GestureRecognizers>
-                                <Label Style="{StaticResource SearchActionIconStyle}" Text="📊" />
-                            </Border>
-                        </Grid>
-                    </Border>
+                <!-- Pull-to-refresh container -->
+                <sfpulltorefresh:SfPullToRefresh x:Name="ListRefresh"
+                                                 Grid.Row="2"
+                                                 IsRefreshing="{Binding IsRefreshing}"
+                                                 RefreshCommand="{Binding RefreshCommand}">
+                    <sfpulltorefresh:SfPullToRefresh.PullableContent>
 
-                    <!-- Species list with pull-to-refresh -->
-                    <sfpulltorefresh:SfPullToRefresh Grid.Row="1"
-                                                     IsRefreshing="{Binding IsRefreshing}"
-                                                     RefreshCommand="{Binding RefreshCommand}"
-                                                     PullingThreshold="80"
-                                                     RefreshViewHeight="50">
+                        <!-- ✅ CORRIGIDO: ListView com TODAS as configurações do FamiliesListPage -->
+                        <sflistview:SfListView x:Name="SpeciesListView"
+                                           ItemsSource="{Binding Items}"
+                                           SelectionMode="Multiple"
+                                           SelectionGesture="LongPress"
+                                           SelectionBackground="{AppThemeBinding Light=#E8D5C4, Dark=#4A3A30}"
+                                           ItemTapped="OnItemTapped"
+                                           ItemLongPress="OnItemLongPress"
+                                           SelectionChanged="OnSelectionChanged"
+                                           SwipeStarting="OnSwipeStarting"
+                                           Swiping="OnSwiping"
+                                           SwipeEnded="OnSwipeEnded"
+                                           ItemSpacing="0"
+                                           BackgroundColor="Transparent"
+                                           ScrollBarVisibility="Never"
+                                           Margin="0,10,0,0"
+                                           ItemSize="120"
+                                           AllowSwiping="True"
+                                           SwipeOffset="90"
+                                           SwipeThreshold="90">
 
-                        <sfpulltorefresh:SfPullToRefresh.PullableContent>
+                            <!-- ✅ CORRIGIDO: StartSwipeTemplate - usar WarningColor -->
+                            <sflistview:SfListView.StartSwipeTemplate>
+                                <DataTemplate>
+                                    <Grid BackgroundColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}" 
+                                          HorizontalOptions="Fill" 
+                                          VerticalOptions="Fill">
+                                        <Label Text="⭐"
+                                               FontSize="32"
+                                               TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </sflistview:SfListView.StartSwipeTemplate>
 
-                            <sflistview:SfListView x:Name="SpeciesListView"
-                                                   ItemsSource="{Binding Items}"
-                                                   SelectionMode="{Binding IsMultiSelectMode, Converter={StaticResource BoolToSelectionModeConverter}}"
-                                                   AutoFitMode="Height"
-                                                   TapCommand="{Binding ItemTappedCommand}"
-                                                   SelectionChanged="OnSelectionChanged"
-                                                   AllowSwiping="True"
-                                                   SwipeOffset="90"
-                                                   SwipeThreshold="90">
+                            <!-- ✅ CORRIGIDO: EndSwipeTemplate - usar ErrorColor -->
+                            <sflistview:SfListView.EndSwipeTemplate>
+                                <DataTemplate>
+                                    <Grid BackgroundColor="{AppThemeBinding Light={StaticResource ErrorColor}, Dark={StaticResource ErrorColor}}" 
+                                          HorizontalOptions="Fill" 
+                                          VerticalOptions="Fill">
+                                        <Label Text="🗑️"
+                                               FontSize="32"
+                                               TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                                               HorizontalOptions="Center"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </sflistview:SfListView.EndSwipeTemplate>
 
-                                <!-- Start swipe template for favorites -->
-                                <sflistview:SfListView.StartSwipeTemplate>
-                                    <DataTemplate>
-                                        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}" 
-                                              HorizontalOptions="Fill" 
-                                              VerticalOptions="Fill">
-                                            <Label Text="⭐"
-                                                   FontSize="32"
-                                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
-                                                   HorizontalOptions="Center"
-                                                   VerticalOptions="Center" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </sflistview:SfListView.StartSwipeTemplate>
+                            <!-- Enhanced Item template with Species data -->
+                            <sflistview:SfListView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SpeciesItemViewModel">
+                                    <!-- SEM MARGIN - itens grudados seguindo padrão -->
+                                    <Grid Margin="0" BackgroundColor="Transparent">
+                                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
+                                            Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                                            StrokeThickness="1"
+                                            Margin="10,2">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="12" />
+                                            </Border.StrokeShape>
 
-                                <!-- End swipe template for delete -->
-                                <sflistview:SfListView.EndSwipeTemplate>
-                                    <DataTemplate>
-                                        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource ErrorColor}, Dark={StaticResource ErrorColor}}" 
-                                              HorizontalOptions="Fill" 
-                                              VerticalOptions="Fill">
-                                            <Label Text="🗑️"
-                                                   FontSize="32"
-                                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
-                                                   HorizontalOptions="Center"
-                                                   VerticalOptions="Center" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </sflistview:SfListView.EndSwipeTemplate>
+                                            <Grid Padding="20,16" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
 
-                                <!-- Species Item template -->
-                                <!-- Enhanced Item template IGUAL FamiliesListPage/GeneraListPage -->
-                                <!-- Enhanced Item template IGUAL FamiliesListPage/GeneraListPage -->
-                                <sflistview:SfListView.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:SpeciesItemViewModel">
-                                        <!-- SEM MARGIN - itens grudados seguindo padrão -->
-                                        <Grid Margin="0" BackgroundColor="Transparent">
-                                            <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                                                Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
-                                                StrokeThickness="1"
-                                                Margin="10,2">
-                                                <Border.StrokeShape>
-                                                    <RoundRectangle CornerRadius="12" />
-                                                </Border.StrokeShape>
+                                                <!-- Header row -->
+                                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                                                    <Label Grid.Column="0"
+                                                       Text="{Binding Name}"
+                                                       FontSize="18"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                                                       VerticalOptions="Center" />
 
-                                                <Grid Padding="20,16" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
-
-                                                    <!-- Header row -->
-                                                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
-                                                        <Label Grid.Column="0"
-                                                           Text="{Binding Name}"
-                                                           FontSize="18"
+                                                    <!-- Rarity badge -->
+                                                    <Border Grid.Column="1"
+                                                        BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryContainer}, Dark={StaticResource TertiaryContainerDark}}"
+                                                        Stroke="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
+                                                        StrokeThickness="1"
+                                                        Padding="8,4"
+                                                        VerticalOptions="Center"
+                                                        IsVisible="{Binding RarityStatus, Converter={StaticResource StringToBoolConverter}}">
+                                                        <Border.StrokeShape>
+                                                            <RoundRectangle CornerRadius="6" />
+                                                        </Border.StrokeShape>
+                                                        <Label Text="{Binding RarityStatus}"
+                                                           FontSize="10"
                                                            FontAttributes="Bold"
-                                                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                                                           TextColor="{AppThemeBinding Light={StaticResource OnTertiaryContainer}, Dark={StaticResource OnTertiaryContainerDark}}"
                                                            VerticalOptions="Center" />
+                                                    </Border>
 
-                                                        <!-- Rarity badge -->
-                                                        <Border Grid.Column="1"
-                                                            BackgroundColor="{AppThemeBinding Light={StaticResource TertiaryContainer}, Dark={StaticResource TertiaryContainerDark}}"
-                                                            Stroke="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource TertiaryDark}}"
-                                                            StrokeThickness="1"
-                                                            Padding="8,4"
-                                                            VerticalOptions="Center"
-                                                            IsVisible="{Binding RarityStatus, Converter={StaticResource StringToBoolConverter}}">
-                                                            <Border.StrokeShape>
-                                                                <RoundRectangle CornerRadius="6" />
-                                                            </Border.StrokeShape>
-                                                            <Label Text="{Binding RarityStatus}"
-                                                               FontSize="10"
-                                                               FontAttributes="Bold"
-                                                               TextColor="{AppThemeBinding Light={StaticResource OnTertiaryContainer}, Dark={StaticResource OnTertiaryContainerDark}}"
-                                                               VerticalOptions="Center" />
-                                                        </Border>
+                                                    <!-- Favorite indicator -->
+                                                    <Label Grid.Column="2"
+                                                       Text="⭐"
+                                                       FontSize="20"
+                                                       TextColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}"
+                                                       IsVisible="{Binding IsFavorite}"
+                                                       VerticalOptions="Center" />
+                                                </Grid>
 
-                                                        <!-- Favorite indicator -->
-                                                        <Label Grid.Column="2"
-                                                           Text="⭐"
-                                                           FontSize="20"
-                                                           TextColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}"
-                                                           IsVisible="{Binding IsFavorite}"
-                                                           VerticalOptions="Center" />
-                                                    </Grid>
+                                                <!-- Genus and scientific info row -->
+                                                <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                    <Label Grid.Column="0"
+                                                       Text="{Binding Subtitle}"
+                                                       FontSize="14"
+                                                       TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                       LineBreakMode="TailTruncation"
+                                                       VerticalOptions="Center" />
 
-                                                    <!-- Genus and scientific info row -->
-                                                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                        <Label Grid.Column="0"
-                                                           Text="{Binding Subtitle}"
+                                                    <!-- Size category -->
+                                                    <Label Grid.Column="1"
+                                                       Text="{Binding SizeCategory}"
+                                                       FontSize="12"
+                                                       FontAttributes="Italic"
+                                                       TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                       VerticalOptions="Center" />
+                                                </Grid>
+
+                                                <!-- Status and characteristics row -->
+                                                <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+
+                                                    <!-- Status indicator -->
+                                                    <Border Grid.Column="0"
+                                                        BackgroundColor="{Binding IsActive, 
+                                                            Converter={StaticResource BoolToColorConverter}, 
+                                                            ConverterParameter='Success|Gray300'}"
+                                                        WidthRequest="8"
+                                                        HeightRequest="8"
+                                                        VerticalOptions="Center">
+                                                        <Border.StrokeShape>
+                                                            <Ellipse />
+                                                        </Border.StrokeShape>
+                                                    </Border>
+
+                                                    <!-- Description preview or characteristics -->
+                                                    <Label Grid.Column="1"
+                                                       Text="{Binding CharacteristicsSummary}"
+                                                       FontSize="12"
+                                                       TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                       LineBreakMode="TailTruncation"
+                                                       MaxLines="1"
+                                                       VerticalOptions="Center" />
+
+                                                    <!-- Fragrance indicator -->
+                                                    <StackLayout Grid.Column="2" 
+                                                             Orientation="Horizontal" 
+                                                             Spacing="4"
+                                                             VerticalOptions="Center"
+                                                             IsVisible="{Binding Fragrance}">
+                                                        <Label Text="🌸"
                                                            FontSize="14"
-                                                           TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
-                                                           LineBreakMode="TailTruncation"
                                                            VerticalOptions="Center" />
-
-                                                        <!-- Size category -->
-                                                        <Label Grid.Column="1"
-                                                           Text="{Binding SizeCategory}"
-                                                           FontSize="12"
+                                                        <Label Text="Fragrant"
+                                                           FontSize="10"
                                                            FontAttributes="Italic"
-                                                           TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                           TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
                                                            VerticalOptions="Center" />
-                                                    </Grid>
-
-                                                    <!-- Status and characteristics row -->
-                                                    <Grid Grid.Row="2" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-
-                                                        <!-- Status indicator -->
-                                                        <Border Grid.Column="0"
-                                                            BackgroundColor="{Binding IsActive, 
-                                                                Converter={StaticResource BoolToColorConverter}, 
-                                                                ConverterParameter='Success|Gray300'}"
-                                                            WidthRequest="8"
-                                                            HeightRequest="8"
-                                                            VerticalOptions="Center">
-                                                            <Border.StrokeShape>
-                                                                <Ellipse />
-                                                            </Border.StrokeShape>
-                                                        </Border>
-
-                                                        <!-- Description preview or characteristics -->
-                                                        <Label Grid.Column="1"
-                                                           Text="{Binding CharacteristicsSummary}"
-                                                           FontSize="12"
-                                                           TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
-                                                           LineBreakMode="TailTruncation"
-                                                           MaxLines="1"
-                                                           VerticalOptions="Center" />
-
-                                                        <!-- Fragrance indicator -->
-                                                        <StackLayout Grid.Column="2" 
-                                                                 Orientation="Horizontal" 
-                                                                 Spacing="4"
-                                                                 VerticalOptions="Center"
-                                                                 IsVisible="{Binding Fragrance}">
-                                                            <Label Text="🌸"
-                                                               FontSize="14"
-                                                               VerticalOptions="Center" />
-                                                            <Label Text="Fragrant"
-                                                               FontSize="10"
-                                                               FontAttributes="Italic"
-                                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
-                                                               VerticalOptions="Center" />
-                                                        </StackLayout>
-
-                                                    </Grid>
+                                                    </StackLayout>
 
                                                 </Grid>
-                                            </Border>
-                                        </Grid>
-                                    </DataTemplate>
-                                </sflistview:SfListView.ItemTemplate>
-                                <!-- Empty view genérico -->
-                                <sflistview:SfListView.EmptyView>
-                                    <ContentView Style="{StaticResource GenericEmptyStateStyle}" />
-                                </sflistview:SfListView.EmptyView>
 
-                            </sflistview:SfListView>
-                        </sfpulltorefresh:SfPullToRefresh.PullableContent>
+                                            </Grid>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </sflistview:SfListView.ItemTemplate>
 
-                    </sfpulltorefresh:SfPullToRefresh>
+                            <!-- Empty view genérico -->
+                            <sflistview:SfListView.EmptyView>
+                                <ContentView Style="{StaticResource GenericEmptyStateStyle}" />
+                            </sflistview:SfListView.EmptyView>
 
-                </Grid>
+                        </sflistview:SfListView>
+                    </sfpulltorefresh:SfPullToRefresh.PullableContent>
+
+                </sfpulltorefresh:SfPullToRefresh>
+
             </Grid>
         </Border>
 

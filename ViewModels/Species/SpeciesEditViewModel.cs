@@ -598,7 +598,7 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>, I
     #region Navigation and Query Attributes - Following GenusEditViewModel Pattern
 
     /// <summary>
-    /// Apply query attributes for navigation - EXACT pattern from GenusEditViewModel
+    /// Apply query attributes for navigation - FIXED to ensure edit mode is set correctly
     /// </summary>
     public new async void ApplyQueryAttributes(IDictionary<string, object> query)
     {
@@ -606,39 +606,61 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>, I
         {
             this.LogInfo($"ApplyQueryAttributes for Species with {query.Count} parameters");
 
+            // ✅ CRÍTICO: Chamar o base primeiro para configurar _isEditMode
+            base.ApplyQueryAttributes(query);
+
             // Load available genera first
             await LoadAvailableGeneraAsync();
 
-            // Check for species ID or entity parameter
+            // Check for species ID or entity parameter - HANDLE BOTH CASES
             Guid? speciesId = null;
 
-            if (query.TryGetValue("speciesId", out var idValue))
+            // ✅ CORRIGIDO: Verificar ambos os formatos (maiúsculo e minúsculo)
+            if (query.TryGetValue("SpeciesId", out var idValue) ||
+                query.TryGetValue("speciesId", out idValue))
             {
                 speciesId = this.ConvertToGuid(idValue);
+                this.LogInfo($"Found species ID parameter: {idValue} -> {speciesId}");
             }
             else if (query.TryGetValue("species", out var entityValue) && entityValue is Models.Species species)
             {
                 speciesId = species.Id;
+                this.LogInfo($"Found species entity parameter: {species.Name} (ID: {species.Id})");
             }
 
             if (speciesId.HasValue && speciesId.Value != Guid.Empty)
             {
+                this.LogInfo($"Loading species data for ID: {speciesId.Value}");
                 await LoadSpeciesDataAsync(speciesId.Value);
+
+                // ✅ CRÍTICO: Garantir que o modo de edição está definido
+                _isEditMode = true;
+                OnPropertyChanged(nameof(IsEditMode));
+                OnPropertyChanged(nameof(PageTitle));
+                this.LogInfo($"Edit mode set: IsEditMode = {IsEditMode}");
+            }
+            else
+            {
+                this.LogInfo("No valid species ID found - creating new species");
+                _isEditMode = false;
+                OnPropertyChanged(nameof(IsEditMode));
+                OnPropertyChanged(nameof(PageTitle));
             }
 
             // Handle genus pre-selection for new species
-            if (query.TryGetValue("genusId", out var genusIdValue))
+            if (query.TryGetValue("genusId", out var genusIdValue) ||
+                query.TryGetValue("GenusId", out genusIdValue))
             {
                 var genusId = this.ConvertToGuid(genusIdValue);
                 if (genusId.HasValue)
                 {
                     SetSelectedGenus(AvailableGenera?.FirstOrDefault(g => g.Id == genusId.Value));
+                    this.LogInfo($"Pre-selected genus: {SelectedGenusName}");
                 }
             }
 
         }, "Apply Query Attributes");
     }
-
     /// <summary>
     /// Convert object to Guid safely
     /// </summary>

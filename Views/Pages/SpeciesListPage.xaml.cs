@@ -7,7 +7,7 @@ namespace OrchidPro.Views.Pages;
 /// <summary>
 /// Page for displaying and managing list of botanical species with advanced UI features.
 /// Provides CRUD operations, multi-selection, filtering, sorting, and swipe actions.
-/// EXACT pattern from FamiliesListPage and GeneraListPage.
+/// EXATAMENTE o mesmo padrão de FamiliesListPage que FUNCIONA.
 /// </summary>
 public partial class SpeciesListPage : ContentPage
 {
@@ -22,10 +22,7 @@ public partial class SpeciesListPage : ContentPage
         _viewModel = viewModel;
         BindingContext = _viewModel;
 
-        this.LogInfo("Initialized with unified delete flow");
-
-        // Hook up events - using correct names from XAML
-        // ListRefresh.Refreshing += PullToRefresh_Refreshing; // Will add when XAML is fixed
+        this.LogInfo("Initialized Species List Page");
 
         // Monitor ViewModel changes to sync SelectionMode
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -78,64 +75,197 @@ public partial class SpeciesListPage : ContentPage
 
     #endregion
 
-    #region Event Handlers
+    #region Search and Filter Event Handlers
 
     /// <summary>
-    /// Handle pull-to-refresh gesture for data refreshing
+    /// Handle search text changes with debounce pattern
     /// </summary>
-    private async void PullToRefresh_Refreshing(object? sender, EventArgs e)
+    private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
     {
-        await this.SafeExecuteAsync(async () =>
+        this.SafeExecute(() =>
         {
-            this.LogInfo("Pull-to-refresh triggered");
-
-            if (_viewModel?.RefreshCommand?.CanExecute(null) == true)
+            if (_viewModel != null)
             {
-                await _viewModel.RefreshCommand.ExecuteAsync(null);
-                this.LogSuccess("Pull-to-refresh completed via ViewModel");
+                _viewModel.SearchText = e.NewTextValue ?? string.Empty;
+                this.LogInfo($"Search text changed: '{e.NewTextValue}'");
             }
-            else
-            {
-                this.LogWarning("RefreshCommand not available or not executable");
-            }
-        }, "Pull-to-refresh failed");
+        }, "OnSearchTextChanged");
     }
 
     /// <summary>
-    /// Handle item taps for navigation to edit page
+    /// Handle search focus for UI feedback
     /// </summary>
-    private async void OnItemTapped(object sender, Syncfusion.Maui.ListView.ItemTappedEventArgs e)
+    private void OnSearchFocused(object sender, FocusEventArgs e)
     {
-        await this.SafeExecuteAsync(async () =>
+        this.SafeExecute(() =>
         {
-            if (e.DataItem is not SpeciesItemViewModel item)
-            {
-                this.LogError("Tapped item is not SpeciesItemViewModel");
-                return;
-            }
-
-            this.LogInfo($"Item tapped: {item.Name}");
-
-            if (_viewModel?.IsMultiSelectMode == true)
-            {
-                this.LogInfo("Multi-select mode active, ignoring tap");
-                return;
-            }
-
-            if (_viewModel?.NavigateToEditCommand?.CanExecute(item) == true)
-            {
-                await _viewModel.NavigateToEditCommand.ExecuteAsync(item);
-                this.LogSuccess($"Navigated to edit for: {item.Name}");
-            }
-            else
-            {
-                this.LogWarning("NavigateToEditCommand not available");
-            }
-        }, "ItemTapped");
+            this.LogInfo("Search focused");
+        }, "OnSearchFocused");
     }
 
     /// <summary>
-    /// Handle long press to enter multi-select mode
+    /// Handle search unfocus for UI cleanup
+    /// </summary>
+    private void OnSearchUnfocused(object sender, FocusEventArgs e)
+    {
+        this.SafeExecute(() =>
+        {
+            this.LogInfo("Search unfocused");
+        }, "OnSearchUnfocused");
+    }
+
+    /// <summary>
+    /// Handle filter button tap - EXATAMENTE igual FamiliesListPage
+    /// </summary>
+    private async void OnFilterTapped(object sender, EventArgs e)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            if (sender is Border border)
+            {
+                await this.SafeAnimationExecuteAsync(async () =>
+                {
+                    await border.PerformTapFeedbackAsync();
+                }, "Filter tap feedback");
+            }
+
+            string[] options = { "All", "Active", "Inactive" };
+            string result = await DisplayActionSheet("Filter by Status", "Cancel", null, options);
+
+            if (result != "Cancel" && result != null && _viewModel != null)
+            {
+                _viewModel.StatusFilter = result;
+                this.LogInfo($"Status filter changed to: {result}");
+
+                if (_viewModel.ApplyFilterCommand != null && _viewModel.ApplyFilterCommand.CanExecute(null))
+                {
+                    await _viewModel.ApplyFilterCommand.ExecuteAsync(null);
+                }
+
+                await this.ShowInfoToast($"Filter: {result}");
+            }
+        }, "Filter error");
+    }
+
+    /// <summary>
+    /// Handle sort button tap - EXATAMENTE igual FamiliesListPage
+    /// </summary>
+    private async void OnSortTapped(object sender, EventArgs e)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            if (sender is Border border)
+            {
+                await this.SafeAnimationExecuteAsync(async () =>
+                {
+                    await border.PerformTapFeedbackAsync();
+                }, "Sort tap feedback");
+            }
+
+            string[] options = { "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First" };
+            string result = await DisplayActionSheet("Sort by", "Cancel", null, options);
+
+            if (result != "Cancel" && result != null && _viewModel != null)
+            {
+                _viewModel.SortOrder = result;
+                this.LogInfo($"Sort order changed to: {result}");
+
+                if (_viewModel.ToggleSortCommand != null && _viewModel.ToggleSortCommand.CanExecute(null))
+                {
+                    _viewModel.ToggleSortCommand.Execute(null);
+                }
+
+                await this.ShowInfoToast($"Sorted by: {result}");
+            }
+        }, "Sort error");
+    }
+
+    #endregion
+
+    #region Syncfusion ListView Event Handlers - CÓPIA EXATA DO FamiliesListPage
+
+    /// <summary>
+    /// Handle item tap for selection or navigation based on current mode
+    /// </summary>
+    private void OnItemTapped(object sender, Syncfusion.Maui.ListView.ItemTappedEventArgs e)
+    {
+        this.SafeExecute(() =>
+        {
+            if (e.DataItem is SpeciesItemViewModel item)
+            {
+                this.LogInfo($"Item tapped: {item.Name} (ID: {item.Id})");
+                this.LogInfo($"Current IsMultiSelectMode: {_viewModel?.IsMultiSelectMode}");
+                this.LogInfo($"Current SelectionMode: {SpeciesListView.SelectionMode}");
+
+                if (_viewModel?.IsMultiSelectMode == true)
+                {
+                    this.LogInfo("Multi-select mode - toggling selection");
+
+                    if (item.IsSelected)
+                    {
+                        item.IsSelected = false;
+                        _viewModel?.SelectedItems?.Remove(item);
+                        SpeciesListView.SelectedItems?.Remove(item);
+                        this.LogInfo($"Deselected: {item.Name}");
+                    }
+                    else
+                    {
+                        item.IsSelected = true;
+                        if (_viewModel?.SelectedItems != null && !_viewModel.SelectedItems.Contains(item))
+                            _viewModel.SelectedItems.Add(item);
+                        if (SpeciesListView.SelectedItems != null && !SpeciesListView.SelectedItems.Contains(item))
+                            SpeciesListView.SelectedItems.Add(item);
+                        this.LogInfo($"Selected: {item.Name}");
+                    }
+
+                    // ✅ CRÍTICO: Atualizar FAB após mudança de seleção
+                    UpdateFabVisual();
+
+                    // ✅ CRÍTICO: Verificar se deve sair do modo multi-select
+                    if (_viewModel?.SelectedItems?.Count == 0)
+                    {
+                        this.LogInfo("No items selected - exiting multi-select mode");
+                        if (_viewModel != null)
+                        {
+                            _viewModel.IsMultiSelectMode = false;
+                            Device.BeginInvokeOnMainThread(() =>
+                            {
+                                SpeciesListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
+                                UpdateFabVisual(); // ✅ Atualizar FAB novamente após sair do modo
+                            });
+                        }
+                    }
+                }
+                else
+                {
+                    this.LogInfo($"Normal mode - navigating to edit: {item.Name} with ID: {item.Id}");
+
+                    // ✅ CORRIGIDO: Verificar se o item tem ID válido antes de navegar
+                    if (item.Id == Guid.Empty)
+                    {
+                        this.LogError($"Invalid item ID (empty Guid) for item: {item.Name}");
+                        return;
+                    }
+
+                    Device.BeginInvokeOnMainThread(async () =>
+                    {
+                        if (_viewModel?.NavigateToEditCommand != null && _viewModel.NavigateToEditCommand.CanExecute(item))
+                        {
+                            this.LogInfo($"Executing NavigateToEditCommand for species ID: {item.Id}");
+                            await _viewModel.NavigateToEditCommand.ExecuteAsync(item);
+                        }
+                        else
+                        {
+                            this.LogError("NavigateToEditCommand is null or cannot execute");
+                        }
+                    });
+                }
+            }
+        }, "ItemTapped error");
+    }
+
+    /// <summary>
+    /// Handle long press to activate multi-selection mode
     /// </summary>
     private void OnItemLongPress(object sender, Syncfusion.Maui.ListView.ItemLongPressEventArgs e)
     {
@@ -143,25 +273,50 @@ public partial class SpeciesListPage : ContentPage
         {
             if (e.DataItem is SpeciesItemViewModel item)
             {
-                this.LogInfo($"Long press on: {item.Name}");
+                this.LogInfo($"Long press: {item.Name}");
 
-                if (_viewModel != null && !_viewModel.IsMultiSelectMode)
+                if (_viewModel?.IsMultiSelectMode != true)
                 {
-                    _viewModel.IsMultiSelectMode = true;
-                    this.LogSuccess("Multi-select mode activated via long press");
+                    if (_viewModel != null)
+                    {
+                        _viewModel.IsMultiSelectMode = true;
+                    }
+                    this.LogSuccess("Multi-select mode ACTIVATED");
                 }
+
+                if (!item.IsSelected)
+                {
+                    item.IsSelected = true;
+                    if (_viewModel?.SelectedItems != null && !_viewModel.SelectedItems.Contains(item))
+                    {
+                        _viewModel.SelectedItems.Add(item);
+                    }
+                    this.LogSuccess($"Item selected: {item.Name}");
+                }
+
+                Device.BeginInvokeOnMainThread(() =>
+                {
+                    var index = _viewModel?.Items?.IndexOf(item) ?? -1;
+                    if (index >= 0)
+                    {
+                        SpeciesListView.RefreshItem(index);
+                        this.LogInfo($"Visual refresh for index: {index}");
+                    }
+                });
+
+                UpdateFabVisual();
             }
-        }, "ItemLongPress");
+        }, "ItemLongPress error");
     }
 
     /// <summary>
-    /// Handle selection changes for multi-select operations
+    /// Handle native selection changes and sync with ViewModel
     /// </summary>
     private void OnSelectionChanged(object sender, Syncfusion.Maui.ListView.ItemSelectionChangedEventArgs e)
     {
         this.SafeExecute(() =>
         {
-            var selectedCount = SpeciesListView?.SelectedItems?.Count ?? 0;
+            var selectedCount = SpeciesListView.SelectedItems?.Count ?? 0;
             this.LogInfo($"NATIVE Selection changed - ListView count: {selectedCount}");
 
             if (SpeciesListView.SelectedItems != null && _viewModel?.SelectedItems != null)
@@ -181,16 +336,25 @@ public partial class SpeciesListPage : ContentPage
             {
                 var vmSelectedCount = _viewModel.SelectedItems?.Count ?? 0;
 
+                // ✅ CORRIGIDO: Auto-exit multi-select quando seleção fica vazia
                 if (vmSelectedCount == 0 && _viewModel.IsMultiSelectMode)
                 {
-                    this.LogInfo("Auto-exiting multi-select mode");
+                    this.LogInfo("Auto-exiting multi-select mode - no items selected");
                     _viewModel.IsMultiSelectMode = false;
+
+                    // ✅ CRÍTICO: Reset SelectionMode do ListView
+                    Device.BeginInvokeOnMainThread(() =>
+                    {
+                        SpeciesListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
+                        this.LogInfo("ListView SelectionMode reset to None");
+                    });
                 }
                 else if (vmSelectedCount > 0 && !_viewModel.IsMultiSelectMode)
                 {
                     _viewModel.IsMultiSelectMode = true;
                 }
 
+                // ✅ CRÍTICO: Sempre atualizar FAB após mudanças de seleção
                 UpdateFabVisual();
 
                 this.LogInfo($"ViewModel updated - MultiSelect: {_viewModel.IsMultiSelectMode}, SelectionMode: {SpeciesListView.SelectionMode}");
@@ -217,7 +381,7 @@ public partial class SpeciesListPage : ContentPage
 
     #endregion
 
-    #region Swipe Action Handlers
+    #region Swipe Action Handlers - CÓPIA EXATA DO FamiliesListPage
 
     private const double SWIPE_THRESHOLD = 0.8;
 
@@ -299,7 +463,7 @@ public partial class SpeciesListPage : ContentPage
                     {
                         var wasAlreadyFavorite = item.IsFavorite;
 
-                        if (_viewModel?.ToggleFavoriteCommand?.CanExecute(item) == true)
+                        if (_viewModel?.ToggleFavoriteCommand != null && _viewModel.ToggleFavoriteCommand.CanExecute(item))
                         {
                             await _viewModel.ToggleFavoriteCommand.ExecuteAsync(item);
                         }
@@ -319,9 +483,9 @@ public partial class SpeciesListPage : ContentPage
                         break;
                     }
 
-                    if (_viewModel?.DeleteSingleCommand?.CanExecute(item) == true)
+                    if (_viewModel?.DeleteSingleItemCommand != null && _viewModel.DeleteSingleItemCommand.CanExecute(item))
                     {
-                        await _viewModel.DeleteSingleCommand.ExecuteAsync(item);
+                        await _viewModel.DeleteSingleItemCommand.ExecuteAsync(item);
                     }
                     break;
 
@@ -353,7 +517,7 @@ public partial class SpeciesListPage : ContentPage
         {
             this.LogInfo("Select All tapped");
 
-            if (_viewModel?.SelectAllCommand?.CanExecute(null) == true)
+            if (_viewModel?.SelectAllCommand != null && _viewModel.SelectAllCommand.CanExecute(null))
             {
                 _viewModel.SelectAllCommand.Execute(null);
                 this.LogSuccess("Select All executed");
@@ -370,7 +534,7 @@ public partial class SpeciesListPage : ContentPage
         {
             this.LogInfo("Deselect All tapped");
 
-            if (_viewModel?.DeselectAllCommand?.CanExecute(null) == true)
+            if (_viewModel?.DeselectAllCommand != null && _viewModel.DeselectAllCommand.CanExecute(null))
             {
                 _viewModel.DeselectAllCommand.Execute(null);
                 this.LogSuccess("Deselect All executed");
@@ -390,16 +554,30 @@ public partial class SpeciesListPage : ContentPage
             if (_viewModel?.IsMultiSelectMode == true)
             {
                 // Bulk delete mode
-                if (_viewModel?.DeleteSelectedCommand?.CanExecute(null) == true)
+                if (_viewModel.SelectedItems?.Count > 0)
                 {
-                    await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
-                    this.LogSuccess("Bulk delete executed");
+                    if (_viewModel?.DeleteSelectedCommand != null && _viewModel.DeleteSelectedCommand.CanExecute(null))
+                    {
+                        await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
+                        this.LogSuccess("Bulk delete executed");
+                    }
+                }
+                else
+                {
+                    // Cancel multi-select mode
+                    this.LogInfo("No items selected - exiting multi-select mode");
+                    _viewModel.IsMultiSelectMode = false;
+                    Device.BeginInvokeOnMainThread(() =>
+                    {
+                        SpeciesListView.SelectionMode = Syncfusion.Maui.ListView.SelectionMode.None;
+                        UpdateFabVisual();
+                    });
                 }
             }
             else
             {
                 // Add new species
-                if (_viewModel?.NavigateToAddCommand?.CanExecute(null) == true)
+                if (_viewModel?.NavigateToAddCommand != null && _viewModel.NavigateToAddCommand.CanExecute(null))
                 {
                     await _viewModel.NavigateToAddCommand.ExecuteAsync(null);
                     this.LogSuccess("Navigate to add executed");
@@ -409,96 +587,67 @@ public partial class SpeciesListPage : ContentPage
     }
 
     /// <summary>
-    /// Update FAB visual state based on selection mode
+    /// Update FAB visual state based on selection mode - IGUAL FamiliesListPage
     /// </summary>
     private void UpdateFabVisual()
     {
-        this.SafeExecute(() =>
+        var success = this.SafeExecute(() =>
         {
-            if (_viewModel?.IsMultiSelectMode == true)
+            var selectedCount = _viewModel?.SelectedItems?.Count ?? 0;
+            this.LogInfo($"Updating FAB for {selectedCount} selected items");
+
+            Device.BeginInvokeOnMainThread(() =>
             {
-                FabButton.Text = "🗑️ Delete Selected";
-                FabButton.BackgroundColor = Colors.Red;
-            }
-            else
-            {
-                FabButton.Text = "Add Species";
-                // Reset to default primary color
-            }
+                FabButton.IsVisible = true;
+
+                if (selectedCount > 0)
+                {
+                    var errorColor = Application.Current?.Resources.TryGetValue("ErrorColor", out var error) == true
+                        ? (Color)error
+                        : Color.FromArgb("#D32F2F");
+
+                    FabButton.BackgroundColor = errorColor;
+                    FabButton.Text = $"Delete ({selectedCount})";
+                    this.LogInfo($"Set to DELETE mode: Delete ({selectedCount})");
+                }
+                else if (_viewModel?.IsMultiSelectMode == true)
+                {
+                    var grayColor = Application.Current?.Resources.TryGetValue("Gray500", out var gray) == true
+                        ? (Color)gray
+                        : Color.FromArgb("#9E9E9E");
+
+                    FabButton.BackgroundColor = grayColor;
+                    FabButton.Text = "Cancel";
+                    this.LogInfo("Set to CANCEL mode");
+                }
+                else
+                {
+                    var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
+                        ? (Color)primary
+                        : Color.FromArgb("#A47764");
+
+                    FabButton.BackgroundColor = primaryColor;
+                    FabButton.Text = "Add Species";
+                    this.LogInfo("Set to ADD mode");
+                }
+
+                this.LogSuccess($"FAB updated successfully - Text: {FabButton.Text}");
+            });
         }, "UpdateFabVisual");
-    }
 
-    #endregion
-
-    #region Search and Filter Handlers
-
-    /// <summary>
-    /// Handle search text changes with debounce
-    /// </summary>
-    private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
-    {
-        this.SafeExecute(() =>
+        if (!success)
         {
-            if (_viewModel != null)
+            Device.BeginInvokeOnMainThread(() =>
             {
-                _viewModel.SearchText = e.NewTextValue ?? string.Empty;
-                this.LogInfo($"Search text changed: '{e.NewTextValue}'");
-            }
-        }, "OnSearchTextChanged");
-    }
+                FabButton.IsVisible = true;
+                FabButton.Text = "Add Species";
 
-    /// <summary>
-    /// Handle search focus for UI feedback
-    /// </summary>
-    private void OnSearchFocused(object sender, FocusEventArgs e)
-    {
-        this.SafeExecute(() =>
-        {
-            this.LogInfo("Search focused");
-            // Add visual feedback if needed
-        }, "OnSearchFocused");
-    }
-
-    /// <summary>
-    /// Handle search unfocus for UI cleanup
-    /// </summary>
-    private void OnSearchUnfocused(object sender, FocusEventArgs e)
-    {
-        this.SafeExecute(() =>
-        {
-            this.LogInfo("Search unfocused");
-            // Cleanup if needed
-        }, "OnSearchUnfocused");
-    }
-
-    /// <summary>
-    /// Handle filter button tap
-    /// </summary>
-    private void OnFilterTapped(object sender, EventArgs e)
-    {
-        this.SafeExecute(() =>
-        {
-            this.LogInfo("Filter tapped");
-            // Implement filter UI if needed
-        }, "OnFilterTapped");
-    }
-
-    /// <summary>
-    /// Handle sort button tap
-    /// </summary>
-    private void OnSortTapped(object sender, EventArgs e)
-    {
-        this.SafeExecute(() =>
-        {
-            this.LogInfo("Sort tapped");
-
-            // Use NextSortOrderCommand if it exists, or implement sort cycling
-            if (_viewModel?.NextSortOrderCommand?.CanExecute(null) == true)
-            {
-                _viewModel.NextSortOrderCommand.Execute(null);
-                this.LogSuccess("Sort order changed");
-            }
-        }, "OnSortTapped");
+                var primaryColor = Application.Current?.Resources.TryGetValue("Primary", out var primary) == true
+                    ? (Color)primary
+                    : Color.FromArgb("#A47764");
+                FabButton.BackgroundColor = primaryColor;
+            });
+        }
     }
 
     #endregion
@@ -520,7 +669,7 @@ public partial class SpeciesListPage : ContentPage
             await RootGrid.PerformStandardEntranceAsync();
 
             // Refresh data
-            if (_viewModel?.OnAppearingAsync != null)
+            if (_viewModel != null && _viewModel.OnAppearingAsync != null)
             {
                 await _viewModel.OnAppearingAsync();
             }
@@ -541,7 +690,7 @@ public partial class SpeciesListPage : ContentPage
             this.LogInfo("Page disappearing");
 
             // Cleanup
-            if (_viewModel?.OnDisappearingAsync != null)
+            if (_viewModel != null && _viewModel.OnDisappearingAsync != null)
             {
                 await _viewModel.OnDisappearingAsync();
             }

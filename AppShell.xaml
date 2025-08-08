@@ -108,11 +108,13 @@
 
     <!-- Botanical Management Section -->
     <FlyoutItem Title="Botanical Data" Icon="plant.png">
-        <Tab Title="Families">
-            <ShellContent Title="Families" 
-                         Icon="family.png" 
-                         Route="families" 
-                         ContentTemplate="{DataTemplate pages:FamiliesListPage}" />
+
+        <!-- Species management tab -->
+        <Tab Title="Species">
+            <ShellContent Title="Species" 
+                         Icon="species.png" 
+                         Route="species" 
+                         ContentTemplate="{DataTemplate pages:SpeciesListPage}" />
         </Tab>
 
         <!-- Genera management tab -->
@@ -123,12 +125,11 @@
                          ContentTemplate="{DataTemplate pages:GeneraListPage}" />
         </Tab>
 
-        <!-- Species management tab -->
-        <Tab Title="Genera">
-            <ShellContent Title="Species" 
-                         Icon="species.png" 
-                         Route="species" 
-                         ContentTemplate="{DataTemplate pages:SpeciesListPage}" />
+        <Tab Title="Families">
+            <ShellContent Title="Families" 
+                         Icon="family.png" 
+                         Route="families" 
+                         ContentTemplate="{DataTemplate pages:FamiliesListPage}" />
         </Tab>
 
     </FlyoutItem>
