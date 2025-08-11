@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:OrchidPro.ViewModels.Species"
              xmlns:mct="clr-namespace:CommunityToolkit.Maui.Behaviors;assembly=CommunityToolkit.Maui"
+             xmlns:toolkit="clr-namespace:CommunityToolkit.Maui.Converters;assembly=CommunityToolkit.Maui"
              xmlns:sflistview="clr-namespace:Syncfusion.Maui.ListView;assembly=Syncfusion.Maui.ListView"
              xmlns:sfpulltorefresh="clr-namespace:Syncfusion.Maui.PullToRefresh;assembly=Syncfusion.Maui.PullToRefresh"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
@@ -180,22 +181,23 @@
                             <sflistview:SfListView.ItemTemplate>
                                 <DataTemplate x:DataType="vm:SpeciesItemViewModel">
                                     <Grid Margin="0" BackgroundColor="Transparent">
-                                        <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                                            Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
+                                        <!-- OTIMIZAÇÃO CRÍTICA: Cor de fundo FIXA para evitar bindings repetidos -->
+                                        <Border BackgroundColor="#F9F9F9"
+                                            Stroke="#E0E0E0"
                                             StrokeThickness="1"
                                             Margin="6,2">
                                             <Border.StrokeShape>
                                                 <RoundRectangle CornerRadius="18" />
                                             </Border.StrokeShape>
 
-                                            <StackLayout Padding="15,12" Spacing="1" BackgroundColor="#eeeeee">
+                                            <StackLayout Padding="15,12" Spacing="1" BackgroundColor="#EEEEEE">
 
                                                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" >
                                                     <Label Grid.Column="0"
-                                                           Text="{Binding GenusName, FallbackValue='Unknown'}"
+                                                           Text="{Binding GenusName}"
                                                            FontSize="14"
                                                            FontAttributes="Italic"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                                                           TextColor="#666666"
                                                            VerticalOptions="End" />
 
                                                     <Label Grid.Column="1"
@@ -204,14 +206,37 @@
                                                            IsVisible="{Binding IsFavorite}"
                                                            VerticalOptions="Center" />
 
+                                                    <!-- OTIMIZAÇÃO: Background color FIXO -->
                                                     <Border Grid.Column="2"
-                                                            BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#4CAF50|#F44336'}"
+                                                            BackgroundColor="#4CAF50"
                                                             Padding="10,4"
-                                                            VerticalOptions="Center">
+                                                            VerticalOptions="Center"
+                                                            IsVisible="{Binding IsActive}">
                                                         <Border.StrokeShape>
                                                             <RoundRectangle CornerRadius="12" />
                                                         </Border.StrokeShape>
-                                                        <Label Text="{Binding IsActive, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Active|Inactive'}"
+                                                        <Label Text="Active"
+                                                               FontSize="8"
+                                                               FontAttributes="Bold"
+                                                               TextColor="White" />
+                                                    </Border>
+
+                                                    <!-- Badge Inactive -->
+                                                    <Border Grid.Column="2"
+                                                            BackgroundColor="#F44336"
+                                                            Padding="10,4"
+                                                            VerticalOptions="Center">
+                                                        <Border.IsVisible>
+                                                            <Binding Path="IsActive">
+                                                                <Binding.Converter>
+                                                                    <toolkit:InvertedBoolConverter />
+                                                                </Binding.Converter>
+                                                            </Binding>
+                                                        </Border.IsVisible>
+                                                        <Border.StrokeShape>
+                                                            <RoundRectangle CornerRadius="12" />
+                                                        </Border.StrokeShape>
+                                                        <Label Text="Inactive"
                                                                FontSize="8"
                                                                FontAttributes="Bold"
                                                                TextColor="White" />
@@ -223,13 +248,14 @@
                                                         <Label Text="{Binding Name}"
                                                                FontSize="16"
                                                                FontAttributes="Bold"
-                                                               TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                                                               TextColor="#333333"
                                                                VerticalOptions="End" />
 
-                                                        <Label Text="{Binding CommonName, StringFormat='&quot;{0}&quot;'}"
+                                                        <!-- OTIMIZAÇÃO: Simplificado StringFormat -->
+                                                        <Label Text="{Binding CommonName}"
                                                                FontSize="12"
                                                                FontAttributes="Italic"
-                                                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                                                               TextColor="#666666"
                                                                IsVisible="{Binding CommonName, Converter={StaticResource StringToBoolConverter}}"
                                                                VerticalOptions="End" />
                                                     </StackLayout>
@@ -237,7 +263,7 @@
                                                     <Label Grid.Column="1"
                                                            Text="{Binding CreatedAt, StringFormat='{0:dd/MM/yyyy}'}"
                                                            FontSize="12"
-                                                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
+                                                           TextColor="#999999"
                                                            VerticalOptions="End"
                                                            HorizontalOptions="Center" />
                                                 </Grid>
@@ -247,7 +273,7 @@
                                                     <StackLayout Orientation="Horizontal" Spacing="4" VerticalOptions="Center">
                                                         <Label Text="📏" FontSize="14" VerticalOptions="Center" />
                                                         <Label Text="{Binding SizeCategory}" FontSize="12" 
-                                                               TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                               TextColor="#666666"
                                                                VerticalOptions="Center" />
                                                     </StackLayout>
 
@@ -255,7 +281,7 @@
                                                                  IsVisible="{Binding RarityStatus, Converter={StaticResource StringToBoolConverter}}">
                                                         <Label Text="💎" FontSize="14" VerticalOptions="Center" />
                                                         <Label Text="{Binding RarityStatus}" FontSize="12"
-                                                               TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                               TextColor="#666666"
                                                                VerticalOptions="Center" />
                                                     </StackLayout>
 
@@ -263,7 +289,7 @@
                                                                  IsVisible="{Binding FloweringSeason, Converter={StaticResource StringToBoolConverter}}">
                                                         <Label Text="🌺" FontSize="14" VerticalOptions="Center" />
                                                         <Label Text="{Binding FloweringSeason}" FontSize="12"
-                                                               TextColor="{AppThemeBinding Light={StaticResource OnSurfaceVariant}, Dark={StaticResource OnSurfaceVariantDark}}"
+                                                               TextColor="#666666"
                                                                VerticalOptions="Center" />
                                                     </StackLayout>
 
@@ -271,7 +297,7 @@
                                                                  IsVisible="{Binding Fragrance}">
                                                         <Label Text="🌸" FontSize="14" VerticalOptions="Center" />
                                                         <Label Text="Fragrant" FontSize="12" FontAttributes="Italic"
-                                                               TextColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
+                                                               TextColor="#A47764"
                                                                VerticalOptions="Center" />
                                                     </StackLayout>
 

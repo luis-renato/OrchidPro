@@ -8,9 +8,9 @@ using OrchidPro.Extensions;
 namespace OrchidPro.ViewModels.Species;
 
 /// <summary>
-/// MINIMAL Species list ViewModel - following exact pattern of FamiliesListViewModel and GeneraListViewModel.
-/// All common functionality moved to BaseListViewModel and pattern classes.
-/// Only species-specific customizations implemented here.
+/// OPTIMIZED Species list ViewModel with performance improvements.
+/// Reduced logging, efficient item creation, cached operations.
+/// Following exact pattern of working FamiliesListViewModel and GeneraListViewModel.
 /// </summary>
 public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, SpeciesItemViewModel>
 {
@@ -34,47 +34,39 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
         : base(repository, navigationService)
     {
         _speciesRepository = repository;
-        this.LogInfo("Initialized - using bases for ALL functionality");
+        this.LogInfo("Initialized list ViewModel for Species");
     }
 
     #endregion
 
-    #region Required Implementation
+    #region Required Implementation (OPTIMIZED)
 
+    /// <summary>
+    /// OPTIMIZED CreateItemViewModel - reduced logging, direct creation
+    /// </summary>
     protected override SpeciesItemViewModel CreateItemViewModel(Models.Species entity)
     {
-        return this.SafeExecute(() =>
-        {
-            var itemViewModel = new SpeciesItemViewModel(entity);
-            this.LogInfo($"Created SpeciesItemViewModel for: {entity.Name}");
-            return itemViewModel;
-        }, fallbackValue: new SpeciesItemViewModel(entity), operationName: "CreateItemViewModel");
+        // REMOVED SafeExecute wrapper for performance - this is called frequently
+        // REMOVED excessive logging that was happening for every item
+        return new SpeciesItemViewModel(entity);
     }
 
     #endregion
 
-    #region Species-Specific Sort Override
+    #region Species-Specific Sort Override (OPTIMIZED)
 
+    /// <summary>
+    /// OPTIMIZED sorting with minimal logging
+    /// </summary>
     protected override IOrderedEnumerable<SpeciesItemViewModel> ApplyEntitySpecificSort(IEnumerable<SpeciesItemViewModel> filtered)
     {
-        return this.SafeExecute(() =>
-        {
-            this.LogInfo($"Applying sort order: {SortOrder}");
-
-            // Use BaseSortPatterns with species-specific sorting
-            var sorted = BaseSortPatterns.ApplyStandardSort<SpeciesItemViewModel>(
-                filtered,
-                SortOrder);
-
-            this.LogSuccess($"Sort applied successfully: {SortOrder}");
-            return sorted;
-
-        }, fallbackValue: filtered.OrderBy(item => item.Name), operationName: "ApplyEntitySpecificSort");
+        // REMOVED excessive logging and SafeExecute for performance
+        return BaseSortPatterns.ApplyStandardSort<SpeciesItemViewModel>(filtered, SortOrder);
     }
 
     #endregion
 
-    #region Delete Operations Using Base Pattern
+    #region Delete Operations Using Base Pattern (OPTIMIZED)
 
     public IAsyncRelayCommand<SpeciesItemViewModel> DeleteSingleCommand =>
         new AsyncRelayCommand<SpeciesItemViewModel>(DeleteSingleAsync);
@@ -85,27 +77,22 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
 
         await this.SafeExecuteAsync(async () =>
         {
-            this.LogInfo($"Deleting species: {item.Name}");
-
             var confirmTitle = $"Delete {item.Name}?";
             var confirmMessage = "Are you sure you want to delete this species?";
 
             var confirmed = await ShowConfirmAsync(confirmTitle, confirmMessage);
             if (!confirmed) return;
 
-            // Use base repository delete
             var success = await _speciesRepository.DeleteAsync(item.Id);
             if (success)
             {
                 Items.Remove(item);
                 UpdateCounters();
                 await ShowSuccessToastAsync($"Species '{item.Name}' deleted successfully");
-                this.LogSuccess($"Species deleted: {item.Name}");
             }
             else
             {
                 await ShowErrorAsync("Delete Failed", "Unable to delete the species. Please try again.");
-                this.LogError($"Failed to delete species: {item.Name}");
             }
 
         }, $"Delete Species: {item.Name}");
@@ -113,17 +100,15 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
 
     #endregion
 
-    #region Species-Specific Features
+    #region Species-Specific Features (OPTIMIZED)
 
     /// <summary>
-    /// Get species by genus for hierarchical filtering (if needed in future)
+    /// OPTIMIZED genus filtering with minimal logging
     /// </summary>
     public async Task FilterByGenusAsync(Guid genusId)
     {
         await this.SafeExecuteAsync(async () =>
         {
-            this.LogInfo($"Filtering species by genus: {genusId}");
-
             var speciesByGenus = await _speciesRepository.GetByGenusAsync(genusId);
             var filteredItems = speciesByGenus.Select(CreateItemViewModel).ToList();
 
@@ -134,20 +119,17 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
             }
 
             UpdateCounters();
-            this.LogSuccess($"Filtered to {Items.Count} species for genus {genusId}");
 
         }, "Filter Species by Genus");
     }
 
     /// <summary>
-    /// Search species by scientific name (species-specific feature)
+    /// OPTIMIZED scientific name search
     /// </summary>
     public async Task SearchByScientificNameAsync(string scientificName)
     {
         await this.SafeExecuteAsync(async () =>
         {
-            this.LogInfo($"Searching species by scientific name: {scientificName}");
-
             var matchingSpecies = await _speciesRepository.GetByScientificNameAsync(scientificName, exactMatch: false);
             var searchResults = matchingSpecies.Select(CreateItemViewModel).ToList();
 
@@ -158,20 +140,17 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
             }
 
             UpdateCounters();
-            this.LogSuccess($"Found {Items.Count} species matching scientific name: {scientificName}");
 
         }, "Search by Scientific Name");
     }
 
     /// <summary>
-    /// Filter by rarity status (species-specific feature)
+    /// OPTIMIZED rarity filtering
     /// </summary>
     public async Task FilterByRarityAsync(string rarityStatus)
     {
         await this.SafeExecuteAsync(async () =>
         {
-            this.LogInfo($"Filtering species by rarity: {rarityStatus}");
-
             var rareSpecies = await _speciesRepository.GetByRarityStatusAsync(rarityStatus);
             var rarityItems = rareSpecies.Select(CreateItemViewModel).ToList();
 
@@ -182,20 +161,17 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
             }
 
             UpdateCounters();
-            this.LogSuccess($"Filtered to {Items.Count} species with rarity: {rarityStatus}");
 
         }, "Filter by Rarity");
     }
 
     /// <summary>
-    /// Show only fragrant species (species-specific feature)
+    /// OPTIMIZED fragrant species filter
     /// </summary>
     public async Task ShowFragrantSpeciesAsync()
     {
         await this.SafeExecuteAsync(async () =>
         {
-            this.LogInfo("Filtering to show only fragrant species");
-
             var fragrantSpecies = await _speciesRepository.GetFragrantSpeciesAsync();
             var fragrantItems = fragrantSpecies.Select(CreateItemViewModel).ToList();
 
@@ -206,7 +182,6 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
             }
 
             UpdateCounters();
-            this.LogSuccess($"Showing {Items.Count} fragrant species");
 
         }, "Show Fragrant Species");
     }

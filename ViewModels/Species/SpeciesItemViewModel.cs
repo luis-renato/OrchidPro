@@ -7,248 +7,228 @@ using CommunityToolkit.Mvvm.Input;
 namespace OrchidPro.ViewModels.Species;
 
 /// <summary>
-/// Item ViewModel for botanical species entities with species-specific properties and behaviors.
-/// Extends base functionality with favorites, genus relationship display, and botanical characteristics.
+/// OPTIMIZED Item ViewModel for botanical species entities.
+/// Reduced logging, cached properties, minimal SafeExecute usage for performance.
 /// </summary>
 public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
 {
+    #region Cached Model Reference (PERFORMANCE OPTIMIZATION)
+
+    private readonly Models.Species _cachedModel;
+
+    #endregion
+
     #region Base Class Implementation
 
     public override string EntityName => "Species";
 
     #endregion
 
-    #region Species-Specific Properties
+    #region Species-Specific Properties (CACHED FOR PERFORMANCE)
 
-    /// <summary>
-    /// Favorite status specific to Species entities
-    /// </summary>
     public bool IsFavorite { get; }
-
-    /// <summary>
-    /// Foreign key to parent genus
-    /// </summary>
     public Guid GenusId { get; }
-
-    /// <summary>
-    /// Genus name for display (if available)
-    /// </summary>
-    public string? GenusName { get; }
-
-    /// <summary>
-    /// Scientific name for botanical reference
-    /// </summary>
-    public string? ScientificName { get; }
-
-    /// <summary>
-    /// Common name for user-friendly display
-    /// </summary>
-    public string? CommonName { get; }
-
-    /// <summary>
-    /// Rarity status for collection interest
-    /// </summary>
+    public string GenusName { get; }
+    public string ScientificName { get; }
+    public string CommonName { get; }
     public string RarityStatus { get; }
-
-    /// <summary>
-    /// Size category for space planning
-    /// </summary>
     public string SizeCategory { get; }
-
-    /// <summary>
-    /// Fragrance indicator
-    /// </summary>
     public bool? Fragrance { get; }
-
-    /// <summary>
-    /// Flowering season information
-    /// </summary>
-    public string? FloweringSeason { get; }
+    public string FloweringSeason { get; }
 
     #endregion
 
-    #region Commands (will be set up later if needed)
+    #region Commands (minimal setup)
 
-    /// <summary>
-    /// Command to view details - initially null, can be set by parent
-    /// </summary>
     public IAsyncRelayCommand? ViewDetailsCommand { get; set; }
-
-    /// <summary>
-    /// Command to toggle favorite status - initially null, can be set by parent
-    /// </summary>
     public IAsyncRelayCommand? ToggleFavoriteCommand { get; set; }
 
     #endregion
 
-    #region Constructor
+    #region Constructor (OPTIMIZED)
 
-    /// <summary>
-    /// Initialize species item ViewModel with species-specific data
-    /// </summary>
     public SpeciesItemViewModel(Models.Species species) : base(species)
     {
+        // Cache the model reference to avoid repeated calls
+        _cachedModel = species;
+
+        // Cache all properties at construction to avoid repeated calculations
         IsFavorite = species.IsFavorite;
         GenusId = species.GenusId;
-        GenusName = species.Genus?.Name;
-        ScientificName = species.ScientificName;
-        CommonName = species.CommonName;
-        RarityStatus = species.RarityStatus;
-        SizeCategory = species.SizeCategory;
+        GenusName = species.Genus?.Name ?? "Unknown";
+        ScientificName = species.ScientificName ?? string.Empty;
+        CommonName = species.CommonName ?? string.Empty;
+        RarityStatus = species.RarityStatus ?? "Common";
+        SizeCategory = species.SizeCategory ?? "Medium";
         Fragrance = species.Fragrance;
-        FloweringSeason = species.FloweringSeason;
+        FloweringSeason = species.FloweringSeason ?? string.Empty;
 
-        this.LogInfo($"Created: {species.Name} (Genus: {GenusName}, Scientific: {ScientificName}, Rarity: {RarityStatus})");
+        // COMPLETELY REMOVED logging for performance - constructor called frequently
     }
 
     #endregion
 
-    #region Enhanced UI Properties
+    #region OPTIMIZED UI Properties (CACHED, NO REPEATED CALCULATIONS)
 
-    /// <summary>
-    /// Customized description preview for botanical species
-    /// </summary>
+    private string? _descriptionPreview;
     public override string DescriptionPreview
     {
         get
         {
-            return this.SafeExecute(() =>
+            if (_descriptionPreview == null)
             {
-                if (!string.IsNullOrWhiteSpace(ScientificName))
-                    return ScientificName;
-
-                if (string.IsNullOrWhiteSpace(Description))
-                    return "No botanical description available";
-
-                return Description.Length > 120
-                    ? $"{Description.Substring(0, 117)}..."
-                    : Description;
-            }, fallbackValue: "Description unavailable", operationName: "DescriptionPreview");
+                _descriptionPreview = !string.IsNullOrWhiteSpace(ScientificName)
+                    ? ScientificName
+                    : string.IsNullOrWhiteSpace(Description)
+                        ? "No botanical description available"
+                        : Description.Length > 120
+                            ? $"{Description.Substring(0, 117)}..."
+                            : Description;
+            }
+            return _descriptionPreview;
         }
     }
 
-    /// <summary>
-    /// Gets creation date for display
-    /// </summary>
-    public DateTime CreatedAt => this.SafeExecute(() => ToModel()?.CreatedAt ?? DateTime.Now);
-
-    /// <summary>
-    /// Recent indicator with species-specific icons including favorites and rarity
-    /// </summary>
-    public override string RecentIndicator =>
-        this.SafeExecute(() =>
+    private DateTime? _createdAt;
+    public DateTime CreatedAt
+    {
+        get
         {
-            if (IsRecent) return "🌺";
-            if (IsFavorite) return "⭐";
-            if (RarityStatus == "Rare" || RarityStatus == "Very Rare") return "💎";
-            if (Fragrance == true) return "🌸";
-            return string.Empty;
-        }, fallbackValue: string.Empty, operationName: "RecentIndicator");
+            _createdAt ??= _cachedModel.CreatedAt;
+            return _createdAt.Value;
+        }
+    }
 
-    /// <summary>
-    /// Subtitle showing genus and scientific name context
-    /// </summary>
-    public string Subtitle =>
-        this.SafeExecute(() =>
+    private string? _recentIndicator;
+    public override string RecentIndicator
+    {
+        get
         {
-            var parts = new List<string>();
+            if (_recentIndicator == null)
+            {
+                _recentIndicator = IsRecent ? "🌺"
+                    : IsFavorite ? "⭐"
+                    : (RarityStatus == "Rare" || RarityStatus == "Very Rare") ? "💎"
+                    : Fragrance == true ? "🌸"
+                    : string.Empty;
+            }
+            return _recentIndicator;
+        }
+    }
 
-            if (!string.IsNullOrWhiteSpace(GenusName))
-                parts.Add($"Genus: {GenusName}");
-
-            if (!string.IsNullOrWhiteSpace(ScientificName) && ScientificName != Name)
-                parts.Add(ScientificName);
-            else if (!string.IsNullOrWhiteSpace(CommonName))
-                parts.Add($"'{CommonName}'");
-
-            return parts.Count > 0 ? string.Join(" • ", parts) : "Species";
-        }, fallbackValue: "Species", operationName: "Subtitle");
-
-    /// <summary>
-    /// Characteristics summary for quick reference
-    /// </summary>
-    public string CharacteristicsSummary =>
-        this.SafeExecute(() =>
+    private string? _subtitle;
+    public string Subtitle
+    {
+        get
         {
-            var characteristics = new List<string>();
+            if (_subtitle == null)
+            {
+                var parts = new List<string>();
 
-            if (SizeCategory != "Medium")
-                characteristics.Add($"Size: {SizeCategory}");
+                if (!string.IsNullOrWhiteSpace(GenusName) && GenusName != "Unknown")
+                    parts.Add($"Genus: {GenusName}");
 
-            if (RarityStatus != "Common")
-                characteristics.Add($"Rarity: {RarityStatus}");
+                if (!string.IsNullOrWhiteSpace(ScientificName) && ScientificName != Name)
+                    parts.Add(ScientificName);
+                else if (!string.IsNullOrWhiteSpace(CommonName))
+                    parts.Add($"'{CommonName}'");
 
-            if (Fragrance == true)
-                characteristics.Add("Fragrant");
+                _subtitle = parts.Count > 0 ? string.Join(" • ", parts) : "Species";
+            }
+            return _subtitle;
+        }
+    }
 
-            if (!string.IsNullOrWhiteSpace(FloweringSeason))
-                characteristics.Add($"Blooms: {FloweringSeason}");
-
-            return characteristics.Count > 0
-                ? string.Join(" • ", characteristics)
-                : "Standard characteristics";
-        }, fallbackValue: "No characteristics data", operationName: "CharacteristicsSummary");
-
-    /// <summary>
-    /// Short genus name for compact display
-    /// </summary>
-    public string ShortGenusName =>
-        this.SafeExecute(() =>
+    private string? _characteristicsSummary;
+    public string CharacteristicsSummary
+    {
+        get
         {
-            if (string.IsNullOrWhiteSpace(GenusName))
-                return "Unknown";
+            if (_characteristicsSummary == null)
+            {
+                var characteristics = new List<string>();
 
-            return GenusName.Length > 15
-                ? $"{GenusName.Substring(0, 12)}..."
-                : GenusName;
-        }, fallbackValue: "N/A", operationName: "ShortGenusName");
+                if (SizeCategory != "Medium" && !string.IsNullOrEmpty(SizeCategory))
+                    characteristics.Add($"Size: {SizeCategory}");
 
-    /// <summary>
-    /// Display name priority: Scientific > Common > Name
-    /// </summary>
-    public string PreferredDisplayName =>
-        this.SafeExecute(() =>
+                if (RarityStatus != "Common" && !string.IsNullOrEmpty(RarityStatus))
+                    characteristics.Add($"Rarity: {RarityStatus}");
+
+                if (Fragrance == true)
+                    characteristics.Add("Fragrant");
+
+                if (!string.IsNullOrWhiteSpace(FloweringSeason))
+                    characteristics.Add($"Blooms: {FloweringSeason}");
+
+                _characteristicsSummary = characteristics.Count > 0
+                    ? string.Join(" • ", characteristics)
+                    : "Standard characteristics";
+            }
+            return _characteristicsSummary;
+        }
+    }
+
+    private string? _shortGenusName;
+    public string ShortGenusName
+    {
+        get
         {
-            if (!string.IsNullOrWhiteSpace(ScientificName))
-                return ScientificName;
+            if (_shortGenusName == null)
+            {
+                _shortGenusName = string.IsNullOrWhiteSpace(GenusName) || GenusName == "Unknown"
+                    ? "Unknown"
+                    : GenusName.Length > 15
+                        ? $"{GenusName.Substring(0, 12)}..."
+                        : GenusName;
+            }
+            return _shortGenusName;
+        }
+    }
 
-            if (!string.IsNullOrWhiteSpace(CommonName))
-                return CommonName;
-
-            return Name;
-        }, fallbackValue: Name, operationName: "PreferredDisplayName");
+    private string? _preferredDisplayName;
+    public string PreferredDisplayName
+    {
+        get
+        {
+            if (_preferredDisplayName == null)
+            {
+                _preferredDisplayName = !string.IsNullOrWhiteSpace(ScientificName)
+                    ? ScientificName
+                    : !string.IsNullOrWhiteSpace(CommonName)
+                        ? CommonName
+                        : Name;
+            }
+            return _preferredDisplayName;
+        }
+    }
 
     #endregion
 
-    #region Data Access and Utility Methods
+    #region OPTIMIZED Data Access Methods
 
     /// <summary>
-    /// Get the underlying Species model with proper typing
+    /// Get the underlying Species model (OPTIMIZED - returns cached reference)
     /// </summary>
     public new Models.Species ToModel()
     {
-        return this.SafeExecute(() =>
-        {
-            var model = base.ToModel();
-            this.LogInfo($"Retrieved Species model for: {Name}");
-            return model;
-        }, fallbackValue: base.ToModel(), operationName: "ToModel");
+        // Return cached model instead of calling base and adding logging overhead
+        return _cachedModel;
     }
 
     /// <summary>
-    /// Compare species for sorting with favorites-first and rarity logic
+    /// OPTIMIZED comparison for sorting with minimal calculations
     /// </summary>
     public int CompareTo(SpeciesItemViewModel? other)
     {
-        return this.SafeExecute(() =>
+        if (other == null) return 1;
+
+        // Favorites first
+        if (IsFavorite && !other.IsFavorite) return -1;
+        if (!IsFavorite && other.IsFavorite) return 1;
+
+        // Then by rarity (using simple string comparison for performance)
+        if (RarityStatus != other.RarityStatus)
         {
-            if (other == null) return 1;
-
-            // Favorites first
-            if (IsFavorite && !other.IsFavorite) return -1;
-            if (!IsFavorite && other.IsFavorite) return 1;
-
-            // Then by rarity (rare species first)
             var rarityOrder = new Dictionary<string, int>
             {
                 ["Extinct"] = 0,
@@ -258,73 +238,61 @@ public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
                 ["Common"] = 4
             };
 
-            var thisRarityValue = rarityOrder.ContainsKey(RarityStatus) ? rarityOrder[RarityStatus] : 5;
-            var otherRarityValue = rarityOrder.ContainsKey(other.RarityStatus) ? rarityOrder[other.RarityStatus] : 5;
+            var thisValue = rarityOrder.GetValueOrDefault(RarityStatus, 5);
+            var otherValue = rarityOrder.GetValueOrDefault(other.RarityStatus, 5);
 
-            if (thisRarityValue != otherRarityValue)
-                return thisRarityValue.CompareTo(otherRarityValue);
+            if (thisValue != otherValue)
+                return thisValue.CompareTo(otherValue);
+        }
 
-            // Then by genus name
-            var genusComparison = string.Compare(GenusName, other.GenusName, StringComparison.OrdinalIgnoreCase);
-            if (genusComparison != 0) return genusComparison;
+        // Then by genus name
+        var genusComparison = string.Compare(GenusName, other.GenusName, StringComparison.OrdinalIgnoreCase);
+        if (genusComparison != 0) return genusComparison;
 
-            // Finally by species name (prefer scientific name if available)
-            var thisDisplayName = PreferredDisplayName;
-            var otherDisplayName = other.PreferredDisplayName;
-            return string.Compare(thisDisplayName, otherDisplayName, StringComparison.OrdinalIgnoreCase);
-
-        }, fallbackValue: 0, operationName: "CompareTo");
+        // Finally by preferred display name
+        return string.Compare(PreferredDisplayName, other.PreferredDisplayName, StringComparison.OrdinalIgnoreCase);
     }
 
     /// <summary>
-    /// Get summary text for quick info display
+    /// OPTIMIZED summary with cached properties
     /// </summary>
     public string GetSummary()
     {
-        return this.SafeExecute(() =>
+        var parts = new List<string> { PreferredDisplayName };
+
+        if (!string.IsNullOrEmpty(GenusName) && GenusName != "Unknown")
+            parts.Add($"Genus: {ShortGenusName}");
+
+        if (!string.IsNullOrEmpty(Description))
         {
-            var parts = new List<string> { PreferredDisplayName };
+            var shortDesc = Description.Length > 50
+                ? $"{Description.Substring(0, 47)}..."
+                : Description;
+            parts.Add(shortDesc);
+        }
 
-            if (!string.IsNullOrEmpty(GenusName))
-                parts.Add($"Genus: {ShortGenusName}");
-
-            if (!string.IsNullOrEmpty(Description))
-            {
-                var shortDesc = Description.Length > 50
-                    ? $"{Description.Substring(0, 47)}..."
-                    : Description;
-                parts.Add(shortDesc);
-            }
-
-            return string.Join(" | ", parts);
-        }, fallbackValue: Name, operationName: "GetSummary");
+        return string.Join(" | ", parts);
     }
 
     /// <summary>
-    /// Get cultivation summary for care planning
+    /// OPTIMIZED cultivation summary with cached model access
     /// </summary>
     public string GetCultivationSummary()
     {
-        return this.SafeExecute(() =>
-        {
-            var summary = new List<string>();
+        var summary = new List<string>();
 
-            var species = ToModel();
+        if (!string.IsNullOrWhiteSpace(_cachedModel.TemperaturePreference))
+            summary.Add($"Temp: {_cachedModel.TemperaturePreference}");
 
-            if (!string.IsNullOrWhiteSpace(species.TemperaturePreference))
-                summary.Add($"Temp: {species.TemperaturePreference}");
+        if (!string.IsNullOrWhiteSpace(_cachedModel.LightRequirements))
+            summary.Add($"Light: {_cachedModel.LightRequirements}");
 
-            if (!string.IsNullOrWhiteSpace(species.LightRequirements))
-                summary.Add($"Light: {species.LightRequirements}");
+        if (!string.IsNullOrWhiteSpace(_cachedModel.GrowthHabit))
+            summary.Add($"Growth: {_cachedModel.GrowthHabit}");
 
-            if (!string.IsNullOrWhiteSpace(species.GrowthHabit))
-                summary.Add($"Growth: {species.GrowthHabit}");
-
-            return summary.Count > 0
-                ? string.Join(" • ", summary)
-                : "Cultivation info not available";
-
-        }, fallbackValue: "No cultivation data", operationName: "GetCultivationSummary");
+        return summary.Count > 0
+            ? string.Join(" • ", summary)
+            : "Cultivation info not available";
     }
 
     #endregion
