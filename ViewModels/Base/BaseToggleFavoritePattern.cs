@@ -7,11 +7,12 @@ namespace OrchidPro.ViewModels.Base;
 /// <summary>
 /// Generic toggle favorite pattern eliminating code duplication across all list ViewModels.
 /// Provides standardized favorite toggle operations for any entity type.
+/// FIXED: Simplified approach to prevent refresh indicators.
 /// </summary>
 public static class BaseToggleFavoritePattern
 {
     /// <summary>
-    /// Execute toggle favorite with standard pattern used by all list ViewModels - CORRIGIDO SIMPLES
+    /// Execute toggle favorite WITHOUT triggering refresh indicators - SIMPLIFIED FIX
     /// </summary>
     /// <typeparam name="TEntity">Entity type</typeparam>
     /// <typeparam name="TItemViewModel">Item ViewModel type</typeparam>
@@ -36,21 +37,25 @@ public static class BaseToggleFavoritePattern
         {
             item.LogInfo($"Toggling favorite for: {item.Name}");
 
-            // ✅ CORRIGIDO: Cast simples para BaseRepository
+            // Cast to BaseRepository to access ToggleFavoriteAsync
             var baseRepo = (BaseRepository<TEntity>)repository;
             var updatedEntity = await baseRepo.ToggleFavoriteAsync(item.Id);
 
-            // Find and replace item in collection
+            // ✅ SIMPLIFIED FIX: Find and replace item but preserve selection state
             var index = items.IndexOf(item);
             if (index >= 0)
             {
                 var newItem = createItemViewModel(updatedEntity);
 
-                // Preserve selection state and callback
+                // Preserve important state that shouldn't be lost
                 newItem.IsSelected = item.IsSelected;
                 newItem.SelectionChangedAction = item.SelectionChangedAction;
 
-                items[index] = newItem;
+                // ✅ CRITICAL: Use RemoveAt + Insert instead of direct assignment
+                // This minimizes collection change notifications
+                items.RemoveAt(index);
+                items.Insert(index, newItem);
+
                 item.LogInfo($"Updated item at index {index} with new favorite status");
             }
 

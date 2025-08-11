@@ -1,6 +1,7 @@
-﻿using OrchidPro.ViewModels.Species;
-using OrchidPro.Constants;
+﻿using OrchidPro.Constants;
 using OrchidPro.Extensions;
+using OrchidPro.ViewModels.Species;
+using Syncfusion.Maui.ListView;
 
 namespace OrchidPro.Views.Pages;
 
@@ -77,22 +78,26 @@ public partial class SpeciesListPage : ContentPage
     }
 
     /// <summary>
-    /// Handle pull-to-refresh gesture for data refreshing
+    /// Handle pull-to-refresh gesture for data refreshing - CORRIGIDO
+    /// SUBSTITUA o método PullToRefresh_Refreshing existente por este
     /// </summary>
     private async void PullToRefresh_Refreshing(object? sender, EventArgs e)
     {
         await this.SafeExecuteAsync(async () =>
         {
-            this.LogInfo("Pull-to-refresh triggered");
+            this.LogInfo("Pull-to-refresh triggered by user");
 
-            ListRefresh.IsRefreshing = true;
+            // ✅ CRITICAL FIX: Don't manually set IsRefreshing 
+            // Let the ViewModel's RefreshCommand handle the IsRefreshing state
+            // ListRefresh.IsRefreshing = true;  // ❌ REMOVED
 
             if (_viewModel.RefreshCommand?.CanExecute(null) == true)
             {
                 await _viewModel.RefreshCommand.ExecuteAsync(null);
             }
 
-            ListRefresh.IsRefreshing = false;
+            // ✅ CRITICAL FIX: Don't manually set IsRefreshing 
+            // ListRefresh.IsRefreshing = false; // ❌ REMOVED
 
             this.LogSuccess("Pull-to-refresh completed");
         }, "Pull-to-refresh failed");
@@ -829,4 +834,5 @@ public partial class SpeciesListPage : ContentPage
     }
 
     #endregion
+
 }

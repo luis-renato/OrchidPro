@@ -89,16 +89,6 @@
                 <Setter Property="StrokeShape" Value="RoundRectangle 12" />
             </Style>
 
-            <!-- FAB (Floating Action Button) style -->
-            <Style x:Key="FabStyle" TargetType="Button">
-                <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
-                <Setter Property="TextColor" Value="{StaticResource OnPrimary}" />
-                <Setter Property="FontAttributes" Value="Bold" />
-                <Setter Property="CornerRadius" Value="28" />
-                <Setter Property="WidthRequest" Value="160" />
-                <Setter Property="HeightRequest" Value="56" />
-            </Style>
-
         </ResourceDictionary>
     </Application.Resources>
 </Application>

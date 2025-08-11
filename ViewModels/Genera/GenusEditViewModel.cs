@@ -21,6 +21,7 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
 
     private readonly IGenusRepository _genusRepository;
     private readonly IFamilyRepository _familyRepository;
+    private bool _isLoadingData = false; // Flag to prevent HasUnsavedChanges during data loading
 
     #endregion
 
@@ -108,6 +109,9 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
         // Subscribe to family created message
         WeakReferenceMessenger.Default.Register<FamilyCreatedMessage>(this, OnFamilyCreated);
 
+        // Monitor genus-specific properties for HasUnsavedChanges
+        PropertyChanged += OnGenusPropertyChanged;
+
         this.LogInfo("Initialized - using base functionality with family relationship management");
 
         // Load available families for selection
@@ -124,6 +128,28 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
     #endregion
 
     #region Family Management
+
+    /// <summary>
+    /// Monitor genus-specific properties for HasUnsavedChanges tracking.
+    /// Base handles Name, Description, IsActive, IsFavorite automatically.
+    /// </summary>
+    private void OnGenusPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        this.SafeExecute(() =>
+        {
+            // IGNORE changes during data loading (same pattern as BaseEditViewModel)
+            if (_isLoadingData) return;
+
+            // Monitor ALL properties that should trigger HasUnsavedChanges INCLUDING Name
+            // (Base might not be working correctly, so we handle ALL here)
+            if (e.PropertyName is nameof(Name) or nameof(Description) or nameof(IsActive) or nameof(IsFavorite) or
+                nameof(SelectedFamilyId) or nameof(SelectedFamilyName))
+            {
+                HasUnsavedChanges = true;
+                this.LogDebug($"Property {e.PropertyName} changed - marked HasUnsavedChanges = true");
+            }
+        }, "Genus Property Change");
+    }
 
     /// <summary>
     /// Load available families for selection dropdown
@@ -166,8 +192,11 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
             OnPropertyChanged(nameof(FamilyContext));
             OnPropertyChanged(nameof(CanCreateAnother));
 
-            // Mark as having changes if we're not initializing
-            HasUnsavedChanges = true;
+            // FIXED: Only mark as having changes if we're not loading data
+            if (!_isLoadingData)
+            {
+                HasUnsavedChanges = true;
+            }
 
         }, "Set Selected Family");
     }
@@ -570,11 +599,15 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
 
     /// <summary>
     /// Load genus data into form fields
+    /// FIXED: Set loading flag to prevent HasUnsavedChanges during data loading
     /// </summary>
     private void LoadGenusData(Genus genus)
     {
         this.SafeExecute(() =>
         {
+            // Set loading flag to prevent HasUnsavedChanges during data loading
+            _isLoadingData = true;
+
             Name = genus.Name ?? string.Empty;
             Description = genus.Description ?? string.Empty;
             IsActive = genus.IsActive;
@@ -586,6 +619,10 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
             {
                 SetSelectedFamily(family);
             }
+
+            // Clear loading flag and reset HasUnsavedChanges
+            _isLoadingData = false;
+            HasUnsavedChanges = false;
 
             this.LogInfo($"Loaded genus data: {genus.Name} in family {SelectedFamilyName}");
         }, "Load Genus Data");

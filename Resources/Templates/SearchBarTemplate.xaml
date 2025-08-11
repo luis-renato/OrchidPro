@@ -8,7 +8,7 @@
     <!-- ✅ CONTAINER STYLE PARA SEARCH BAR -->
     <Style x:Key="SearchBarContainerStyle" TargetType="Border">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray900}}" />
-        <Setter Property="Padding" Value="20,15" />
+        <Setter Property="Padding" Value="10,10" />
     </Style>
 
     <!-- ✅ STYLE PARA SEARCH FIELD BORDER -->
@@ -60,14 +60,22 @@
 
     <!-- ✅ STYLE PARA ACTION BUTTONS (Filter/Sort) -->
     <Style x:Key="SearchActionButtonStyle" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Tertiary}, Dark={StaticResource Primary}}" />
         <Setter Property="Stroke" Value="Transparent" />
-        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="Padding" Value="10,0" />
         <Setter Property="HeightRequest" Value="44" />
         <Setter Property="WidthRequest" Value="44" />
         <Setter Property="StrokeShape">
             <Setter.Value>
                 <RoundRectangle CornerRadius="22" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#B8876F" Offset="0.0" />
+                    <GradientStop Color="#A47764" Offset="0.5" />
+                    <GradientStop Color="#8B5A47" Offset="1.0" />
+                </LinearGradientBrush>
             </Setter.Value>
         </Setter>
     </Style>

@@ -240,4 +240,31 @@ public abstract partial class BaseItemViewModel<T> : ObservableObject where T : 
     }
 
     #endregion
+
+    /// <summary>
+    /// Update the item ViewModel properties from a new entity without replacing the entire item.
+    /// This prevents collection change notifications that could trigger unwanted refreshes.
+    /// ADICIONAR este método ao final da classe BaseItemViewModel, antes do último }
+    /// </summary>
+    /// <param name="updatedEntity">Updated entity with new property values</param>
+    public virtual void UpdateFromEntity(T updatedEntity)
+    {
+        this.SafeExecute(() =>
+        {
+            this.LogInfo($"Updating {EntityName} from entity: {Name}");
+
+            // We can't update readonly fields, so we need to work with derived classes
+            // that have the specific properties we need to update
+
+            // Notify all common property changes
+            OnPropertyChanged(nameof(Name));
+            OnPropertyChanged(nameof(Description));
+            OnPropertyChanged(nameof(IsActive));
+            OnPropertyChanged(nameof(IsSystemDefault));
+            OnPropertyChanged(nameof(CreatedAt));
+            OnPropertyChanged(nameof(UpdatedAt));
+
+            this.LogSuccess($"Updated {EntityName} properties from entity");
+        }, "UpdateFromEntity");
+    }
 }

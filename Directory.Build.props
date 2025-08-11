@@ -1,0 +1,13 @@
+<Project>
+  <PropertyGroup>
+    <!-- 
+    MVVMTK0045: ObservableProperty fields are not AOT compatible in WinRT scenarios
+    Suppressed because: 
+    1. This project targets .NET MAUI (not UWP/WinUI3), where this warning doesn't apply
+    2. Partial properties require C# preview language version which adds project complexity
+    3. Current implementation works perfectly on Android, iOS and Windows platforms
+    4. AOT compatibility warning is informational only and doesn't affect functionality
+    -->
+    <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
+  </PropertyGroup>
+</Project>
