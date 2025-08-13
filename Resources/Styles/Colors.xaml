@@ -18,6 +18,7 @@
     <Color x:Key="OnPrimary">#FFFFFF</Color>
     <Color x:Key="OnSecondary">#2B1F1B</Color>
     <Color x:Key="OnSurface">#1F1F1F</Color>
+    <Color x:Key="OnSurfaceDark">#BBBBBB</Color>
     <Color x:Key="OnBackground">#1F1F1F</Color>
 
     <!-- Neutrals -->

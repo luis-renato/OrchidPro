@@ -1,13 +1,13 @@
 ﻿using OrchidPro.Models.Base;
 using OrchidPro.Services.Data;
 using OrchidPro.Extensions;
+using System.Collections.Concurrent;
 
 namespace OrchidPro.Services.Base;
 
 /// <summary>
-/// Base repository implementation providing comprehensive CRUD operations with intelligent caching, 
-/// connectivity management, and performance optimization for all entity types.
-/// Eliminates code duplication and ensures consistent data access patterns across the application.
+/// PERFORMANCE OPTIMIZED Base repository with smart caching and background refresh.
+/// Fixed version with proper syntax and all interface implementations.
 /// </summary>
 public abstract class BaseRepository<T> : IBaseRepository<T>
     where T : class, IBaseEntity, new()
@@ -15,75 +15,65 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
     #region Protected Fields
 
     protected readonly SupabaseService _supabaseService;
-    protected readonly List<T> _cache = new();
+    protected readonly ConcurrentDictionary<Guid, T> _entityCache = new();
     protected DateTime? _lastCacheUpdate;
-    protected readonly TimeSpan _cacheValidTime = TimeSpan.FromMinutes(5);
+    protected readonly TimeSpan _cacheValidTime = TimeSpan.FromMinutes(8);
     protected readonly SemaphoreSlim _semaphore = new(1, 1);
-    protected readonly object _cacheLock = new object();
 
     #endregion
 
-    #region Abstract Methods - Must be implemented by derived classes
+    #region PERFORMANCE: Smart Background Refresh
 
     /// <summary>
-    /// Entity type name for logging and error messages
+    /// Background refresh timer for proactive cache updates
     /// </summary>
+    private Timer? _backgroundRefreshTimer;
+    private readonly TimeSpan _backgroundRefreshInterval = TimeSpan.FromMinutes(4);
+
+    /// <summary>
+    /// Track cache access patterns for intelligent pre-loading
+    /// </summary>
+    private readonly ConcurrentDictionary<string, DateTime> _accessPatterns = new();
+
+    #endregion
+
+    #region Abstract Methods
+
     protected abstract string EntityTypeName { get; }
-
-    /// <summary>
-    /// Get all entities from the specific service implementation
-    /// </summary>
     protected abstract Task<IEnumerable<T>> GetAllFromServiceAsync();
-
-    /// <summary>
-    /// Get entity by ID from the specific service implementation
-    /// </summary>
     protected abstract Task<T?> GetByIdFromServiceAsync(Guid id);
-
-    /// <summary>
-    /// Create entity in the specific service implementation
-    /// </summary>
     protected abstract Task<T?> CreateInServiceAsync(T entity);
-
-    /// <summary>
-    /// Update entity in the specific service implementation
-    /// </summary>
     protected abstract Task<T?> UpdateInServiceAsync(T entity);
-
-    /// <summary>
-    /// Delete entity in the specific service implementation
-    /// </summary>
     protected abstract Task<bool> DeleteInServiceAsync(Guid id);
-
-    /// <summary>
-    /// Check if name exists in the specific service implementation
-    /// </summary>
     protected abstract Task<bool> NameExistsInServiceAsync(string name, Guid? excludeId);
 
     #endregion
 
     #region Constructor
 
-    /// <summary>
-    /// Initialize base repository with Supabase service
-    /// </summary>
     protected BaseRepository(SupabaseService supabaseService)
     {
         _supabaseService = supabaseService ?? throw new ArgumentNullException(nameof(supabaseService));
-        this.LogInfo($"{EntityTypeName}Repository initialized with caching and performance optimization");
+
+        // Start background refresh timer
+        InitializeBackgroundRefresh();
+
+        this.LogInfo($"OPTIMIZED {EntityTypeName}Repository initialized with smart caching");
     }
 
     #endregion
 
-    #region IBaseRepository Implementation
+    #region PERFORMANCE OPTIMIZED: Core Methods
 
     /// <summary>
-    /// Gets all entities with optional inactive inclusion and intelligent caching
+    /// OPTIMIZED GetAll with smart cache management and background refresh
     /// </summary>
     public virtual async Task<List<T>> GetAllAsync(bool includeInactive = false)
     {
         using (this.LogPerformance($"Get All {EntityTypeName}"))
         {
+            TrackAccess("GetAll");
+
             await _semaphore.WaitAsync();
             try
             {
@@ -96,7 +86,15 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
                         return GetFromCache(includeInactive);
                     }
 
-                    // Check connectivity before trying server
+                    // Start background refresh if cache is stale but not empty
+                    if (_entityCache.Any() && IsCacheStale())
+                    {
+                        _ = Task.Run(RefreshCacheInternalAsync);
+                        this.LogInfo("Using stale cache while refreshing in background");
+                        return GetFromCache(includeInactive);
+                    }
+
+                    // Cache invalid or empty - fetch from server
                     var isConnected = await TestConnectionAsync();
                     if (!isConnected)
                     {
@@ -104,8 +102,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
                         return GetFromCache(includeInactive);
                     }
 
-                    // Cache invalid and connected - fetch from server
-                    this.LogInfo("Cache expired - fetching from server");
+                    this.LogInfo("Cache invalid - fetching from server");
                     await RefreshCacheInternalAsync();
 
                     return GetFromCache(includeInactive);
@@ -117,7 +114,6 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
                 }
                 else
                 {
-                    this.LogError($"GetAllAsync error: {result.Message}");
                     this.LogWarning("Using cache as fallback");
                     return GetFromCache(includeInactive);
                 }
@@ -130,55 +126,30 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
     }
 
     /// <summary>
-    /// Gets filtered entities based on search criteria with intelligent caching
-    /// </summary>
-    public virtual async Task<List<T>> GetFilteredAsync(string? searchText = null, bool? statusFilter = null)
-    {
-        using (this.LogPerformance($"Get Filtered {EntityTypeName}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                var allEntities = await GetAllAsync(statusFilter != true);
-                var filtered = allEntities.AsEnumerable();
-
-                // Apply text search if provided
-                if (!string.IsNullOrEmpty(searchText))
-                {
-                    filtered = ApplyTextSearch(filtered, searchText);
-                }
-
-                // Apply status filter if provided
-                if (statusFilter.HasValue)
-                {
-                    filtered = filtered.Where(e => e.IsActive == statusFilter.Value);
-                }
-
-                return filtered.ToList();
-            }, $"Filtered {EntityTypeName}");
-
-            return result.Success && result.Data != null ? result.Data : new List<T>();
-        }
-    }
-
-    /// <summary>
-    /// Gets entity by ID with caching support
+    /// OPTIMIZED GetById with cache-first approach
     /// </summary>
     public virtual async Task<T?> GetByIdAsync(Guid id)
     {
         using (this.LogPerformance($"Get {EntityTypeName} by ID"))
         {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                var allEntities = await GetAllAsync(true);
-                return allEntities.FirstOrDefault(e => e.Id == id);
-            }, $"{EntityTypeName} by ID");
+            TrackAccess($"GetById-{id}");
 
-            return result.Success ? result.Data : null;
+            // Try cache first
+            if (_entityCache.TryGetValue(id, out var cachedEntity))
+            {
+                this.LogInfo("Found in cache");
+                return cachedEntity;
+            }
+
+            // Not in cache - get all (which populates cache) and try again
+            await GetAllAsync(true);
+
+            return _entityCache.TryGetValue(id, out var entity) ? entity : null;
         }
     }
 
     /// <summary>
-    /// Creates new entity with validation and cache invalidation
+    /// OPTIMIZED Create with immediate cache update
     /// </summary>
     public virtual async Task<T> CreateAsync(T entity)
     {
@@ -197,8 +168,9 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
                 var created = await CreateInServiceAsync(entity);
                 if (created != null)
                 {
-                    InvalidateCache();
-                    this.LogDataOperation("Created", EntityTypeName, $"{created.Name} successfully");
+                    // Update cache immediately
+                    _entityCache.TryAdd(created.Id, created);
+                    this.LogDataOperation("Created and cached", EntityTypeName, $"{created.Name} successfully");
                     return created;
                 }
 
@@ -217,7 +189,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
     }
 
     /// <summary>
-    /// Updates existing entity with validation and cache invalidation
+    /// OPTIMIZED Update with immediate cache sync
     /// </summary>
     public virtual async Task<T> UpdateAsync(T entity)
     {
@@ -225,17 +197,16 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                // Set update metadata
                 entity.UpdatedAt = DateTime.UtcNow;
 
                 this.LogDataOperation("Updating", EntityTypeName, entity.Id);
 
-                // Update via service implementation
                 var updated = await UpdateInServiceAsync(entity);
                 if (updated != null)
                 {
-                    InvalidateCache();
-                    this.LogDataOperation("Updated", EntityTypeName, $"{updated.Name} successfully");
+                    // Update cache immediately
+                    _entityCache.AddOrUpdate(updated.Id, updated, (key, oldValue) => updated);
+                    this.LogDataOperation("Updated and cached", EntityTypeName, $"{updated.Name} successfully");
                     return updated;
                 }
 
@@ -254,7 +225,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
     }
 
     /// <summary>
-    /// Deletes entity by ID with cascade validation and cache invalidation
+    /// OPTIMIZED Delete with immediate cache removal
     /// </summary>
     public virtual async Task<bool> DeleteAsync(Guid id)
     {
@@ -264,12 +235,12 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
             {
                 this.LogDataOperation("Deleting", EntityTypeName, id);
 
-                // Delete via service implementation
                 var success = await DeleteInServiceAsync(id);
                 if (success)
                 {
-                    InvalidateCache();
-                    this.LogDataOperation("Deleted", EntityTypeName, "successfully");
+                    // Remove from cache immediately
+                    _entityCache.TryRemove(id, out _);
+                    this.LogDataOperation("Deleted and removed from cache", EntityTypeName, "successfully");
                     return true;
                 }
 
@@ -280,27 +251,197 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
         }
     }
 
-    /// <summary>
-    /// Gets entity by name with case-insensitive matching
-    /// </summary>
-    public virtual async Task<T?> GetByNameAsync(string name)
-    {
-        using (this.LogPerformance($"Get {EntityTypeName} by Name"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                var allEntities = await GetAllAsync(true);
-                return allEntities.FirstOrDefault(e =>
-                    string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase));
-            }, $"{EntityTypeName} by Name");
+    #endregion
 
-            return result.Success ? result.Data : null;
+    #region PERFORMANCE OPTIMIZED: Cache Management
+
+    /// <summary>
+    /// Check if cache is valid (not expired)
+    /// </summary>
+    private bool IsCacheValid()
+    {
+        return _lastCacheUpdate.HasValue &&
+               DateTime.UtcNow - _lastCacheUpdate.Value < _cacheValidTime &&
+               _entityCache.Any();
+    }
+
+    /// <summary>
+    /// Check if cache is stale but still usable
+    /// </summary>
+    private bool IsCacheStale()
+    {
+        return _lastCacheUpdate.HasValue &&
+               DateTime.UtcNow - _lastCacheUpdate.Value > TimeSpan.FromMinutes(6) &&
+               _entityCache.Any();
+    }
+
+    /// <summary>
+    /// Get entities from cache with filtering
+    /// </summary>
+    private List<T> GetFromCache(bool includeInactive)
+    {
+        var entities = _entityCache.Values.ToList();
+        return includeInactive
+            ? entities
+            : entities.Where(e => e.IsActive).ToList();
+    }
+
+    /// <summary>
+    /// OPTIMIZED refresh cache with parallel processing
+    /// </summary>
+    protected async Task RefreshCacheInternalAsync()
+    {
+        var result = await this.SafeDataExecuteAsync(async () =>
+        {
+            var entities = await GetAllFromServiceAsync();
+            return entities.ToList();
+        }, $"Refresh {EntityTypeName} Cache");
+
+        if (result.Success && result.Data != null)
+        {
+            // Update cache in parallel batches
+            await Task.Run(() =>
+            {
+                _entityCache.Clear();
+
+                // Add entities in parallel for better performance
+                var entities = result.Data;
+                Parallel.ForEach(entities, entity =>
+                {
+                    _entityCache.TryAdd(entity.Id, entity);
+                });
+
+                _lastCacheUpdate = DateTime.UtcNow;
+            });
+
+            this.LogInfo($"Cache refreshed: {result.Data.Count} {EntityTypeName.ToLower()} entities");
+        }
+        else
+        {
+            this.LogError($"Failed to refresh cache: {result.Message}");
         }
     }
 
     /// <summary>
-    /// Deletes multiple entities efficiently with batch operations
+    /// Initialize background refresh system
     /// </summary>
+    private void InitializeBackgroundRefresh()
+    {
+        _backgroundRefreshTimer = new Timer(async _ =>
+        {
+            try
+            {
+                // Only refresh if cache is getting stale and there's recent access
+                if (ShouldBackgroundRefresh())
+                {
+                    this.LogInfo($"Background refresh triggered for {EntityTypeName}");
+                    await RefreshCacheInternalAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                this.LogError(ex, $"Background refresh failed for {EntityTypeName}");
+            }
+        }, null, _backgroundRefreshInterval, _backgroundRefreshInterval);
+    }
+
+    /// <summary>
+    /// Determine if background refresh should occur
+    /// </summary>
+    private bool ShouldBackgroundRefresh()
+    {
+        // Don't refresh if cache is fresh
+        if (IsCacheValid()) return false;
+
+        // Don't refresh if no recent access
+        var recentAccess = _accessPatterns.Values.Any(time =>
+            DateTime.UtcNow - time < TimeSpan.FromMinutes(10));
+
+        return recentAccess;
+    }
+
+    /// <summary>
+    /// Track access patterns for intelligent caching
+    /// </summary>
+    private void TrackAccess(string operation)
+    {
+        _accessPatterns.AddOrUpdate(operation, DateTime.UtcNow, (key, oldValue) => DateTime.UtcNow);
+
+        // Cleanup old access patterns (keep last 50)
+        if (_accessPatterns.Count > 50)
+        {
+            var oldestEntries = _accessPatterns
+                .OrderBy(kvp => kvp.Value)
+                .Take(_accessPatterns.Count - 40)
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            foreach (var key in oldestEntries)
+            {
+                _accessPatterns.TryRemove(key, out _);
+            }
+        }
+    }
+
+    #endregion
+
+    #region Standard Repository Methods (Optimized)
+
+    public virtual async Task<List<T>> GetFilteredAsync(string? searchText = null, bool? statusFilter = null)
+    {
+        using (this.LogPerformance($"Get Filtered {EntityTypeName}"))
+        {
+            TrackAccess("GetFiltered");
+
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                var allEntities = await GetAllAsync(statusFilter != true);
+
+                return await Task.Run(() =>
+                {
+                    var filtered = allEntities.AsParallel();
+
+                    if (!string.IsNullOrEmpty(searchText))
+                    {
+                        filtered = ApplyTextSearchParallel(filtered, searchText);
+                    }
+
+                    if (statusFilter.HasValue)
+                    {
+                        filtered = filtered.Where(e => e.IsActive == statusFilter.Value);
+                    }
+
+                    return filtered.ToList();
+                });
+            }, $"Filtered {EntityTypeName}");
+
+            return result.Success && result.Data != null ? result.Data : new List<T>();
+        }
+    }
+
+    public virtual async Task<T?> GetByNameAsync(string name)
+    {
+        using (this.LogPerformance($"Get {EntityTypeName} by Name"))
+        {
+            TrackAccess($"GetByName-{name}");
+
+            // Try cache first
+            var cachedEntity = _entityCache.Values.FirstOrDefault(e =>
+                string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase));
+
+            if (cachedEntity != null)
+            {
+                this.LogInfo("Found by name in cache");
+                return cachedEntity;
+            }
+
+            // Load all and try again
+            await GetAllAsync(true);
+            return _entityCache.Values.FirstOrDefault(e =>
+                string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase));
+        }
+    }
+
     public virtual async Task<int> DeleteMultipleAsync(IEnumerable<Guid> ids)
     {
         var idsList = ids.ToList();
@@ -310,19 +451,21 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
             {
                 this.LogDataOperation("Bulk deleting", EntityTypeName, $"{idsList.Count} items");
 
-                var deletedCount = 0;
-                foreach (var id in idsList)
+                // Delete in parallel batches for better performance
+                var deleteTasks = idsList.Select(async id =>
                 {
                     var success = await DeleteInServiceAsync(id);
-                    if (success) deletedCount++;
-                }
+                    if (success)
+                    {
+                        _entityCache.TryRemove(id, out _);
+                    }
+                    return success;
+                });
 
-                if (deletedCount > 0)
-                {
-                    InvalidateCache();
-                    this.LogDataOperation("Bulk deleted", EntityTypeName, $"{deletedCount} items successfully");
-                }
+                var results = await Task.WhenAll(deleteTasks);
+                var deletedCount = results.Count(success => success);
 
+                this.LogDataOperation("Bulk deleted", EntityTypeName, $"{deletedCount} items successfully");
                 return deletedCount;
             }, $"Bulk Delete {EntityTypeName}");
 
@@ -330,71 +473,47 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
         }
     }
 
-    /// <summary>
-    /// Checks if entity name already exists with case-insensitive comparison
-    /// </summary>
     public virtual async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
     {
         using (this.LogPerformance($"Check Name Exists {EntityTypeName}"))
         {
-            var result = await this.SafeDataExecuteAsync(async () =>
+            TrackAccess($"NameExists-{name}");
+
+            // Use cache if available
+            if (_entityCache.Any())
             {
-                var entities = await GetAllAsync(true);
-                var exists = entities.Any(e =>
+                var exists = _entityCache.Values.Any(e =>
                     string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase) &&
                     e.Id != excludeId);
 
-                this.LogInfo($"Name '{name}' exists: {exists}");
+                this.LogInfo($"Name '{name}' exists (cached): {exists}");
                 return exists;
-            }, "Name Check");
+            }
 
-            return result.Success && result.Data;
+            // Fallback to service
+            return await NameExistsInServiceAsync(name, excludeId);
         }
     }
 
-    /// <summary>
-    /// Toggle favorite status for an entity
-    /// </summary>
     public virtual async Task<T> ToggleFavoriteAsync(Guid entityId)
     {
         using (this.LogPerformance($"Toggle Favorite {EntityTypeName}"))
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                this.LogDataOperation("Toggling favorite", EntityTypeName, entityId);
-
-                // Find current entity
                 var entity = await GetByIdAsync(entityId);
                 if (entity == null)
                 {
                     throw new ArgumentException($"{EntityTypeName} with ID {entityId} not found");
                 }
 
-                // Toggle favorite using dynamic method call
-                var originalFavoriteStatus = entity.IsFavorite;
+                var originalStatus = entity.IsFavorite;
+                entity.IsFavorite = !entity.IsFavorite;
+                entity.UpdatedAt = DateTime.UtcNow;
 
-                // Use reflection to call ToggleFavorite if available, otherwise manual toggle
-                var toggleMethod = entity.GetType().GetMethod("ToggleFavorite");
-                if (toggleMethod != null)
-                {
-                    toggleMethod.Invoke(entity, null);
-                }
-                else
-                {
-                    entity.IsFavorite = !entity.IsFavorite;
-                    entity.UpdatedAt = DateTime.UtcNow;
-                }
-
-                this.LogDataOperation("Toggled favorite", EntityTypeName, $"'{entity.Name}' {originalFavoriteStatus} → {entity.IsFavorite}");
-
-                // Save to database
                 var updatedEntity = await UpdateAsync(entity);
-                if (updatedEntity == null)
-                {
-                    throw new InvalidOperationException($"Failed to update {EntityTypeName} favorite status");
-                }
+                this.LogDataOperation("Favorite toggled", EntityTypeName, $"{entity.Name} {originalStatus} → {updatedEntity.IsFavorite}");
 
-                this.LogDataOperation("Favorite toggled", EntityTypeName, $"{entity.Name} successfully");
                 return updatedEntity;
             }, EntityTypeName);
 
@@ -409,12 +528,9 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
         }
     }
 
-    /// <summary>
-    /// Refresh cache data from server
-    /// </summary>
     public virtual async Task RefreshCacheAsync()
     {
-        using (this.LogPerformance($"Refresh Cache {EntityTypeName}"))
+        using (this.LogPerformance($"Manual Refresh Cache {EntityTypeName}"))
         {
             await _semaphore.WaitAsync();
             try
@@ -428,40 +544,28 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
         }
     }
 
-    /// <summary>
-    /// Get comprehensive statistics for this entity type
-    /// </summary>
     public virtual async Task<BaseStatistics> GetStatisticsAsync()
     {
         using (this.LogPerformance($"Get {EntityTypeName} Statistics"))
         {
-            var result = await this.SafeDataExecuteAsync(async () =>
+            var entities = await GetAllAsync(true);
+
+            return new BaseStatistics
             {
-                var entities = await GetAllAsync(true);
-
-                return new BaseStatistics
-                {
-                    TotalCount = entities.Count,
-                    ActiveCount = entities.Count(e => e.IsActive),
-                    InactiveCount = entities.Count(e => !e.IsActive),
-                    SystemDefaultCount = entities.Count(e => e.IsSystemDefault),
-                    UserCreatedCount = entities.Count(e => !e.IsSystemDefault),
-                    LastRefreshTime = _lastCacheUpdate ?? DateTime.UtcNow
-                };
-            }, $"{EntityTypeName} Statistics");
-
-            return result.Success && result.Data != null ? result.Data : new BaseStatistics();
+                TotalCount = entities.Count,
+                ActiveCount = entities.Count(e => e.IsActive),
+                InactiveCount = entities.Count(e => !e.IsActive),
+                SystemDefaultCount = entities.Count(e => e.IsSystemDefault),
+                UserCreatedCount = entities.Count(e => !e.IsSystemDefault),
+                LastRefreshTime = _lastCacheUpdate ?? DateTime.UtcNow
+            };
         }
     }
 
-    /// <summary>
-    /// Test connectivity to data source
-    /// </summary>
     public virtual async Task<bool> TestConnectionAsync()
     {
         var result = await this.SafeDataExecuteAsync(async () =>
         {
-            // Simple connectivity test - try to get minimal data from service
             try
             {
                 var entities = await GetAllFromServiceAsync();
@@ -476,37 +580,34 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
         return result.Success && result.Data;
     }
 
-    /// <summary>
-    /// Get cache information for diagnostics
-    /// </summary>
     public virtual string GetCacheInfo()
     {
-        lock (_cacheLock)
-        {
-            var cacheAge = _lastCacheUpdate.HasValue
-                ? DateTime.UtcNow - _lastCacheUpdate.Value
-                : TimeSpan.Zero;
+        var cacheAge = _lastCacheUpdate.HasValue
+            ? DateTime.UtcNow - _lastCacheUpdate.Value
+            : TimeSpan.Zero;
 
-            return $"{EntityTypeName} cache: {_cache.Count} entries, age: {cacheAge.TotalMinutes:F1}min, valid: {IsCacheValid()}";
-        }
+        var accessCount = _accessPatterns.Count;
+        var recentAccess = _accessPatterns.Values.Count(time =>
+            DateTime.UtcNow - time < TimeSpan.FromMinutes(5));
+
+        return $"{EntityTypeName} cache: {_entityCache.Count} entities, age: {cacheAge.TotalMinutes:F1}min, " +
+               $"valid: {IsCacheValid()}, access patterns: {accessCount} (recent: {recentAccess})";
     }
 
-    /// <summary>
-    /// Invalidate cache externally
-    /// </summary>
     public virtual void InvalidateCacheExternal()
     {
-        InvalidateCache();
+        _lastCacheUpdate = null;
+        this.LogInfo($"{EntityTypeName} cache invalidated externally");
     }
 
     #endregion
 
-    #region Protected Virtual Methods - Can be overridden by derived classes
+    #region PERFORMANCE OPTIMIZED: Helper Methods
 
     /// <summary>
-    /// Apply text search filtering - can be customized by derived classes
+    /// OPTIMIZED parallel text search
     /// </summary>
-    protected virtual IEnumerable<T> ApplyTextSearch(IEnumerable<T> entities, string searchText)
+    protected virtual ParallelQuery<T> ApplyTextSearchParallel(ParallelQuery<T> entities, string searchText)
     {
         var searchLower = searchText.ToLower();
         return entities.Where(e =>
@@ -514,78 +615,23 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
             (!string.IsNullOrEmpty(e.Description) && e.Description.ToLower().Contains(searchLower)));
     }
 
-    /// <summary>
-    /// Get additional cache key factors - can be overridden for more complex caching
-    /// </summary>
-    protected virtual string GetCacheKey()
-    {
-        return $"{EntityTypeName}_cache";
-    }
-
     #endregion
 
-    #region Private Cache Management
+    #region IDisposable
 
-    /// <summary>
-    /// Check if current cache is still valid
-    /// </summary>
-    protected bool IsCacheValid()
+    protected virtual void Dispose(bool disposing)
     {
-        return _lastCacheUpdate.HasValue &&
-               DateTime.UtcNow - _lastCacheUpdate.Value < _cacheValidTime &&
-               _cache.Any();
-    }
-
-    /// <summary>
-    /// Get data from cache with filtering
-    /// </summary>
-    protected List<T> GetFromCache(bool includeInactive)
-    {
-        lock (_cacheLock)
+        if (disposing)
         {
-            return includeInactive
-                ? _cache.ToList()
-                : _cache.Where(e => e.IsActive).ToList();
+            _backgroundRefreshTimer?.Dispose();
+            _semaphore?.Dispose();
         }
     }
 
-    /// <summary>
-    /// Refresh cache from server internally
-    /// </summary>
-    protected async Task RefreshCacheInternalAsync()
+    public void Dispose()
     {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            var entities = await GetAllFromServiceAsync();
-            return entities.ToList();
-        }, $"Refresh {EntityTypeName} Cache");
-
-        if (result.Success && result.Data != null)
-        {
-            lock (_cacheLock)
-            {
-                _cache.Clear();
-                _cache.AddRange(result.Data);
-                _lastCacheUpdate = DateTime.UtcNow;
-                this.LogInfo($"Cache refreshed: {_cache.Count} {EntityTypeName.ToLower()} entities");
-            }
-        }
-        else
-        {
-            this.LogError($"Failed to refresh cache: {result.Message}");
-        }
-    }
-
-    /// <summary>
-    /// Invalidate current cache
-    /// </summary>
-    protected void InvalidateCache()
-    {
-        lock (_cacheLock)
-        {
-            _lastCacheUpdate = null;
-            this.LogInfo($"{EntityTypeName} cache invalidated");
-        }
+        Dispose(true);
+        GC.SuppressFinalize(this);
     }
 
     #endregion

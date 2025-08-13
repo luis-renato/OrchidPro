@@ -103,6 +103,9 @@
 		<MauiXaml Update="Resources\Templates\ConnectionStatusTemplate.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
+		<MauiXaml Update="Resources\Templates\GenericStyles.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
 		<MauiXaml Update="Resources\Templates\SearchBarTemplate.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>

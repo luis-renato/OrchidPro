@@ -5,8 +5,8 @@ using OrchidPro.Extensions;
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// Page for displaying and managing list of botanical families with advanced UI features.
-/// Provides CRUD operations, multi-selection, filtering, sorting, and swipe actions.
+/// OPTIMIZED Page for displaying and managing list of botanical families.
+/// FIXED: Removed double refresh that was causing performance issues.
 /// </summary>
 public partial class FamiliesListPage : ContentPage
 {
@@ -96,7 +96,7 @@ public partial class FamiliesListPage : ContentPage
     }
 
     /// <summary>
-    /// Handle page appearing lifecycle with animations and data refresh
+    /// OPTIMIZED page appearing lifecycle - FIXED DOUBLE REFRESH!
     /// </summary>
     protected override async void OnAppearing()
     {
@@ -114,12 +114,15 @@ public partial class FamiliesListPage : ContentPage
         await PerformEntranceAnimation();
 
         this.LogInfo("Refreshing data on page appearing");
+
+        // 🚀 FIXED: SINGLE REFRESH ONLY - just like Species!
         await _viewModel.OnAppearingAsync();
 
-        if (_viewModel.RefreshCommand?.CanExecute(null) == true)
-        {
-            await _viewModel.RefreshCommand.ExecuteAsync(null);
-        }
+        // ❌ REMOVED: Double refresh that was causing performance issues
+        // if (_viewModel.RefreshCommand?.CanExecute(null) == true)
+        // {
+        //     await _viewModel.RefreshCommand.ExecuteAsync(null);
+        // }
 
         SyncSelectionMode();
         UpdateFabVisual();
@@ -315,9 +318,6 @@ public partial class FamiliesListPage : ContentPage
                 }, "ListView clear error");
             });
 
-            // ✅ FIXED: Remove toast - clear selections doesn't need confirmation
-            // await this.ShowSuccessToast("🧹 Cleared selections and filters");
-
             this.LogSuccess("Clear All completed successfully");
         }, "Clear All failed");
     }
@@ -357,7 +357,7 @@ public partial class FamiliesListPage : ContentPage
     }
 
     /// <summary>
-    /// Handle search text changes for real-time filtering
+    /// OPTIMIZED search text changes - minimal logging like Species
     /// </summary>
     private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
     {

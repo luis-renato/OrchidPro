@@ -21,6 +21,8 @@
                 <ResourceDictionary Source="Resources/Templates/SearchBarTemplate.xaml" />
                 <!-- ✅ TEMPLATE 6: Connection Status -->
                 <ResourceDictionary Source="Resources/Templates/ConnectionStatusTemplate.xaml" />
+                <!-- ✅ TEMPLATE 7: Generic Styles -->
+                <ResourceDictionary Source="Resources/Templates/GenericStyles.xaml" />
             </ResourceDictionary.MergedDictionaries>
 
             <!-- Value Converters -->

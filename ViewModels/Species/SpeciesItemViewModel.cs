@@ -7,12 +7,13 @@ using CommunityToolkit.Mvvm.Input;
 namespace OrchidPro.ViewModels.Species;
 
 /// <summary>
-/// OPTIMIZED Item ViewModel for botanical species entities.
-/// Reduced logging, cached properties, minimal SafeExecute usage for performance.
+/// PERFORMANCE OPTIMIZED Item ViewModel for botanical species.
+/// Simple optimizations: cached properties, reduced logging, pre-computed values.
+/// Maintains 100% API compatibility.
 /// </summary>
 public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
 {
-    #region Cached Model Reference (PERFORMANCE OPTIMIZATION)
+    #region PERFORMANCE OPTIMIZATION: Cached Model Reference
 
     private readonly Models.Species _cachedModel;
 
@@ -24,7 +25,7 @@ public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
 
     #endregion
 
-    #region Species-Specific Properties (CACHED FOR PERFORMANCE)
+    #region PERFORMANCE OPTIMIZED: Species-Specific Properties
 
     public bool IsFavorite { get; }
     public Guid GenusId { get; }
@@ -45,8 +46,11 @@ public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
 
     #endregion
 
-    #region Constructor (OPTIMIZED)
+    #region PERFORMANCE OPTIMIZED Constructor
 
+    /// <summary>
+    /// OPTIMIZED Constructor - removed logging overhead for frequent calls
+    /// </summary>
     public SpeciesItemViewModel(Models.Species species) : base(species)
     {
         // Cache the model reference to avoid repeated calls
@@ -63,65 +67,55 @@ public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
         Fragrance = species.Fragrance;
         FloweringSeason = species.FloweringSeason ?? string.Empty;
 
-        // COMPLETELY REMOVED logging for performance - constructor called frequently
+        // REMOVED logging for performance - constructor called frequently
     }
 
     #endregion
 
-    #region OPTIMIZED UI Properties (CACHED, NO REPEATED CALCULATIONS)
+    #region PERFORMANCE OPTIMIZED: UI Properties
 
-    private string? _descriptionPreview;
+    private string? _cachedDescriptionPreview;
     public override string DescriptionPreview
     {
         get
         {
-            if (_descriptionPreview == null)
+            if (_cachedDescriptionPreview == null)
             {
-                _descriptionPreview = !string.IsNullOrWhiteSpace(ScientificName)
+                _cachedDescriptionPreview = !string.IsNullOrWhiteSpace(ScientificName)
                     ? ScientificName
                     : string.IsNullOrWhiteSpace(Description)
                         ? "No botanical description available"
                         : Description.Length > 120
-                            ? $"{Description.Substring(0, 117)}..."
+                            ? $"{Description[..117]}..."
                             : Description;
             }
-            return _descriptionPreview;
+            return _cachedDescriptionPreview;
         }
     }
 
-    private DateTime? _createdAt;
-    public DateTime CreatedAt
-    {
-        get
-        {
-            _createdAt ??= _cachedModel.CreatedAt;
-            return _createdAt.Value;
-        }
-    }
-
-    private string? _recentIndicator;
+    private string? _cachedRecentIndicator;
     public override string RecentIndicator
     {
         get
         {
-            if (_recentIndicator == null)
+            if (_cachedRecentIndicator == null)
             {
-                _recentIndicator = IsRecent ? "🌺"
+                _cachedRecentIndicator = IsRecent ? "🌺"
                     : IsFavorite ? "⭐"
                     : (RarityStatus == "Rare" || RarityStatus == "Very Rare") ? "💎"
                     : Fragrance == true ? "🌸"
                     : string.Empty;
             }
-            return _recentIndicator;
+            return _cachedRecentIndicator;
         }
     }
 
-    private string? _subtitle;
+    private string? _cachedSubtitle;
     public string Subtitle
     {
         get
         {
-            if (_subtitle == null)
+            if (_cachedSubtitle == null)
             {
                 var parts = new List<string>();
 
@@ -133,18 +127,18 @@ public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
                 else if (!string.IsNullOrWhiteSpace(CommonName))
                     parts.Add($"'{CommonName}'");
 
-                _subtitle = parts.Count > 0 ? string.Join(" • ", parts) : "Species";
+                _cachedSubtitle = parts.Count > 0 ? string.Join(" • ", parts) : "Species";
             }
-            return _subtitle;
+            return _cachedSubtitle;
         }
     }
 
-    private string? _characteristicsSummary;
+    private string? _cachedCharacteristicsSummary;
     public string CharacteristicsSummary
     {
         get
         {
-            if (_characteristicsSummary == null)
+            if (_cachedCharacteristicsSummary == null)
             {
                 var characteristics = new List<string>();
 
@@ -160,63 +154,62 @@ public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
                 if (!string.IsNullOrWhiteSpace(FloweringSeason))
                     characteristics.Add($"Blooms: {FloweringSeason}");
 
-                _characteristicsSummary = characteristics.Count > 0
+                _cachedCharacteristicsSummary = characteristics.Count > 0
                     ? string.Join(" • ", characteristics)
                     : "Standard characteristics";
             }
-            return _characteristicsSummary;
+            return _cachedCharacteristicsSummary;
         }
     }
 
-    private string? _shortGenusName;
+    private string? _cachedShortGenusName;
     public string ShortGenusName
     {
         get
         {
-            if (_shortGenusName == null)
+            if (_cachedShortGenusName == null)
             {
-                _shortGenusName = string.IsNullOrWhiteSpace(GenusName) || GenusName == "Unknown"
+                _cachedShortGenusName = string.IsNullOrWhiteSpace(GenusName) || GenusName == "Unknown"
                     ? "Unknown"
                     : GenusName.Length > 15
-                        ? $"{GenusName.Substring(0, 12)}..."
+                        ? $"{GenusName[..12]}..."
                         : GenusName;
             }
-            return _shortGenusName;
+            return _cachedShortGenusName;
         }
     }
 
-    private string? _preferredDisplayName;
+    private string? _cachedPreferredDisplayName;
     public string PreferredDisplayName
     {
         get
         {
-            if (_preferredDisplayName == null)
+            if (_cachedPreferredDisplayName == null)
             {
-                _preferredDisplayName = !string.IsNullOrWhiteSpace(ScientificName)
+                _cachedPreferredDisplayName = !string.IsNullOrWhiteSpace(ScientificName)
                     ? ScientificName
                     : !string.IsNullOrWhiteSpace(CommonName)
                         ? CommonName
                         : Name;
             }
-            return _preferredDisplayName;
+            return _cachedPreferredDisplayName;
         }
     }
 
     #endregion
 
-    #region OPTIMIZED Data Access Methods
+    #region PERFORMANCE OPTIMIZED: Data Access Methods
 
     /// <summary>
     /// Get the underlying Species model (OPTIMIZED - returns cached reference)
     /// </summary>
     public new Models.Species ToModel()
     {
-        // Return cached model instead of calling base and adding logging overhead
         return _cachedModel;
     }
 
     /// <summary>
-    /// OPTIMIZED comparison for sorting with minimal calculations
+    /// OPTIMIZED comparison for sorting
     /// </summary>
     public int CompareTo(SpeciesItemViewModel? other)
     {
@@ -226,7 +219,7 @@ public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
         if (IsFavorite && !other.IsFavorite) return -1;
         if (!IsFavorite && other.IsFavorite) return 1;
 
-        // Then by rarity (using simple string comparison for performance)
+        // Then by rarity
         if (RarityStatus != other.RarityStatus)
         {
             var rarityOrder = new Dictionary<string, int>
@@ -266,7 +259,7 @@ public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
         if (!string.IsNullOrEmpty(Description))
         {
             var shortDesc = Description.Length > 50
-                ? $"{Description.Substring(0, 47)}..."
+                ? $"{Description[..47]}..."
                 : Description;
             parts.Add(shortDesc);
         }

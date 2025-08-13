@@ -119,7 +119,7 @@ public partial class SpeciesListPage : ContentPage
     #region ListView Events (OPTIMIZED)
 
     /// <summary>
-    /// OPTIMIZED item tap handler
+    /// FIXED: Sync with Syncfusion ListView selection
     /// </summary>
     private async void OnItemTapped(object? sender, Syncfusion.Maui.ListView.ItemTappedEventArgs e)
     {
@@ -127,13 +127,33 @@ public partial class SpeciesListPage : ContentPage
         {
             if (_viewModel.IsMultiSelectMode)
             {
-                // Use the public command (synchronous)
-                _viewModel.ItemLongPressCommand.Execute(item);
+                // In multiselect mode: manually toggle selection and sync with ListView
+                item.IsSelected = !item.IsSelected;
+
+                if (item.IsSelected)
+                {
+                    if (!_viewModel.SelectedItems.Contains(item))
+                    {
+                        _viewModel.SelectedItems.Add(item);
+                    }
+                    // Add to Syncfusion ListView selection
+                    if (!SpeciesListView.SelectedItems.Contains(item))
+                    {
+                        SpeciesListView.SelectedItems.Add(item);
+                    }
+                }
+                else
+                {
+                    _viewModel.SelectedItems.Remove(item);
+                    // Remove from Syncfusion ListView selection
+                    SpeciesListView.SelectedItems.Remove(item);
+                }
+
                 UpdateFabVisual();
             }
             else
             {
-                // Use the public command (asynchronous)
+                // Normal mode: use ViewModel command for navigation
                 await _viewModel.ItemTappedCommand.ExecuteAsync(item);
             }
         }

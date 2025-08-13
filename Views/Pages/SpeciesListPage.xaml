@@ -202,11 +202,10 @@
 
                                                     <Label Grid.Column="1"
                                                            Text="⭐"
-                                                           FontSize="16"
+                                                           FontSize="17"
                                                            IsVisible="{Binding IsFavorite}"
                                                            VerticalOptions="Center" />
 
-                                                    <!-- OTIMIZAÇÃO: Background color FIXO -->
                                                     <Border Grid.Column="2"
                                                             BackgroundColor="#4CAF50"
                                                             Padding="10,4"
@@ -251,13 +250,6 @@
                                                                TextColor="#333333"
                                                                VerticalOptions="End" />
 
-                                                        <!-- OTIMIZAÇÃO: Simplificado StringFormat -->
-                                                        <Label Text="{Binding CommonName}"
-                                                               FontSize="12"
-                                                               FontAttributes="Italic"
-                                                               TextColor="#666666"
-                                                               IsVisible="{Binding CommonName, Converter={StaticResource StringToBoolConverter}}"
-                                                               VerticalOptions="End" />
                                                     </StackLayout>
 
                                                     <Label Grid.Column="1"
@@ -310,7 +302,8 @@
                             </sflistview:SfListView.ItemTemplate>
 
                             <sflistview:SfListView.EmptyView>
-                                <ContentView Style="{StaticResource GenericEmptyStateStyle}" />
+                                <ContentView Style="{StaticResource GenericEmptyStateStyle}"
+                                           BindingContext="{Binding Source={x:Reference ParentPage}, Path=BindingContext}" />
                             </sflistview:SfListView.EmptyView>
 
                         </sflistview:SfListView>

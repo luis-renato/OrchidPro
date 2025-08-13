@@ -1,25 +1,15 @@
 ﻿using OrchidPro.Models;
 using OrchidPro.ViewModels.Base;
 using OrchidPro.Extensions;
-using OrchidPro.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// Item ViewModel for botanical family entities with family-specific properties and behaviors.
-/// Extends base functionality with favorites, orchid family detection, and enhanced UI binding.
+/// 🚀 SPECIES CLONE - Simple FamilyItemViewModel exactly like Species
+/// NO genus counts, NO complexity, JUST stable core functionality
 /// </summary>
 public partial class FamilyItemViewModel : BaseItemViewModel<Family>
 {
-    #region Private Fields
-
-    private readonly IGenusRepository? _genusRepository;
-    private int _genusCount = 0;
-    private bool _isLoadingGenusCount = false;
-
-    #endregion
-
     #region Base Class Implementation
 
     public override string EntityName => "Family";
@@ -33,112 +23,17 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
     /// </summary>
     public bool IsFavorite { get; }
 
-    /// <summary>
-    /// Genus count
-    /// </summary>
-    public int GenusCount
-    {
-        get => _genusCount;
-        private set
-        {
-            if (SetProperty(ref _genusCount, value))
-            {
-                OnPropertyChanged(nameof(GenusCountDisplay));
-                OnPropertyChanged(nameof(HasGenera));
-            }
-        }
-    }
-
-    /// <summary>
-    /// Loading state
-    /// </summary>
-    public bool IsLoadingGenusCount
-    {
-        get => _isLoadingGenusCount;
-        private set => SetProperty(ref _isLoadingGenusCount, value);
-    }
-
-    /// <summary>
-    /// Genus count display text
-    /// </summary>
-    public string GenusCountDisplay
-    {
-        get
-        {
-            if (IsLoadingGenusCount) return "...";
-
-            return GenusCount switch
-            {
-                0 => "No genera",
-                1 => "1 genus",
-                _ => $"{GenusCount} genera"
-            };
-        }
-    }
-
-    /// <summary>
-    /// Has genera indicator
-    /// </summary>
-    public bool HasGenera => GenusCount > 0;
-
     #endregion
 
     #region Constructor
 
     /// <summary>
-    /// Initialize family item ViewModel with family-specific data
+    /// 🚀 SPECIES CLONE constructor - simple and clean
     /// </summary>
     public FamilyItemViewModel(Family family) : base(family)
     {
         IsFavorite = family.IsFavorite;
         this.LogInfo($"Created: {family.Name} (Favorite: {IsFavorite}, ID: {family.Id})");
-    }
-
-    /// <summary>
-    /// Initialize family item ViewModel with genus repository for count loading
-    /// </summary>
-    public FamilyItemViewModel(Family family, IGenusRepository genusRepository) : base(family)
-    {
-        IsFavorite = family.IsFavorite;
-        _genusRepository = genusRepository;
-
-        this.LogInfo($"Created with GenusRepository: {family.Name} (Favorite: {IsFavorite}, ID: {family.Id})");
-
-        _ = LoadGenusCountAsync();
-    }
-
-    #endregion
-
-    #region Genus Count Management
-
-    /// <summary>
-    /// Load genus count asynchronously
-    /// </summary>
-    public async Task LoadGenusCountAsync()
-    {
-        if (_genusRepository == null) return;
-
-        await this.SafeExecuteAsync(async () =>
-        {
-            IsLoadingGenusCount = true;
-
-            try
-            {
-                var count = await _genusRepository.GetCountByFamilyAsync(Id, includeInactive: false);
-                GenusCount = count;
-                this.LogSuccess($"Loaded genus count for {Name}: {count}");
-            }
-            catch (Exception ex)
-            {
-                this.LogError($"Failed to load genus count for {Name}: {ex.Message}");
-                GenusCount = 0;
-            }
-            finally
-            {
-                IsLoadingGenusCount = false;
-            }
-
-        }, $"LoadGenusCount failed for {Name}");
     }
 
     #endregion
@@ -186,10 +81,6 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
                 if (IsRecent) status += " • New";
                 if (IsOrchidaceae) status += " • Orchid";
                 if (IsFavorite) status += " • Favorite";
-                if (!IsLoadingGenusCount && GenusCount >= 0)
-                {
-                    status += $" • {GenusCountDisplay}";
-                }
                 return status;
             }, fallbackValue: StatusDisplay, operationName: "FullStatusDisplay");
         }
@@ -277,11 +168,6 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
                 if (IsSystemDefault) parts.Add("System default");
                 if (!IsActive) parts.Add("Inactive");
 
-                if (!IsLoadingGenusCount)
-                {
-                    parts.Add(GenusCountDisplay);
-                }
-
                 parts.Add($"Created {CreatedAt:dd/MM/yyyy}");
 
                 return string.Join(" • ", parts);
@@ -307,35 +193,12 @@ public partial class FamilyItemViewModel : BaseItemViewModel<Family>
     }
 
     /// <summary>
-    /// Compare families for sorting with favorites-first logic
-    /// </summary>
-    public int CompareTo(FamilyItemViewModel? other)
-    {
-        return this.SafeExecute(() =>
-        {
-            if (other == null) return 1;
-
-            this.LogInfo($"Comparing {Name} with {other.Name}");
-
-            // Favorites first
-            if (IsFavorite && !other.IsFavorite) return -1;
-            if (!IsFavorite && other.IsFavorite) return 1;
-
-            // Then by name
-            var result = string.Compare(Name, other.Name, StringComparison.OrdinalIgnoreCase);
-            this.LogInfo($"Comparison result: {result}");
-            return result;
-
-        }, fallbackValue: 0, operationName: "CompareTo");
-    }
-
-    /// <summary>
     /// Enhanced string representation for debugging
     /// </summary>
     public override string ToString()
     {
         return this.SafeExecute(() =>
-            $"FamilyItemVM: {Name} (ID: {Id}, Selected: {IsSelected}, Favorite: {IsFavorite}, Genera: {GenusCount})",
+            $"FamilyItemVM: {Name} (ID: {Id}, Selected: {IsSelected}, Favorite: {IsFavorite})",
             fallbackValue: $"FamilyItemVM: [Error getting details]",
             operationName: "ToString");
     }

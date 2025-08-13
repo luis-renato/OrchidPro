@@ -43,21 +43,18 @@
         <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray950}}"
                 Stroke="Transparent"
                 StrokeThickness="0"
-                Margin="10,20,10,10"
+                Margin="10,15,10,10"
                 Padding="0">
             <Border.StrokeShape>
                 <RoundRectangle CornerRadius="16" />
             </Border.StrokeShape>
 
-            <Grid RowDefinitions="Auto,*">
+            <Grid RowDefinitions="Auto,Auto,*">
 
                 <!-- Header with statistics and connection status -->
                 <Border Grid.Row="0" 
                         BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SurfaceDark}}"
-                        Padding="20,15">
-                    <Border.StrokeShape>
-                        <RoundRectangle CornerRadius="16,16,0,0" />
-                    </Border.StrokeShape>
+                        Padding="15,8">
 
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="15">
                         <Label Grid.Column="0"
@@ -65,7 +62,7 @@
                                TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
                                VerticalOptions="Center">
                             <Label.Text>
-                                <MultiBinding StringFormat="{}{0} genera • {1} active • {2} favorites">
+                                <MultiBinding StringFormat="{}{0} species • {1} active • {2} favorites">
                                     <Binding Path="TotalCount" />
                                     <Binding Path="ActiveCount" />
                                     <Binding Path="FavoriteCount" FallbackValue="0" />
@@ -78,7 +75,7 @@
                                 Padding="8,4"
                                 VerticalOptions="Center">
                             <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="10" />
+                                <RoundRectangle CornerRadius="12" />
                             </Border.StrokeShape>
                             <Label Text="{Binding ConnectionStatus}"
                                    FontSize="10"
@@ -88,188 +85,178 @@
                     </Grid>
                 </Border>
 
-                <!-- Main content with search and list -->
-                <Grid Grid.Row="1" RowDefinitions="Auto,*">
+                <!-- Search bar -->
+                <Border Grid.Row="1" Style="{StaticResource SearchBarContainerStyle}">
+                    <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="5" Padding="2,0,2,0">
+                        <!-- Search field -->
+                        <Border Grid.Column="0" Style="{StaticResource SearchFieldBorderStyle}" >
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="0" Margin="5,0,5,0">
+                                <Entry Grid.Column="1"
+                        Text="{Binding SearchText}"
+                        Placeholder="Search..."
+                        Style="{StaticResource SearchEntryStyle}"
+                        ReturnCommand="{Binding ApplyFilterCommand}"
+                        Focused="OnSearchFocused"
+                        Unfocused="OnSearchUnfocused"
+                        TextChanged="OnSearchTextChanged" />
+                                <Button Grid.Column="2"
+                         Style="{StaticResource SearchClearButtonStyle}"
+                         Command="{Binding ClearFilterCommand}"
+                         IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}" />
+                            </Grid>
+                        </Border>
+                        <!-- Filter button -->
+                        <Border Grid.Column="1" Style="{StaticResource SearchActionButtonStyle}">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnFilterTapped" />
+                            </Border.GestureRecognizers>
+                            <Label Text="📊" Style="{StaticResource SearchActionIconStyle}" />
+                        </Border>
+                        <!-- Sort button -->
+                        <Border Grid.Column="2" Style="{StaticResource SearchActionButtonStyle}">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Tapped="OnSortTapped" />
+                            </Border.GestureRecognizers>
+                            <Label Text="🔄" Style="{StaticResource SearchActionIconStyle}" />
+                        </Border>
+                    </Grid>
+                </Border>
 
-                    <!-- Search bar usando templates -->
-                    <Border Grid.Row="0" Style="{StaticResource SearchBarContainerStyle}">
+                <!-- Pull-to-refresh container -->
+                <sfpulltorefresh:SfPullToRefresh x:Name="ListRefresh"
+                                                    Grid.Row="2"
+                                                    IsRefreshing="{Binding IsRefreshing}"
+                                                    RefreshCommand="{Binding RefreshCommand}">
+                    <sfpulltorefresh:SfPullToRefresh.PullableContent>
 
-                        <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="10" Padding="2,0,0,0">
+                        <!-- ListView com cores do ResourceDictionary -->
+                        <sflistview:SfListView x:Name="GeneraListView"
+                                           ItemsSource="{Binding Items}"
+                                           SelectionMode="Multiple"
+                                           SelectionGesture="LongPress"
+                                           SelectionBackground="{AppThemeBinding Light=#E8D5C4, Dark=#4A3A30}"
+                                           ItemTapped="OnItemTapped"
+                                           ItemLongPress="OnItemLongPress"
+                                           SelectionChanged="OnSelectionChanged"
+                                           SwipeStarting="OnSwipeStarting"
+                                           Swiping="OnSwiping"
+                                           SwipeEnded="OnSwipeEnded"
+                                           ItemSpacing="0"
+                                           BackgroundColor="Transparent"
+                                           ScrollBarVisibility="Never"
+                                           Margin="0,0,0,0"
+                                           ItemSize="100"
+                                           AllowSwiping="True"
+                                           SwipeOffset="90"
+                                           SwipeThreshold="90">
 
-                            <!-- Search field -->
-                            <Border Grid.Column="0" Style="{StaticResource SearchFieldBorderStyle}" >
-                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Margin="10,0">
-                                    <Label Grid.Column="0" Style="{StaticResource SearchIconStyle}" />
+                            <!-- StartSwipeTemplate - usar WarningColor -->
+                            <sflistview:SfListView.StartSwipeTemplate>
+                                <DataTemplate>
+                                    <Grid BackgroundColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}" 
+                                            HorizontalOptions="Fill" 
+                                            VerticalOptions="Fill">
+                                        <Label Text="⭐"
+                                                FontSize="32"
+                                                TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                                                HorizontalOptions="Center"
+                                                VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </sflistview:SfListView.StartSwipeTemplate>
 
-                                    <Entry Grid.Column="1"
-                                           Text="{Binding SearchText}"
-                                           Placeholder="Search genera and families..."
-                                           Style="{StaticResource SearchEntryStyle}"
-                                           ReturnCommand="{Binding ApplyFilterCommand}"
-                                           Focused="OnSearchFocused"
-                                           Unfocused="OnSearchUnfocused"
-                                           TextChanged="OnSearchTextChanged" />
+                            <!-- EndSwipeTemplate - usar ErrorColor -->
+                            <sflistview:SfListView.EndSwipeTemplate>
+                                <DataTemplate>
+                                    <Grid BackgroundColor="{AppThemeBinding Light={StaticResource ErrorColor}, Dark={StaticResource ErrorColor}}" 
+                                            HorizontalOptions="Fill" 
+                                            VerticalOptions="Fill">
+                                        <Label Text="🗑️"
+                                                FontSize="32"
+                                                TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                                                HorizontalOptions="Center"
+                                                VerticalOptions="Center" />
+                                    </Grid>
+                                </DataTemplate>
+                            </sflistview:SfListView.EndSwipeTemplate>
 
-                                    <Button Grid.Column="2"
-                                            Style="{StaticResource SearchClearButtonStyle}"
-                                            Command="{Binding ClearFilterCommand}"
-                                            IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}" />
-                                </Grid>
-                            </Border>
+                            <!-- Item template com padding corrigido -->
+                            <sflistview:SfListView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:GenusItemViewModel">
+                                    <!-- SEM MARGIN - itens grudados -->
+                                    <Grid Margin="0" BackgroundColor="Transparent">
+                                        <Border BackgroundColor="#F9F9F9"
+                                            Stroke="#E0E0E0"
+                                            StrokeThickness="1"
+                                            Margin="6,2">
+                                            <Border.StrokeShape>
+                                                <RoundRectangle CornerRadius="18" />
+                                            </Border.StrokeShape>
 
-                            <!-- Filter button -->
-                            <Border Grid.Column="1" Style="{StaticResource SearchActionButtonStyle}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnFilterTapped" />
-                                </Border.GestureRecognizers>
-                                <Label Text="📊" Style="{StaticResource SearchActionIconStyle}" />
-                            </Border>
+                                            <StackLayout Padding="15,12" Spacing="1" BackgroundColor="#EEEEEE">
 
-                            <!-- Sort button -->
-                            <Border Grid.Column="2" Style="{StaticResource SearchActionButtonStyle}">
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Tapped="OnSortTapped" />
-                                </Border.GestureRecognizers>
-                                <Label Text="🔄" Style="{StaticResource SearchActionIconStyle}" />
-                            </Border>
-                        </Grid>
-                    </Border>
+                                                <!-- Header row -->
+                                                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                                                    <Label Grid.Column="0"
+                                                        Text="{Binding Name}"
+                                                        FontSize="16"
+                                                        FontAttributes="Bold"
+                                                        TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
+                                                        LineBreakMode="TailTruncation"
+                                                        VerticalOptions="Center" />
 
-                    <!-- Pull-to-refresh container -->
-                    <sfpulltorefresh:SfPullToRefresh x:Name="ListRefresh"
-                                                     Grid.Row="1"
-                                                     IsRefreshing="{Binding IsRefreshing}"
-                                                     RefreshCommand="{Binding RefreshCommand}">
-                        <sfpulltorefresh:SfPullToRefresh.PullableContent>
+                                                    <Label Grid.Column="1"
+                                                        Text="⭐"
+                                                        FontSize="16"
+                                                        IsVisible="{Binding IsFavorite}"
+                                                        VerticalOptions="Center" />
 
-                            <!-- ListView com cores do ResourceDictionary -->
-                            <sflistview:SfListView x:Name="GeneraListView"
-                                               ItemsSource="{Binding Items}"
-                                               SelectionMode="Multiple"
-                                               SelectionGesture="LongPress"
-                                               SelectionBackground="{AppThemeBinding Light=#E8D5C4, Dark=#4A3A30}"
-                                               ItemTapped="OnItemTapped"
-                                               ItemLongPress="OnItemLongPress"
-                                               SelectionChanged="OnSelectionChanged"
-                                               SwipeStarting="OnSwipeStarting"
-                                               Swiping="OnSwiping"
-                                               SwipeEnded="OnSwipeEnded"
-                                               ItemSpacing="0"
-                                               BackgroundColor="Transparent"
-                                               ScrollBarVisibility="Never"
-                                               Margin="0,10,0,0"
-                                               ItemSize="120"
-                                               AllowSwiping="True"
-                                               SwipeOffset="90"
-                                               SwipeThreshold="90">
-
-                                <!-- StartSwipeTemplate - usar WarningColor -->
-                                <sflistview:SfListView.StartSwipeTemplate>
-                                    <DataTemplate>
-                                        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}" 
-                                              HorizontalOptions="Fill" 
-                                              VerticalOptions="Fill">
-                                            <Label Text="⭐"
-                                                   FontSize="32"
-                                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
-                                                   HorizontalOptions="Center"
-                                                   VerticalOptions="Center" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </sflistview:SfListView.StartSwipeTemplate>
-
-                                <!-- EndSwipeTemplate - usar ErrorColor -->
-                                <sflistview:SfListView.EndSwipeTemplate>
-                                    <DataTemplate>
-                                        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource ErrorColor}, Dark={StaticResource ErrorColor}}" 
-                                              HorizontalOptions="Fill" 
-                                              VerticalOptions="Fill">
-                                            <Label Text="🗑️"
-                                                   FontSize="32"
-                                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
-                                                   HorizontalOptions="Center"
-                                                   VerticalOptions="Center" />
-                                        </Grid>
-                                    </DataTemplate>
-                                </sflistview:SfListView.EndSwipeTemplate>
-
-                                <!-- Item template com padding corrigido -->
-                                <sflistview:SfListView.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:GenusItemViewModel">
-                                        <!-- SEM MARGIN - itens grudados -->
-                                        <Grid Margin="0" BackgroundColor="Transparent">
-                                            <Border BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                                                Stroke="{AppThemeBinding Light={StaticResource Gray300}, Dark={StaticResource Gray600}}"
-                                                StrokeThickness="1"
-                                                Margin="10,2">
-                                                <Border.StrokeShape>
-                                                    <RoundRectangle CornerRadius="12" />
-                                                </Border.StrokeShape>
-
-                                                <Grid Padding="20,16" RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
-
-                                                    <!-- Header row -->
-                                                    <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
-                                                        <Label Grid.Column="0"
-                                                           Text="{Binding Name}"
-                                                           FontSize="18"
-                                                           FontAttributes="Bold"
-                                                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource OnSurfaceDark}}"
-                                                           LineBreakMode="TailTruncation"
-                                                           VerticalOptions="Center" />
-
-                                                        <Label Grid.Column="1"
-                                                           Text="⭐"
-                                                           FontSize="16"
-                                                           IsVisible="{Binding IsFavorite}"
-                                                           VerticalOptions="Center" />
-
-                                                        <Border Grid.Column="2"
-                                                            BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#4CAF50|#F44336'}"
-                                                            Padding="12,6"
-                                                            VerticalOptions="Center">
-                                                            <Border.StrokeShape>
-                                                                <RoundRectangle CornerRadius="12" />
-                                                            </Border.StrokeShape>
-                                                            <Label Text="{Binding IsActive, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Active|Inactive'}"
-                                                               FontSize="11"
-                                                               FontAttributes="Bold"
-                                                               TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}" />
-                                                        </Border>
-                                                    </Grid>
-
-                                                    <!-- Description preview -->
-                                                    <Label Grid.Row="1"
-                                                       Text="{Binding DescriptionPreview}"
-                                                       FontSize="14"
-                                                       TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
-                                                       LineBreakMode="TailTruncation"
-                                                       MaxLines="1"
-                                                       IsVisible="{Binding DescriptionPreview, Converter={StaticResource StringToBoolConverter}}" />
-
-                                                    <!-- Creation date -->
-                                                    <Label Grid.Row="2"
-                                                       Text="{Binding CreatedAt, StringFormat='Created {0:dd/MM/yyyy}'}"
-                                                       FontSize="12"
-                                                       TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
-                                                       VerticalOptions="Center" />
+                                                    <Border Grid.Column="2"
+                                                        BackgroundColor="{Binding IsActive, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#4CAF50|#F44336'}"
+                                                        Padding="12,6"
+                                                        VerticalOptions="Center">
+                                                        <Border.StrokeShape>
+                                                            <RoundRectangle CornerRadius="12" />
+                                                        </Border.StrokeShape>
+                                                        <Label Text="{Binding IsActive, Converter={StaticResource BoolToStringConverter}, ConverterParameter='Active|Inactive'}"
+                                                            FontSize="11"
+                                                            FontAttributes="Bold"
+                                                            TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}" />
+                                                    </Border>
                                                 </Grid>
-                                            </Border>
-                                        </Grid>
-                                    </DataTemplate>
-                                </sflistview:SfListView.ItemTemplate>
 
-                                <!-- Empty view genérico (sem botão redundante) -->
-                                <sflistview:SfListView.EmptyView>
-                                    <ContentView Style="{StaticResource GenericEmptyStateStyle}" />
-                                </sflistview:SfListView.EmptyView>
+                                                <!-- Description preview -->
+                                                <Label Grid.Row="1"
+                                                    Text="{Binding DescriptionPreview}"
+                                                    FontSize="14"
+                                                    TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                                                    LineBreakMode="TailTruncation"
+                                                    MaxLines="1"
+                                                    IsVisible="{Binding DescriptionPreview, Converter={StaticResource StringToBoolConverter}}" />
 
-                            </sflistview:SfListView>
-                        </sfpulltorefresh:SfPullToRefresh.PullableContent>
+                                                <!-- Creation date -->
+                                                <Label Grid.Row="2"
+                                                    Text="{Binding CreatedAt, StringFormat='Created {0:dd/MM/yyyy}'}"
+                                                    FontSize="12"
+                                                    TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
+                                                    VerticalOptions="Center" />
+                                            </StackLayout>
+                                        </Border>
+                                    </Grid>
+                                </DataTemplate>
+                            </sflistview:SfListView.ItemTemplate>
 
-                    </sfpulltorefresh:SfPullToRefresh>
+                            <sflistview:SfListView.EmptyView>
+                                <!-- ✅ FIXED: Add explicit BindingContext to existing ContentView -->
+                                <ContentView Style="{StaticResource GenericEmptyStateStyle}"
+                                       BindingContext="{Binding Source={x:Reference ParentPage}, Path=BindingContext}" />
+                            </sflistview:SfListView.EmptyView>
 
-                </Grid>
+                        </sflistview:SfListView>
+                    </sfpulltorefresh:SfPullToRefresh.PullableContent>
+
+                </sfpulltorefresh:SfPullToRefresh>
+
             </Grid>
         </Border>
 
