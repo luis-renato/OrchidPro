@@ -418,7 +418,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     }
 
     /// <summary>
-    /// Initial data loading with error handling and connection testing
+    /// 🔧 FIXED: Initial data loading with proper IsLoading state management
     /// </summary>
     private async Task LoadDataAsync()
     {
@@ -426,24 +426,30 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         {
             IsLoading = true;
 
-            var result = await this.SafeDataExecuteAsync(async () =>
+            try
             {
-                await TestConnectionInternalAsync();
-                var entities = await _repository.GetAllAsync(true);
-                await PopulateItemsAsync(entities);
-                return entities;
-            }, EntityNamePlural);
+                var result = await this.SafeDataExecuteAsync(async () =>
+                {
+                    await TestConnectionInternalAsync();
+                    var entities = await _repository.GetAllAsync(true);
+                    await PopulateItemsAsync(entities);
+                    return entities;
+                }, EntityNamePlural);
 
-            if (result.Success && result.Data != null)
-            {
-                this.LogSuccess($"Loaded {result.Data.Count} {EntityNamePlural}");
+                if (result.Success && result.Data != null)
+                {
+                    this.LogSuccess($"Loaded {result.Data.Count} {EntityNamePlural}");
+                }
+                else
+                {
+                    EmptyStateMessage = $"Failed to load {EntityNamePlural.ToLower()}: {result.Message}";
+                }
             }
-            else
+            finally
             {
-                EmptyStateMessage = $"Failed to load {EntityNamePlural.ToLower()}: {result.Message}";
+                // 🔧 FIX: SEMPRE limpa loading state
+                IsLoading = false;
             }
-
-            IsLoading = false;
         }
     }
 

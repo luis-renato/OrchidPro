@@ -8,12 +8,12 @@ using SfSwipeEndedEventArgs = Syncfusion.Maui.ListView.SwipeEndedEventArgs;
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// OPTIMIZED Page for displaying and managing list of botanical species.
-/// Reduced logging, efficient event handling, minimal SafeExecute usage.
+/// FIXED Species List Page with proper EmptyState and loading sequence
 /// </summary>
 public partial class SpeciesListPage : ContentPage
 {
     private readonly SpeciesListViewModel _viewModel;
+    private bool _hasAppearedOnce = false;
 
     public SpeciesListPage(SpeciesListViewModel viewModel)
     {
@@ -22,9 +22,6 @@ public partial class SpeciesListPage : ContentPage
         BindingContext = _viewModel;
 
         this.LogInfo("Initialized Species List Page");
-
-        // Hook up events
-        ListRefresh.Refreshing += PullToRefresh_Refreshing;
 
         // Monitor ViewModel changes to sync SelectionMode
         _viewModel.PropertyChanged += OnViewModelPropertyChanged;
@@ -38,10 +35,24 @@ public partial class SpeciesListPage : ContentPage
         {
             SyncSelectionMode();
         }
+        else if (e.PropertyName == nameof(_viewModel.IsRefreshing))
+        {
+            // Ensure pull-to-refresh UI is in sync
+            if (ListRefresh.IsRefreshing != _viewModel.IsRefreshing)
+            {
+                ListRefresh.IsRefreshing = _viewModel.IsRefreshing;
+            }
+        }
+        // CRITICAL FIX: Sync when SelectedItems collection changes
+        else if (e.PropertyName == nameof(_viewModel.SelectedItems))
+        {
+            SyncAllSelectionsWithListView();
+            UpdateFabVisual();
+        }
     }
 
     /// <summary>
-    /// OPTIMIZED SelectionMode sync - removed excessive logging
+    /// OPTIMIZED SelectionMode sync
     /// </summary>
     private void SyncSelectionMode()
     {
@@ -57,13 +68,12 @@ public partial class SpeciesListPage : ContentPage
 
     #endregion
 
-    #region Page Lifecycle (OPTIMIZED)
+    #region Page Lifecycle (CRITICAL FIX)
 
     protected override async void OnAppearing()
     {
         base.OnAppearing();
 
-        // OPTIMIZED - Removed SafeExecute wrapper for performance
         if (_viewModel?.SelectedItems == null)
         {
             this.LogError("ViewModel.SelectedItems is NULL during OnAppearing");
@@ -72,55 +82,59 @@ public partial class SpeciesListPage : ContentPage
 
         // Clear any existing selections
         SpeciesListView.SelectedItems?.Clear();
-
         UpdateFabVisual();
 
         this.LogInfo("Refreshing data on page appearing");
-        await _viewModel.OnAppearingAsync();
 
-        // Perform entrance animation
-        await PerformEntranceAnimation();
+        // CRITICAL FIX: Show entrance animation FIRST (before loading)
+        if (!_hasAppearedOnce)
+        {
+            await PerformEntranceAnimation();
+            _hasAppearedOnce = true;
+        }
+
+        // Then load data (this will show loading overlay if needed)
+        await _viewModel.OnAppearingAsync();
     }
 
     /// <summary>
-    /// OPTIMIZED entrance animation with reduced logging
+    /// FIXED entrance animation - happens BEFORE loading
     /// </summary>
     private async Task PerformEntranceAnimation()
     {
+        // Start invisible
         RootGrid.Opacity = 0;
-        await RootGrid.FadeTo(1, 300, Easing.CubicOut);
+
+        // Small delay to ensure layout is ready
+        await Task.Delay(50);
+
+        // Smooth fade in
+        await RootGrid.FadeTo(1, 250, Easing.CubicOut);
     }
 
     #endregion
 
     #region Search Events (OPTIMIZED)
 
-    /// <summary>
-    /// OPTIMIZED search text change handler
-    /// </summary>
     private void OnSearchTextChanged(object? sender, TextChangedEventArgs e)
     {
-        // REMOVED SafeExecute wrapper and excessive logging for performance
         _viewModel.SearchText = e.NewTextValue ?? string.Empty;
     }
 
     private void OnSearchFocused(object? sender, FocusEventArgs e)
     {
-        // Minimal implementation - no logging needed
+        // Minimal implementation
     }
 
     private void OnSearchUnfocused(object? sender, FocusEventArgs e)
     {
-        // Minimal implementation - no logging needed
+        // Minimal implementation
     }
 
     #endregion
 
     #region ListView Events (OPTIMIZED)
 
-    /// <summary>
-    /// FIXED: Sync with Syncfusion ListView selection
-    /// </summary>
     private async void OnItemTapped(object? sender, Syncfusion.Maui.ListView.ItemTappedEventArgs e)
     {
         if (e.DataItem is SpeciesItemViewModel item)
@@ -136,7 +150,6 @@ public partial class SpeciesListPage : ContentPage
                     {
                         _viewModel.SelectedItems.Add(item);
                     }
-                    // Add to Syncfusion ListView selection
                     if (!SpeciesListView.SelectedItems.Contains(item))
                     {
                         SpeciesListView.SelectedItems.Add(item);
@@ -145,7 +158,6 @@ public partial class SpeciesListPage : ContentPage
                 else
                 {
                     _viewModel.SelectedItems.Remove(item);
-                    // Remove from Syncfusion ListView selection
                     SpeciesListView.SelectedItems.Remove(item);
                 }
 
@@ -159,22 +171,15 @@ public partial class SpeciesListPage : ContentPage
         }
     }
 
-    /// <summary>
-    /// OPTIMIZED long press handler
-    /// </summary>
     private void OnItemLongPress(object? sender, ItemLongPressEventArgs e)
     {
         if (e.DataItem is SpeciesItemViewModel item)
         {
-            // Use the public command
             _viewModel.ItemLongPressCommand.Execute(item);
             UpdateFabVisual();
         }
     }
 
-    /// <summary>
-    /// OPTIMIZED selection change handler
-    /// </summary>
     private void OnSelectionChanged(object? sender, ItemSelectionChangedEventArgs e)
     {
         UpdateFabVisual();
@@ -187,12 +192,12 @@ public partial class SpeciesListPage : ContentPage
 
     private void OnSwipeStarting(object? sender, SwipeStartingEventArgs e)
     {
-        // Minimal implementation for swipe start
+        // Minimal implementation
     }
 
     private void OnSwiping(object? sender, SwipingEventArgs e)
     {
-        // Minimal implementation for swiping
+        // Minimal implementation
     }
 
     private async void OnSwipeEnded(object? sender, SfSwipeEndedEventArgs e)
@@ -201,12 +206,10 @@ public partial class SpeciesListPage : ContentPage
 
         if (e.Direction == SwipeDirection.Right)
         {
-            // Favorite toggle - use public command
             await _viewModel.ToggleFavoriteCommand.ExecuteAsync(item);
         }
         else if (e.Direction == SwipeDirection.Left)
         {
-            // Delete operation
             await _viewModel.DeleteSingleCommand.ExecuteAsync(item);
         }
     }
@@ -219,12 +222,10 @@ public partial class SpeciesListPage : ContentPage
     {
         if (_viewModel.SelectedItems.Any())
         {
-            // Use the public command
             await _viewModel.DeleteSelectedCommand.ExecuteAsync(null);
         }
         else
         {
-            // Navigate to add new species - construct the route manually
             await Shell.Current.GoToAsync(_viewModel.EditRoute);
         }
     }
@@ -232,18 +233,25 @@ public partial class SpeciesListPage : ContentPage
     private void OnSelectAllTapped(object? sender, EventArgs e)
     {
         _viewModel.SelectAllCommand.Execute(null);
+
+        // CRITICAL FIX: Sync Syncfusion ListView with ViewModel selections
+        SyncAllSelectionsWithListView();
+
         UpdateFabVisual();
     }
 
     private void OnDeselectAllTapped(object? sender, EventArgs e)
     {
         _viewModel.DeselectAllCommand.Execute(null);
+
+        // CRITICAL FIX: Clear Syncfusion ListView selections
+        SpeciesListView.SelectedItems?.Clear();
+
         UpdateFabVisual();
     }
 
     private async void OnFilterTapped(object? sender, EventArgs e)
     {
-        // Show simple filter options
         var result = await DisplayActionSheet("Filter Options", "Cancel", null,
             "All Species", "Active Only", "Inactive Only", "Favorites Only");
 
@@ -261,7 +269,8 @@ public partial class SpeciesListPage : ContentPage
                     _viewModel.StatusFilter = "Inactive";
                     break;
                 case "Favorites Only":
-                    // Use specific species method if available
+                    _viewModel.StatusFilter = "All";
+                    _viewModel.SortOrder = "Favorites First";
                     break;
             }
             await _viewModel.ApplyFilterCommand.ExecuteAsync(null);
@@ -270,7 +279,6 @@ public partial class SpeciesListPage : ContentPage
 
     private async void OnSortTapped(object? sender, EventArgs e)
     {
-        // Show simple sort options
         var result = await DisplayActionSheet("Sort Options", "Cancel", null,
             "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First");
 
@@ -283,22 +291,87 @@ public partial class SpeciesListPage : ContentPage
 
     #endregion
 
-    #region Pull to Refresh (OPTIMIZED)
+    #region Pull to Refresh (CRITICAL FIX)
 
+    /// <summary>
+    /// CRITICAL FIX: Proper pull-to-refresh handling with guaranteed reset
+    /// </summary>
     private async void PullToRefresh_Refreshing(object? sender, EventArgs e)
     {
-        // Use the public command
-        await _viewModel.RefreshCommand.ExecuteAsync(null);
-        ListRefresh.IsRefreshing = false;
+        try
+        {
+            // Call the custom refresh method
+            await _viewModel.RefreshSpeciesAsync();
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error during pull-to-refresh");
+        }
+        finally
+        {
+            // CRITICAL FIX: Always ensure pull-to-refresh is reset
+            await MainThread.InvokeOnMainThreadAsync(() =>
+            {
+                try
+                {
+                    if (ListRefresh.IsRefreshing)
+                    {
+                        ListRefresh.IsRefreshing = false;
+                    }
+
+                    // Extra safety: Reset ViewModel refresh state too
+                    if (_viewModel.IsRefreshing)
+                    {
+                        // Force reset if needed
+                        _viewModel.GetType()
+                            .GetProperty("IsRefreshing")?
+                            .SetValue(_viewModel, false);
+                    }
+                }
+                catch (Exception resetEx)
+                {
+                    this.LogError(resetEx, "Error resetting refresh state");
+                }
+            });
+        }
     }
 
     #endregion
 
-    #region FAB Visual Updates (OPTIMIZED)
+    #region Selection Synchronization (CRITICAL FIX)
 
     /// <summary>
-    /// OPTIMIZED FAB visual update with minimal logging
+    /// CRITICAL FIX: Sync all ViewModel selections with Syncfusion ListView
     /// </summary>
+    private void SyncAllSelectionsWithListView()
+    {
+        try
+        {
+            // Clear current ListView selections
+            SpeciesListView.SelectedItems?.Clear();
+
+            // Add all ViewModel selected items to ListView
+            if (_viewModel.SelectedItems?.Any() == true)
+            {
+                foreach (var selectedItem in _viewModel.SelectedItems)
+                {
+                    if (!SpeciesListView.SelectedItems.Contains(selectedItem))
+                    {
+                        SpeciesListView.SelectedItems.Add(selectedItem);
+                    }
+                }
+            }
+
+            this.LogInfo($"Synced {_viewModel.SelectedItems?.Count ?? 0} selections with ListView");
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error syncing selections with ListView");
+        }
+    }
+
+    #endregion
+
     private void UpdateFabVisual()
     {
         var selectedCount = _viewModel.SelectedItems?.Count ?? 0;
@@ -306,14 +379,10 @@ public partial class SpeciesListPage : ContentPage
         if (selectedCount > 0)
         {
             FabButton.Text = $"Delete ({selectedCount})";
-            // Keep existing style for delete mode
         }
         else
         {
             FabButton.Text = "Add Species";
-            // Keep existing style for add mode
         }
     }
-
-    #endregion
 }

@@ -37,7 +37,7 @@
                                StatusBarStyle="LightContent" />
     </ContentPage.Behaviors>
 
-    <!-- ✅ LAYOUT ORIGINAL - igual ao FamiliesListPage que funciona perfeitamente -->
+    <!-- FIXED: Proper loading and empty state layering -->
     <Grid x:Name="RootGrid" Opacity="0">
 
         <!-- Main content card -->
@@ -123,11 +123,11 @@
                     </Grid>
                 </Border>
 
-                <!-- Pull-to-refresh container -->
+                <!-- FIXED: ListView container with proper EmptyState handling -->
                 <sfpulltorefresh:SfPullToRefresh x:Name="ListRefresh"
                                                  Grid.Row="2"
                                                  IsRefreshing="{Binding IsRefreshing}"
-                                                 RefreshCommand="{Binding RefreshCommand}">
+                                                 Refreshing="PullToRefresh_Refreshing">
                     <sfpulltorefresh:SfPullToRefresh.PullableContent>
 
                         <sflistview:SfListView x:Name="SpeciesListView"
@@ -181,7 +181,6 @@
                             <sflistview:SfListView.ItemTemplate>
                                 <DataTemplate x:DataType="vm:SpeciesItemViewModel">
                                     <Grid Margin="0" BackgroundColor="Transparent">
-                                        <!-- OTIMIZAÇÃO CRÍTICA: Cor de fundo FIXA para evitar bindings repetidos -->
                                         <Border BackgroundColor="#F9F9F9"
                                             Stroke="#E0E0E0"
                                             StrokeThickness="1"
@@ -262,7 +261,8 @@
 
                                                 <StackLayout Orientation="Horizontal" Spacing="16" VerticalOptions="Center" HorizontalOptions="End">
 
-                                                    <StackLayout Orientation="Horizontal" Spacing="4" VerticalOptions="Center">
+                                                    <StackLayout Orientation="Horizontal" Spacing="4" VerticalOptions="Center"
+                                                                 IsVisible="{Binding SizeCategory, Converter={StaticResource StringToBoolConverter}}">
                                                         <Label Text="📏" FontSize="14" VerticalOptions="Center" />
                                                         <Label Text="{Binding SizeCategory}" FontSize="12" 
                                                                TextColor="#666666"
@@ -301,9 +301,21 @@
                                 </DataTemplate>
                             </sflistview:SfListView.ItemTemplate>
 
+                            <!-- CRITICAL FIX: EmptyView that shows ONLY when not loading -->
                             <sflistview:SfListView.EmptyView>
-                                <ContentView Style="{StaticResource GenericEmptyStateStyle}"
-                                           BindingContext="{Binding Source={x:Reference ParentPage}, Path=BindingContext}" />
+                                <Grid>
+                                    <!-- Empty state - only visible when NOT loading -->
+                                    <ContentView Style="{StaticResource GenericEmptyStateStyle}"
+                                               BindingContext="{Binding Source={x:Reference ParentPage}, Path=BindingContext}">
+                                        <ContentView.IsVisible>
+                                            <Binding Path="IsLoading">
+                                                <Binding.Converter>
+                                                    <toolkit:InvertedBoolConverter />
+                                                </Binding.Converter>
+                                            </Binding>
+                                        </ContentView.IsVisible>
+                                    </ContentView>
+                                </Grid>
                             </sflistview:SfListView.EmptyView>
 
                         </sflistview:SfListView>
@@ -314,8 +326,30 @@
             </Grid>
         </Border>
 
-        <!-- Loading overlay -->
-        <ContentView Style="{StaticResource LoadingOverlayStyle}" />
+        <!-- CRITICAL FIX: Custom loading overlay (not using style template) -->
+        <Grid IsVisible="{Binding IsLoading}" BackgroundColor="#80000000">
+            <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray900}}"
+                    Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray700}}"
+                    StrokeThickness="1"
+                    Padding="30,20"
+                    HorizontalOptions="Center"
+                    VerticalOptions="Center">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
+
+                <StackLayout Spacing="15" HorizontalOptions="Center">
+                    <ActivityIndicator IsRunning="True" 
+                                     Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" 
+                                     WidthRequest="40" 
+                                     HeightRequest="40" />
+                    <Label Text="Loading Species..." 
+                           FontSize="16" 
+                           TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                           HorizontalOptions="Center" />
+                </StackLayout>
+            </Border>
+        </Grid>
 
         <!-- FAB -->
         <Button x:Name="FabButton"
