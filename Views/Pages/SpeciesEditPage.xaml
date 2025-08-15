@@ -357,7 +357,7 @@
                     <Button Grid.Column="1"
                             Text="{Binding SaveButtonText}"
                             Style="{StaticResource DynamicPrimaryButtonStyle}"
-                            Command="{Binding SaveWithGenusCommand}"
+                            Command="{Binding SaveCommand}"
                             IsEnabled="{Binding CanSave}" />
 
                 </Grid>

@@ -67,8 +67,9 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
 
     #region Required Base Class Overrides
 
-    public override string EntityName => "Genus";
-    public override string EntityNamePlural => "Genera";
+
+    protected override string GetEntityName() => "Genus";
+    protected override string GetEntityNamePlural() => "Genera";
 
     #endregion
 

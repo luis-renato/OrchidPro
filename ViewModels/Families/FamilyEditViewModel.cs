@@ -24,8 +24,8 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
 
     #region Required Base Class Overrides
 
-    public override string EntityName => "Family";
-    public override string EntityNamePlural => "Families";
+    protected override string GetEntityName() => "Family";
+    protected override string GetEntityNamePlural() => "Families";
 
     #endregion
 
