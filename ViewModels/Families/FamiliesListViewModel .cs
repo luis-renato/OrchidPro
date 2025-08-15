@@ -1,55 +1,62 @@
 ﻿using CommunityToolkit.Mvvm.Input;
+using OrchidPro.Extensions;
 using OrchidPro.Models;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
-using OrchidPro.Extensions;
 
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// 🚀 SPECIES CLONE - Simple Family list ViewModel exactly like Species
-/// NO genus counts, NO complexity, JUST stable core functionality
+/// Families list ViewModel - CLEAN VERSION using BaseListViewModel core
 /// </summary>
 public partial class FamiliesListViewModel : BaseListViewModel<Family, FamilyItemViewModel>
 {
     #region Private Fields
+
     private readonly IFamilyRepository _familyRepository;
+
     #endregion
 
     #region Required Base Class Overrides
+
     public override string EntityName => "Family";
     public override string EntityNamePlural => "Families";
     public override string EditRoute => "familyedit";
+
     #endregion
 
     #region Constructor
+
     public FamiliesListViewModel(IFamilyRepository repository, INavigationService navigationService)
         : base(repository, navigationService)
     {
         _familyRepository = repository;
-        this.LogInfo("SPECIES CLONE: FamiliesListViewModel initialized - simple and stable");
+
+        this.LogInfo("Initialized CLEAN FamiliesListViewModel using BaseListViewModel core");
     }
+
     #endregion
 
-    #region Required Implementation
-    protected override FamilyItemViewModel CreateItemViewModel(Family entity)
-    {
-        return this.SafeExecute(() =>
-        {
-            var itemViewModel = new FamilyItemViewModel(entity);
-            this.LogInfo($"Created FamilyItemViewModel for: {entity.Name}");
-            return itemViewModel;
-        }, fallbackValue: new FamilyItemViewModel(entity), operationName: "CreateItemViewModel");
-    }
-    #endregion
-
-    #region UI Compatibility Layer
+    #region Required Override
 
     /// <summary>
-    /// 🚀 UI Compatibility: DeleteSingleCommand for XAML binding
+    /// Create FamilyItemViewModel from Family entity
+    /// </summary>
+    protected override FamilyItemViewModel CreateItemViewModel(Family entity)
+    {
+        return new FamilyItemViewModel(entity);
+    }
+
+    #endregion
+
+    #region UI COMPATIBILITY: Expose Commands
+
+    /// <summary>
+    /// Expose base commands for UI compatibility
     /// </summary>
     public IAsyncRelayCommand<FamilyItemViewModel> DeleteSingleCommand => DeleteSingleItemCommand;
+    public new IAsyncRelayCommand DeleteSelectedCommand => base.DeleteSelectedCommand;
 
     #endregion
 }

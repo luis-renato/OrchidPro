@@ -8,7 +8,8 @@ using OrchidPro.Extensions;
 namespace OrchidPro.ViewModels.Species;
 
 /// <summary>
-/// Species list ViewModel - FIXED to prevent multiple loading cycles
+/// Species list ViewModel - ULTRA CLEAN using BaseListViewModel core
+/// Reduced from complex implementation to bare minimum required overrides
 /// </summary>
 public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, SpeciesItemViewModel>
 {
@@ -16,7 +17,6 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
 
     private readonly ISpeciesRepository _speciesRepository;
     private bool _isGenusMonitoring = false;
-    private bool _hasInitialized = false;
 
     #endregion
 
@@ -34,34 +34,34 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
         : base(repository, navigationService)
     {
         _speciesRepository = repository;
-
-        // Initialize custom refresh command
-        RefreshSpeciesCommand = new AsyncRelayCommand(RefreshSpeciesAsync);
-
-        this.LogInfo("🚀 ULTRA-OPTIMIZED SpeciesListViewModel initialized - inheriting all BaseListViewModel optimizations");
+        this.LogInfo("🚀 CLEAN SpeciesListViewModel initialized using BaseListViewModel core");
     }
 
     #endregion
 
-    #region CRITICAL FIX: Prevent Multiple Loading
+    #region ONLY REQUIRED: CreateItemViewModel
 
     /// <summary>
-    /// Override OnAppearingAsync to prevent multiple loading cycles
+    /// Only required override - creates SpeciesItemViewModel instances
+    /// </summary>
+    protected override SpeciesItemViewModel CreateItemViewModel(Models.Species entity)
+    {
+        return new SpeciesItemViewModel(entity);
+    }
+
+    #endregion
+
+    #region Species-Specific: Genus Hydration Monitoring
+
+    /// <summary>
+    /// Override OnAppearingAsync to add genus monitoring (Species-specific feature)
     /// </summary>
     public override async Task OnAppearingAsync()
     {
-        this.LogInfo("Starting ViewModel Appearing");
-
         try
         {
-            // Single initialization check
-            if (!_hasInitialized)
-            {
-                this.LogInfo("Initializing ViewModel for first appearance");
-                await InitializeAsync();
-                _hasInitialized = true;
-                this.LogSuccess("ViewModel initialization completed successfully");
-            }
+            // Call base implementation for all standard functionality
+            await base.OnAppearingAsync();
 
             // Start genus monitoring ONLY once and AFTER initial load
             if (!_isGenusMonitoring)
@@ -69,23 +69,16 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
                 _isGenusMonitoring = true;
                 _ = MonitorGenusHydrationAsync();
             }
-
-            this.LogInfo("Starting View Appearing");
-
-            // Call base OnAppearingAsync instead of LoadDataAsync directly
-            await base.OnAppearingAsync();
-
-            this.LogSuccess("ViewModel Appearing completed successfully");
         }
         catch (Exception ex)
         {
-            this.LogError(ex, "Error during ViewModel appearing");
+            this.LogError(ex, "Error during Species ViewModel appearing");
             throw;
         }
     }
 
     /// <summary>
-    /// Monitor genus hydration WITHOUT triggering additional refreshes
+    /// Species-specific: Monitor genus hydration WITHOUT triggering additional refreshes
     /// </summary>
     private async Task MonitorGenusHydrationAsync()
     {
@@ -107,12 +100,12 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
                     {
                         this.LogInfo($"🔄 Genus hydration detected: {speciesWithGenus.Count} species now have genus data");
 
-                        // CRITICAL FIX: NO REFRESH - just silent UI update
+                        // Silent UI update without full refresh
                         await MainThread.InvokeOnMainThreadAsync(() =>
                         {
                             try
                             {
-                                // Silent update of existing items without full refresh
+                                // Update existing items with genus info
                                 for (int i = 0; i < Items.Count && i < speciesWithGenus.Count; i++)
                                 {
                                     var item = Items[i];
@@ -145,101 +138,15 @@ public partial class SpeciesListViewModel : BaseListViewModel<Models.Species, Sp
         });
     }
 
-    /// <summary>
-    /// Custom refresh that prevents conflicts and multiple loading
-    /// </summary>
-    public async Task RefreshSpeciesAsync()
-    {
-        if (IsRefreshing || IsLoading)
-        {
-            this.LogInfo("Refresh already in progress - skipping");
-            return;
-        }
-
-        try
-        {
-            IsRefreshing = true;
-
-            // CRITICAL FIX: Direct repository refresh and manual item recreation
-            await _repository.RefreshCacheAsync();
-
-            // Get fresh data and recreate items manually
-            var allSpecies = await _repository.GetAllAsync(false);
-
-            // Clear and repopulate items manually
-            Items.Clear();
-            foreach (var species in allSpecies)
-            {
-                var itemVM = CreateItemViewModel(species);
-                Items.Add(itemVM);
-            }
-
-            // Apply filters and sorting
-            await ApplyFilterCommand.ExecuteAsync(null);
-
-            this.LogSuccess($"Refresh completed - {Items.Count} {EntityNamePlural}");
-        }
-        catch (Exception ex)
-        {
-            this.LogError(ex, $"Error during refresh: {ex.Message}");
-        }
-        finally
-        {
-            IsRefreshing = false;
-        }
-    }
-
-    #region CRITICAL DEBUG: Sort Testing
-
-    /// <summary>
-    /// Debug method to test sorting manually
-    /// </summary>
-    public void DebugCurrentSort()
-    {
-        try
-        {
-            this.LogInfo($"=== SORT DEBUG START ===");
-            this.LogInfo($"Current SortOrder: '{SortOrder}'");
-            this.LogInfo($"Items count: {Items.Count}");
-
-            for (int i = 0; i < Math.Min(Items.Count, 5); i++)
-            {
-                var item = Items[i];
-                this.LogInfo($"Item {i}: '{item.Name}' - Favorite: {item.IsFavorite} - Created: {item.CreatedAt:dd/MM/yyyy}");
-            }
-
-            this.LogInfo($"=== SORT DEBUG END ===");
-        }
-        catch (Exception ex)
-        {
-            this.LogError(ex, "Error in debug sort");
-        }
-    }
-
     #endregion
 
-    #endregion
+    #region REMOVED - Now in Base
 
-    #region REQUIRED ONLY: CreateItemViewModel
-
-    /// <summary>
-    /// Only required override - creates SpeciesItemViewModel instances
-    /// </summary>
-    protected override SpeciesItemViewModel CreateItemViewModel(Models.Species entity)
-    {
-        return new SpeciesItemViewModel(entity);
-    }
-
-    #endregion
-
-    #region UI COMPATIBILITY: Expose Commands
-
-    /// <summary>
-    /// Expose base commands for UI compatibility
-    /// </summary>
-    public IAsyncRelayCommand<SpeciesItemViewModel> DeleteSingleCommand => DeleteSingleItemCommand;
-    public new IAsyncRelayCommand DeleteSelectedCommand => base.DeleteSelectedCommand;
-    public IAsyncRelayCommand RefreshSpeciesCommand { get; private set; }
+    // ❌ REMOVED: RefreshSpeciesAsync - Use base RefreshAsync
+    // ❌ REMOVED: RefreshSpeciesCommand - Use base RefreshCommand
+    // ❌ REMOVED: All UI compatibility exposures - Use base commands directly
+    // ❌ REMOVED: _hasInitialized flag - Base handles initialization
+    // ❌ REMOVED: Custom refresh logic - Base handles all refresh scenarios
 
     #endregion
 }

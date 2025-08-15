@@ -1,246 +1,95 @@
-using OrchidPro.ViewModels.Species;
-using OrchidPro.Constants;
+﻿using OrchidPro.ViewModels.Species;
+using OrchidPro.Views.Pages.Base;
 using OrchidPro.Extensions;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// Page for creating and editing botanical species records with form validation.
-/// Handles navigation interception for unsaved changes and provides smooth animations.
-/// EXACT pattern from GenusEditPage.
+/// REFACTORED Species Edit Page using BaseEditPageLogic composition.
+/// Reduced from 200+ lines to ~30 lines using the base edit page logic.
+/// Follows exact same pattern as SpeciesListPage with BaseListPageLogic.
 /// </summary>
 public partial class SpeciesEditPage : ContentPage, IQueryAttributable
 {
-    private readonly SpeciesEditViewModel _viewModel;
-    private bool _isNavigating = false;
-    private bool _isNavigationHandlerAttached = false;
+    private readonly BaseEditPageLogic<Models.Species> _base;
 
     /// <summary>
-    /// Initialize the species edit page with dependency injection and setup
+    /// Initialize the species edit page with dependency injection and composition
     /// </summary>
     public SpeciesEditPage(SpeciesEditViewModel viewModel)
     {
-        _viewModel = viewModel;
-        BindingContext = _viewModel;
+        InitializeComponent();
 
-        var success = this.SafeExecute(() =>
-        {
-            InitializeComponent();
-            this.LogSuccess("InitializeComponent completed successfully");
-        }, "InitializeComponent");
+        // TRUE composition - use the base logic directly (same pattern as lists)
+        _base = new BaseEditPageLogic<Models.Species>(viewModel);
+        _base.SetupPage(this);
 
-        if (!success)
-        {
-            this.LogError("InitializeComponent failed");
-        }
-
-        this.LogInfo("Initialized successfully");
-    }
-
-    /// <summary>
-    /// Intercept navigation events to handle unsaved changes confirmation
-    /// </summary>
-    private async void OnShellNavigating(object? sender, ShellNavigatingEventArgs e)
-    {
-        // Only intercept back navigation from toolbar
-        if (_isNavigating || (e.Source != ShellNavigationSource.Pop && e.Source != ShellNavigationSource.PopToRoot))
-            return;
-
-        this.LogInfo($"Toolbar navigation detected - HasUnsavedChanges: {_viewModel.HasUnsavedChanges}");
-
-        // Only intercept if there are unsaved changes
-        if (_viewModel.HasUnsavedChanges)
-        {
-            // Cancel navigation to intercept
-            e.Cancel();
-            _isNavigating = true;
-
-            await this.SafeExecuteAsync(async () =>
-            {
-                // Remove handler BEFORE calling CancelCommand to avoid interference
-                DetachNavigationHandler();
-
-                this.LogInfo("Handler removed, delegating to CancelCommand");
-
-                if (_viewModel.CancelCommand.CanExecute(null))
-                {
-                    await _viewModel.CancelCommand.ExecuteAsync(null);
-                }
-            }, "Navigation handler");
-
-            _isNavigating = false;
-        }
-        // If no changes, allow normal navigation (don't cancel)
-    }
-
-    /// <summary>
-    /// Remove navigation event handler safely
-    /// </summary>
-    private void DetachNavigationHandler()
-    {
-        this.SafeExecute(() =>
-        {
-            if (_isNavigationHandlerAttached)
-            {
-                Shell.Current.Navigating -= OnShellNavigating;
-                _isNavigationHandlerAttached = false;
-                this.LogInfo("Navigation handler detached");
-            }
-        }, "DetachNavigationHandler");
+        this.LogInfo("🚀 REFACTORED SpeciesEditPage - using BaseEditPageLogic composition");
     }
 
     #region Query Attributes Management
 
     /// <summary>
-    /// Handle navigation parameters from Shell routing system
+    /// Handle navigation parameters - delegates to base logic
     /// </summary>
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        this.SafeExecute(() =>
-        {
-            this.LogInfo($"ApplyQueryAttributes called with {query.Count} parameters");
-
-            foreach (var param in query)
-            {
-                this.LogInfo($"Parameter: {param.Key} = {param.Value} ({param.Value?.GetType().Name})");
-            }
-
-            // Pass parameters to ViewModel
-            _viewModel.ApplyQueryAttributes(query);
-
-            this.LogSuccess("Parameters applied to ViewModel");
-        }, "ApplyQueryAttributes");
+        _base.HandleQueryAttributes(query);
     }
 
     #endregion
 
-    #region Page Lifecycle Management
+    #region Lifecycle Events - Delegated to Base
 
-    /// <summary>
-    /// Handle page appearing with navigation setup and animations
-    /// </summary>
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-
-        await this.SafeExecuteAsync(async () =>
-        {
-            this.LogInfo($"OnAppearing - Mode: {(_viewModel.IsEditMode ? "EDIT" : "CREATE")}");
-
-            // Always intercept navigation from toolbar - simpler approach
-            if (!_isNavigationHandlerAttached)
-            {
-                Shell.Current.Navigating += OnShellNavigating;
-                _isNavigationHandlerAttached = true;
-                this.LogInfo("Navigation handler attached (always active)");
-            }
-
-            // Animation and initialization in parallel
-            var animationTask = PerformEntranceAnimation();
-            var initTask = _viewModel.OnAppearingAsync();
-
-            // Wait for both to complete
-            await Task.WhenAll(animationTask, initTask);
-
-            this.LogSuccess("Page fully loaded and initialized");
-        }, "OnAppearing");
+        await _base.BaseOnAppearing();
     }
 
-    /// <summary>
-    /// Handle page disappearing with cleanup and animations
-    /// </summary>
     protected override async void OnDisappearing()
     {
+        await _base.BaseOnDisappearing();
         base.OnDisappearing();
-
-        await this.SafeExecuteAsync(async () =>
-        {
-            this.LogInfo("OnDisappearing");
-
-            // Always remove handler
-            DetachNavigationHandler();
-
-            // Perform exit animation
-            await PerformExitAnimation();
-
-            // Cleanup ViewModel
-            await _viewModel.OnDisappearingAsync();
-        }, "OnDisappearing");
     }
 
-    /// <summary>
-    /// Handle Android physical back button with unsaved changes check
-    /// </summary>
     protected override bool OnBackButtonPressed()
     {
-        // Check if already navigating to avoid multiple dialogs
-        if (_isNavigating)
-            return true;
-
-        // For physical button, redirect to Cancel command from base class
-        _ = Task.Run(async () =>
-        {
-            await this.SafeExecuteAsync(async () =>
-            {
-                this.LogInfo("Physical back button pressed - calling CancelCommand");
-                _isNavigating = true;
-
-                await MainThread.InvokeOnMainThreadAsync(async () =>
-                {
-                    // Use Cancel command from base class which has all the logic
-                    if (_viewModel.CancelCommand.CanExecute(null))
-                    {
-                        await _viewModel.CancelCommand.ExecuteAsync(null);
-                    }
-                });
-
-                _isNavigating = false;
-            }, "OnBackButtonPressed");
-        });
-
-        // Always prevent default behavior to handle via command
-        return true;
+        return _base.HandleBackButtonPressed();
     }
 
     #endregion
 
-    #region Animation Methods
+    #region Event Handlers - All Delegated to Base
+
+    // Core form handlers
+    private async void OnSaveButtonTapped(object? sender, EventArgs e) => _base.HandleSaveButtonTapped(sender, e);
+    private async void OnCancelButtonTapped(object? sender, EventArgs e) => _base.HandleCancelButtonTapped(sender, e);
+    private async void OnDeleteButtonTapped(object? sender, EventArgs e) => _base.HandleDeleteButtonTapped(sender, e);
+    private async void OnSaveAndContinueButtonTapped(object? sender, EventArgs e) => _base.HandleSaveAndContinueButtonTapped(sender, e);
+    private async void OnCreateNewGenusButtonTapped(object? sender, EventArgs e) => _base.HandleCreateNewParentButtonTapped(sender, e);
+
+    // Focus handlers
+    private void OnEntryFocused(object? sender, FocusEventArgs e) => _base.HandleEntryFocused(sender, e);
+    private void OnEntryUnfocused(object? sender, FocusEventArgs e) => _base.HandleEntryUnfocused(sender, e);
+    private void OnEditorTextChanged(object? sender, TextChangedEventArgs e) => _base.HandleEditorTextChanged(sender, e);
+    private void OnPickerSelectionChanged(object? sender, EventArgs e) => _base.HandlePickerSelectionChanged(sender, e);
+    private void OnSwitchToggled(object? sender, ToggledEventArgs e) => _base.HandleSwitchToggled(sender, e);
+
+    #endregion
+
+    #region Optional Species-Specific Customizations
 
     /// <summary>
-    /// Smooth entrance animation for better user experience
+    /// Example: Custom handler for species-specific control if needed
     /// </summary>
-    private async Task PerformEntranceAnimation()
+    private void OnFragranceToggled(object sender, ToggledEventArgs e)
     {
-        await this.SafeExecuteAsync(async () =>
-        {
-            // Start with invisible content
-            this.Opacity = 0;
-            this.TranslationY = 20;
+        // Delegate to base switch handler
+        _base.HandleSwitchToggled(sender, e);
 
-            // Animate to visible
-            var fadeIn = this.FadeTo(1, AnimationConstants.PAGE_ENTRANCE_DURATION, Easing.CubicOut);
-            var slideUp = this.TranslateTo(0, 0, AnimationConstants.PAGE_ENTRANCE_DURATION, Easing.CubicOut);
-
-            await Task.WhenAll(fadeIn, slideUp);
-
-            this.LogInfo("Entrance animation completed");
-        }, "Entrance Animation");
-    }
-
-    /// <summary>
-    /// Smooth exit animation for better user experience
-    /// </summary>
-    private async Task PerformExitAnimation()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            var fadeOut = this.FadeTo(0.8, AnimationConstants.PAGE_EXIT_DURATION, Easing.CubicIn);
-            var slideDown = this.TranslateTo(0, 10, AnimationConstants.PAGE_EXIT_DURATION, Easing.CubicIn);
-
-            await Task.WhenAll(fadeOut, slideDown);
-
-            this.LogInfo("Exit animation completed");
-        }, "Exit Animation");
+        // Add species-specific logic if needed
+        this.LogInfo($"Fragrance toggled: {e.Value}");
     }
 
     #endregion

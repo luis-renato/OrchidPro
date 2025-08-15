@@ -9,10 +9,8 @@ using System.Collections.ObjectModel;
 namespace OrchidPro.ViewModels.Base;
 
 /// <summary>
-/// PERFORMANCE OPTIMIZED Base ViewModel for list views.
-/// Eliminates reflection calls, moves heavy operations off main thread, implements caching.
-/// Maintains 100% API compatibility while delivering 85% faster load times.
-/// SURGICAL FIXES: Batched PropertyChanged + Background ApplyFiltersAndSort + ConfigureAwait(false)
+/// FIXED Base ViewModel for list views with Syncfusion native sorting support.
+/// All command duplications removed and properly consolidated.
 /// </summary>
 public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewModel, IDisposable
     where T : class, IBaseEntity, new()
@@ -36,17 +34,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     /// Cached IsFavorite accessor for current TItemViewModel type
     /// </summary>
     private readonly Func<TItemViewModel, bool> _getFavoriteFunc;
-
-    #endregion
-
-    #region SURGICAL FIX: Batched PropertyChanged Events
-
-    /// <summary>
-    /// SURGICAL FIX: Batched property change timer to reduce UI churn
-    /// </summary>
-    private readonly Timer _propertyBatchTimer;
-    private readonly HashSet<string> _pendingPropertyChanges = new();
-    private readonly object _propertyLock = new object();
 
     #endregion
 
@@ -110,7 +97,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #region Filter and Sort Options
 
-    public List<string> StatusFilterOptions { get; } = new() { "All", "Active", "Inactive" };
+    public List<string> StatusFilterOptions { get; } = new() { "All", "Active", "Inactive", "Favorites" };
     public List<string> SortOptions { get; } = new()
     {
         "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First"
@@ -118,12 +105,44 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region Manual Commands
+    #region Syncfusion Native Sorting Support
+
+    /// <summary>
+    /// Syncfusion-compatible case-insensitive string comparer for DataSource sorting
+    /// </summary>
+    public static readonly IComparer<object> CaseInsensitiveComparer =
+        Comparer<object>.Create((x, y) =>
+        {
+            var stringX = x?.ToString()?.ToLower() ?? string.Empty;
+            var stringY = y?.ToString()?.ToLower() ?? string.Empty;
+            return stringX.CompareTo(stringY);
+        });
+
+    /// <summary>
+    /// Called when SortOrder changes - handled by Page logic for Syncfusion native sorting
+    /// </summary>
+    public virtual void OnSyncfusionSortChanged(string sortOrder)
+    {
+        this.LogInfo($"🔧 SYNCFUSION: Base SortOrder changed to '{sortOrder}' - handled by Page logic");
+    }
+
+    #endregion
+
+    #region Core Commands - FIXED: No Duplications
 
     public IAsyncRelayCommand ApplyFilterCommand { get; private set; }
     public IRelayCommand ClearFilterCommand { get; private set; }
     public IRelayCommand ClearSelectionCommand { get; private set; }
     public IAsyncRelayCommand<TItemViewModel> DeleteSingleItemCommand { get; private set; }
+    public IAsyncRelayCommand RefreshCommand { get; private set; }
+    public IAsyncRelayCommand FabActionCommand { get; private set; }
+    public IRelayCommand SelectAllCommand { get; private set; }
+    public IRelayCommand DeselectAllCommand { get; private set; }
+    public IAsyncRelayCommand<TItemViewModel> ToggleFavoriteCommand { get; private set; }
+    public IAsyncRelayCommand DeleteSelectedCommand { get; private set; }
+    public IAsyncRelayCommand NavigateToAddCommand { get; private set; }
+    public IRelayCommand ToggleSortCommand { get; private set; }
+    public IAsyncRelayCommand ToggleStatusFilterCommand { get; private set; }
 
     #endregion
 
@@ -149,9 +168,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
         // PERFORMANCE OPTIMIZATION: Initialize cached IsFavorite accessor
         _getFavoriteFunc = InitializeFavoriteAccessor();
-
-        // SURGICAL FIX: Initialize property batching
-        _propertyBatchTimer = new Timer(FlushBatchedPropertyChanges, null, Timeout.Infinite, Timeout.Infinite);
 
         InitializeCommands();
         SetupPropertyChangeHandling();
@@ -202,7 +218,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     #region Initialization
 
     /// <summary>
-    /// Initialize manual relay commands for complex operations
+    /// Initialize core commands - FIXED: Single initialization without duplicates
     /// </summary>
     private void InitializeCommands()
     {
@@ -210,6 +226,15 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         ClearFilterCommand = new RelayCommand(ClearFilterAction);
         ClearSelectionCommand = new RelayCommand(ClearSelectionAction);
         DeleteSingleItemCommand = new AsyncRelayCommand<TItemViewModel>(DeleteSingleItemAsync);
+        RefreshCommand = new AsyncRelayCommand(RefreshAsync);
+        FabActionCommand = new AsyncRelayCommand(FabActionAsync);
+        SelectAllCommand = new RelayCommand(SelectAll);
+        DeselectAllCommand = new RelayCommand(DeselectAll);
+        ToggleFavoriteCommand = new AsyncRelayCommand<TItemViewModel>(ToggleFavoriteAsync);
+        DeleteSelectedCommand = new AsyncRelayCommand(DeleteSelectedAsync);
+        NavigateToAddCommand = new AsyncRelayCommand(NavigateToAddAsync);
+        ToggleSortCommand = new RelayCommand(ToggleSort);
+        ToggleStatusFilterCommand = new AsyncRelayCommand(ToggleStatusFilterAsync);
     }
 
     /// <summary>
@@ -222,126 +247,21 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region Manual Command Methods
+    #region Core Property Change Handling
 
     /// <summary>
-    /// Apply current filters and reload data from repository
-    /// </summary>
-    private async Task ApplyFilterAsync()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            await LoadItemsDataAsync();
-        }, "Apply Filter");
-    }
-
-    /// <summary>
-    /// Clear all filters and reload original data from repository
-    /// </summary>
-    private async void ClearFilterAction()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            SearchText = string.Empty;
-            StatusFilter = "All";
-            SortOrder = "Name A→Z";
-            await LoadItemsDataAsync();
-            this.LogSuccess($"Filters cleared and data reloaded for {EntityNamePlural}");
-        }, "Clear Filter");
-    }
-
-    /// <summary>
-    /// Clear selection state and reset filters
-    /// </summary>
-    private async void ClearSelectionAction()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            SelectedItems.Clear();
-            foreach (var item in Items)
-            {
-                item.IsSelected = false;
-            }
-
-            SearchText = string.Empty;
-            StatusFilter = "All";
-            SortOrder = "Name A→Z";
-            IsMultiSelectMode = false;
-            UpdateFabForSelection();
-
-            await LoadItemsDataAsync();
-            this.LogSuccess($"Selection and filters cleared for {EntityNamePlural}");
-        }, "Clear Selection");
-    }
-
-    /// <summary>
-    /// Delete single item with unified confirmation and feedback flow
-    /// </summary>
-    private async Task DeleteSingleItemAsync(TItemViewModel? item)
-    {
-        if (item == null) return;
-
-        using (this.LogPerformance($"Delete Single {EntityName}"))
-        {
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                this.LogDataOperation("Requesting deletion", EntityName, item.Name);
-
-                var confirmed = await ShowConfirmAsync(
-                    $"Delete {EntityName}",
-                    $"Are you sure you want to delete '{item.Name}'?");
-
-                if (!confirmed)
-                {
-                    this.LogInfo("Delete cancelled by user");
-                    return false; // ✅ FIXED: No toast on cancel, just return
-                }
-
-                IsBusy = true;
-                var success = await _repository.DeleteAsync(item.Id);
-
-                if (success)
-                {
-                    Items.Remove(item);
-                    UpdateCounters();
-                    await ShowSuccessToastAsync($"'{item.Name}' deleted successfully");
-                    this.LogDataOperation("Deleted", EntityName, item.Name);
-                }
-
-                return success;
-            }, EntityName);
-
-            // ✅ FIXED: Only show error toast if operation failed AND was not cancelled
-            if (!result.Success && result.Data == false && !result.Message.Contains("cancelled"))
-            {
-                await ShowErrorToastAsync($"Failed to delete {item.Name}: {result.Message}");
-            }
-
-            IsBusy = false;
-        }
-    }
-
-    #endregion
-
-    #region SURGICAL FIX: Property Change Handlers
-
-    /// <summary>
-    /// SURGICAL FIX: Event handler that triggers background processing for reactive properties
-    /// THREAD OPTIMIZED: Removed unnecessary Task.Run() wrappers
+    /// STREAMLINED: Handle only essential property changes
     /// </summary>
     private void OnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        // Only handle specific properties that need reactive behavior - NO LOGGING
         switch (e.PropertyName)
         {
             case nameof(SearchText):
             case nameof(StatusFilter):
-                // THREAD FIX: Direct async call without Task.Run wrapper
-                _ = LoadItemsDataAsync();
+                _ = LoadDataAsync();
                 break;
             case nameof(SortOrder):
-                // THREAD FIX: Direct async call without Task.Run wrapper
-                _ = ApplyFiltersAndSortAsync();
+                OnSyncfusionSortChanged(SortOrder);
                 break;
             case nameof(SelectedItems):
                 MainThread.BeginInvokeOnMainThread(() => UpdateFabForSelection());
@@ -349,41 +269,10 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
     }
 
-    /// <summary>
-    /// THREAD FIX: Direct PropertyChanged without batching timer to eliminate thread pool usage
-    /// </summary>
-    protected new void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
+    // CRITICAL: Trigger Syncfusion native sorting when SortOrder changes
+    partial void OnSortOrderChanged(string value)
     {
-        if (string.IsNullOrEmpty(propertyName)) return;
-
-        // THREAD FIX: Direct property change notification without timer batching
-        // This eliminates the thread pool threads created by Timer callbacks
-        base.OnPropertyChanged(propertyName);
-    }
-
-    /// <summary>
-    /// SURGICAL FIX: Flush batched property changes
-    /// </summary>
-    private void FlushBatchedPropertyChanges(object? state)
-    {
-        HashSet<string> toFlush;
-
-        lock (_propertyLock)
-        {
-            if (!_pendingPropertyChanges.Any()) return;
-
-            toFlush = new HashSet<string>(_pendingPropertyChanges);
-            _pendingPropertyChanges.Clear();
-        }
-
-        // Execute on main thread
-        MainThread.BeginInvokeOnMainThread(() =>
-        {
-            foreach (var propertyName in toFlush)
-            {
-                base.OnPropertyChanged(propertyName);
-            }
-        });
+        OnSyncfusionSortChanged(value);
     }
 
     #endregion
@@ -394,7 +283,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region Data Loading
+    #region Core Data Loading
 
     /// <summary>
     /// Handle view appearing lifecycle event with data loading
@@ -418,7 +307,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     }
 
     /// <summary>
-    /// 🔧 FIXED: Initial data loading with proper IsLoading state management
+    /// Core data loading with proper state management
     /// </summary>
     private async Task LoadDataAsync()
     {
@@ -447,39 +336,60 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             }
             finally
             {
-                // 🔧 FIX: SEMPRE limpa loading state
                 IsLoading = false;
             }
         }
     }
 
-    #region PERFORMANCE OPTIMIZATION: Smart Threading Threshold
-
     /// <summary>
-    /// Threshold for using parallel processing - below this use sequential processing
-    /// </summary>
-    private const int PARALLEL_THRESHOLD = 50;
-
-    #endregion
-
-    /// <summary>
-    /// PERFORMANCE OPTIMIZED: Populate UI items collection from entity data
+    /// PERFORMANCE OPTIMIZED: Populate UI items collection from entity data with filtering
     /// Uses smart threshold to decide between sequential and parallel processing
     /// </summary>
     private async Task PopulateItemsAsync(List<T> entities)
     {
         await this.SafeExecuteAsync(async () =>
         {
+            // FILTER FIRST: Apply status and search filters before creating ViewModels
+            var filteredEntities = entities.AsQueryable();
+
+            // Apply status filter
+            if (StatusFilter != "All")
+            {
+                if (StatusFilter == "Active")
+                    filteredEntities = filteredEntities.Where(e => e.IsActive);
+                else if (StatusFilter == "Inactive")
+                    filteredEntities = filteredEntities.Where(e => !e.IsActive);
+            }
+
+            // Apply search filter
+            if (!string.IsNullOrWhiteSpace(SearchText))
+            {
+                var searchLower = SearchText.ToLower();
+                filteredEntities = filteredEntities.Where(e =>
+                    e.Name.ToLower().Contains(searchLower) ||
+                    (e.Description != null && e.Description.ToLower().Contains(searchLower)));
+            }
+
+            var finalEntities = filteredEntities.ToList();
+
+            const int PARALLEL_THRESHOLD = 50;
+
             // SMART THRESHOLD: Use parallel processing only when beneficial
-            var itemVMs = entities.Count > PARALLEL_THRESHOLD
+            var itemVMs = finalEntities.Count > PARALLEL_THRESHOLD
                 ? await Task.Run(() =>
                 {
-                    return entities.AsParallel()
-                        .WithDegreeOfParallelism(Math.Min(Environment.ProcessorCount, Math.Max(1, entities.Count / 20)))
+                    return finalEntities.AsParallel()
+                        .WithDegreeOfParallelism(Math.Min(Environment.ProcessorCount, Math.Max(1, finalEntities.Count / 20)))
                         .Select(e => CreateItemViewModel(e))
                         .ToList();
                 }).ConfigureAwait(false)
-                : entities.Select(e => CreateItemViewModel(e)).ToList();
+                : finalEntities.Select(e => CreateItemViewModel(e)).ToList();
+
+            // Apply favorites filter AFTER creating ViewModels (needs IsFavorite property)
+            if (StatusFilter == "Favorites")
+            {
+                itemVMs = itemVMs.Where(vm => _getFavoriteFunc(vm)).ToList();
+            }
 
             // Return to main thread for UI updates
             await MainThread.InvokeOnMainThreadAsync(() =>
@@ -491,188 +401,153 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 }
             });
 
-            await ApplyFiltersAndSortAsync();
             UpdateCounters();
             HasData = Items.Count > 0;
 
-            this.LogDataOperation("Populated", EntityNamePlural, $"{Items.Count} items");
+            this.LogDataOperation("Populated", EntityNamePlural, $"{Items.Count} items (filtered from {entities.Count})");
         }, "Populate Items");
     }
 
     #endregion
 
-    #region Navigation Commands
+    #region Filter and Sort Commands
 
     /// <summary>
-    /// Navigate to entity creation page
+    /// Cycle through sort order options
     /// </summary>
-    [RelayCommand]
-    private async Task NavigateToAddAsync()
-    {
-        var success = await this.SafeNavigationExecuteAsync(async () =>
-        {
-            await _navigationService.NavigateToAsync(EditRoute);
-        }, $"Add {EntityName}");
-
-        if (!success)
-        {
-            await ShowErrorToastAsync($"Failed to navigate to add {EntityName.ToLower()}");
-        }
-    }
-
-    /// <summary>
-    /// Navigate to entity edit page with parameters
-    /// </summary>
-    [RelayCommand]
-    private async Task NavigateToEditAsync(TItemViewModel? item)
-    {
-        var isValid = this.SafeValidate(() => item?.Id != null, "Edit Navigation Validation");
-        if (!isValid)
-        {
-            this.LogWarning("NavigateToEdit: item or Id is null");
-            return;
-        }
-
-        var success = await this.SafeNavigationExecuteAsync(async () =>
-        {
-            this.LogNavigation($"EDIT {EntityName}", $"{item!.Name} (ID: {item.Id})");
-
-            var parameters = new Dictionary<string, object>
-            {
-                [$"{EntityName}Id"] = item.Id.ToString()!
-            };
-
-            await _navigationService.NavigateToAsync(EditRoute, parameters);
-        }, $"Edit {EntityName}");
-
-        if (!success)
-        {
-            await ShowErrorToastAsync($"Failed to navigate to edit {EntityName.ToLower()}");
-        }
-    }
-
-    /// <summary>
-    /// Alternative add command for different UI contexts
-    /// </summary>
-    [RelayCommand]
-    private async Task AddNewAsync()
-    {
-        await NavigateToAddAsync();
-    }
-
-    #endregion
-
-    #region Refresh and Data Management
-
-    /// <summary>
-    /// SURGICAL FIX: Prevent double refresh calls that clear the list
-    /// </summary>
-    private bool _isRefreshing = false;
-
-    [RelayCommand]
-    public async Task RefreshAsync()
-    {
-        // CRITICAL FIX: Prevent concurrent refresh operations
-        if (_isRefreshing)
-        {
-            this.LogInfo("Refresh already in progress - skipping");
-            return;
-        }
-
-        _isRefreshing = true;
-
-        try
-        {
-            await this.SafeExecuteAsync(async () =>
-            {
-                this.LogInfo($"Starting Refresh {EntityNamePlural}");
-
-                // Force cache refresh
-                await _repository.RefreshCacheAsync();
-
-                // Reload data with fresh cache
-                await LoadDataAsync();
-
-                this.LogSuccess($"Refresh completed - {Items.Count} {EntityNamePlural}");
-            }, $"Refresh{EntityNamePlural}");
-        }
-        finally
-        {
-            _isRefreshing = false;
-            IsRefreshing = false; // Ensure UI state is reset
-        }
-    }
-
-    /// <summary>
-    /// Internal refresh without user loading indicator
-    /// </summary>
-    private async Task RefreshInternalAsync(bool showLoading = true)
-    {
-        if (showLoading)
-            IsRefreshing = true;
-
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            await _repository.RefreshCacheAsync();
-            var entities = await _repository.GetAllAsync(true);
-            await PopulateItemsAsync(entities);
-            return entities;
-        }, EntityNamePlural);
-
-        if (showLoading)
-            IsRefreshing = false;
-    }
-
-    #endregion
-
-    #region Favorites Management
-
-    /// <summary>
-    /// Generic toggle favorite implementation using BaseToggleFavoritePattern
-    /// </summary>
-    [RelayCommand]
-    protected virtual async Task ToggleFavoriteAsync(TItemViewModel item)
-    {
-        await BaseToggleFavoritePattern.ExecuteToggleFavoriteAsync<T, TItemViewModel>(
-            item,
-            _repository,
-            Items,
-            CreateItemViewModel,
-            UpdateCounters);
-    }
-
-    #endregion
-
-    #region Multi-Selection
-
-    /// <summary>
-    /// Toggle multi-selection mode on/off
-    /// </summary>
-    [RelayCommand]
-    private void ToggleMultiSelect()
+    private void ToggleSort()
     {
         this.SafeExecute(() =>
         {
-            IsMultiSelectMode = !IsMultiSelectMode;
+            var currentIndex = SortOptions.IndexOf(SortOrder);
+            var nextIndex = (currentIndex + 1) % SortOptions.Count;
+            SortOrder = SortOptions[nextIndex];
 
-            if (!IsMultiSelectMode)
+            this.LogInfo($"Sort order changed to: {SortOrder}");
+        }, "Toggle Sort");
+    }
+
+    /// <summary>
+    /// Cycle through status filter options
+    /// </summary>
+    private async Task ToggleStatusFilterAsync()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            var currentIndex = StatusFilterOptions.IndexOf(StatusFilter);
+            var nextIndex = (currentIndex + 1) % StatusFilterOptions.Count;
+            StatusFilter = StatusFilterOptions[nextIndex];
+
+            this.LogInfo($"Status filter changed to: {StatusFilter}");
+        }, "Toggle Status Filter");
+    }
+
+    /// <summary>
+    /// Apply current filters and reload data from repository
+    /// </summary>
+    private async Task ApplyFilterAsync()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            await LoadDataAsync();
+        }, "Apply Filter");
+    }
+
+    /// <summary>
+    /// Clear all filters and reload original data from repository
+    /// </summary>
+    private async void ClearFilterAction()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            SearchText = string.Empty;
+            StatusFilter = "All";
+            SortOrder = "Name A→Z";
+            await LoadDataAsync();
+            this.LogSuccess($"Filters cleared and data reloaded for {EntityNamePlural}");
+        }, "Clear Filter");
+    }
+
+    /// <summary>
+    /// Clear selection state and reset filters
+    /// </summary>
+    private async void ClearSelectionAction()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            SelectedItems.Clear();
+            foreach (var item in Items)
             {
-                foreach (var item in SelectedItems)
-                {
-                    item.IsSelected = false;
-                }
-                SelectedItems.Clear();
+                item.IsSelected = false;
             }
 
+            SearchText = string.Empty;
+            StatusFilter = "All";
+            SortOrder = "Name A→Z";
+            IsMultiSelectMode = false;
             UpdateFabForSelection();
-            this.LogInfo($"Multi-select mode: {IsMultiSelectMode}");
-        }, "Toggle Multi-Select");
+
+            await LoadDataAsync();
+            this.LogSuccess($"Selection and filters cleared for {EntityNamePlural}");
+        }, "Clear Selection");
+    }
+
+    #endregion
+
+    #region CRUD Operations
+
+    /// <summary>
+    /// Delete single item with unified confirmation and feedback flow
+    /// </summary>
+    private async Task DeleteSingleItemAsync(TItemViewModel? item)
+    {
+        if (item == null) return;
+
+        using (this.LogPerformance($"Delete Single {EntityName}"))
+        {
+            var result = await this.SafeDataExecuteAsync(async () =>
+            {
+                this.LogDataOperation("Requesting deletion", EntityName, item.Name);
+
+                var confirmed = await ShowConfirmAsync(
+                    $"Delete {EntityName}",
+                    $"Are you sure you want to delete '{item.Name}'?");
+
+                if (!confirmed)
+                {
+                    this.LogInfo("Delete cancelled by user");
+                    // FIXED: Return "CANCELLED" string to clearly indicate user cancellation
+                    return "CANCELLED";
+                }
+
+                IsBusy = true;
+                var success = await _repository.DeleteAsync(item.Id);
+
+                if (success)
+                {
+                    Items.Remove(item);
+                    UpdateCounters();
+                    await ShowSuccessToastAsync($"'{item.Name}' deleted successfully");
+                    this.LogDataOperation("Deleted", EntityName, item.Name);
+                    return "SUCCESS";
+                }
+
+                return "FAILED";
+            }, EntityName);
+
+            // FIXED: Only show error toast for actual failures, not cancellations
+            if (!result.Success && result.Data != "CANCELLED")
+            {
+                await ShowErrorToastAsync($"Failed to delete {item.Name}: {result.Message}");
+            }
+
+            IsBusy = false;
+        }
     }
 
     /// <summary>
     /// Delete multiple selected items with unified confirmation flow
     /// </summary>
-    [RelayCommand]
     private async Task DeleteSelectedAsync()
     {
         using (this.LogPerformance("Delete Selected Items"))
@@ -693,7 +568,8 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 if (!confirmed)
                 {
                     this.LogInfo("Delete cancelled by user");
-                    return 0;
+                    // FIXED: Return -1 to indicate cancellation (not 0 which indicates failure)
+                    return -1;
                 }
 
                 var idsToDelete = SelectedItems.Select(item => item.Id).ToList();
@@ -726,14 +602,23 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 return deletedCount;
             }, EntityNamePlural);
 
+            // FIXED: Check for cancellation (-1) vs failure (0 or false)
             if (result.Success && result.Data > 0)
             {
                 await ShowSuccessToastAsync($"{result.Data} {EntityNamePlural.ToLower()} deleted successfully");
                 this.LogSuccess($"DeleteSelected completed successfully - {result.Data} items");
             }
+            else if (result.Data == -1)
+            {
+                // FIXED: User cancelled - just cleanup, no error toast
+                SelectedItems.Clear();
+                IsMultiSelectMode = false;
+                UpdateFabForSelection();
+                this.LogInfo("Delete operation cancelled by user - cleanup completed");
+            }
             else
             {
-                // Ensure cleanup even on error
+                // FIXED: Real failure - show error toast
                 SelectedItems.Clear();
                 IsMultiSelectMode = false;
                 UpdateFabForSelection();
@@ -742,451 +627,122 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
     }
 
-    /// <summary>
-    /// Public command for external delete operations (swipe actions, etc.)
-    /// </summary>
-    public IAsyncRelayCommand<TItemViewModel> DeleteSingleItemSafeCommand => DeleteSingleItemCommand;
+    #endregion
+
+    #region Navigation Commands
 
     /// <summary>
-    /// Update FAB appearance based on selection state
+    /// Navigate to entity edit page with parameters
     /// </summary>
-    public virtual void UpdateFabForSelection()
+    [RelayCommand]
+    private async Task NavigateToEditAsync(TItemViewModel? item)
     {
-        this.SafeExecute(() =>
+        var isValid = this.SafeValidate(() => item?.Id != null, "Edit Navigation Validation");
+        if (!isValid)
         {
-            if (IsMultiSelectMode && SelectedItems.Count > 0)
-            {
-                FabText = $"Delete ({SelectedItems.Count})";
-                FabIsVisible = true;
-            }
-            else if (IsMultiSelectMode)
-            {
-                FabText = "Cancel";
-                FabIsVisible = true;
-            }
-            else
-            {
-                FabText = $"Add {EntityName}";
-                FabIsVisible = true;
-            }
+            this.LogWarning("NavigateToEdit: item or Id is null");
+            return;
+        }
 
-            this.LogDebug($"FAB updated: '{FabText}' - Visible: {FabIsVisible}");
-        }, "Update FAB");
+        var success = await this.SafeNavigationExecuteAsync(async () =>
+        {
+            this.LogNavigation($"EDIT {EntityName}", $"{item!.Name} (ID: {item.Id})");
+
+            var parameters = new Dictionary<string, object>
+            {
+                [$"{EntityName}Id"] = item.Id.ToString()!
+            };
+
+            await _navigationService.NavigateToAsync(EditRoute, parameters);
+        }, $"Edit {EntityName}");
+
+        if (!success)
+        {
+            await ShowErrorToastAsync($"Failed to navigate to edit {EntityName.ToLower()}");
+        }
     }
 
     #endregion
 
-    #region Filtering and Sorting
+    #region Refresh and Data Management
 
     /// <summary>
-    /// Cycle through status filter options
+    /// STREAMLINED: Prevent double refresh calls
     /// </summary>
-    [RelayCommand]
-    private async Task ToggleStatusFilterAsync()
+    private bool _isRefreshing = false;
+
+    private async Task RefreshAsync()
     {
-        await this.SafeExecuteAsync(async () =>
+        if (_isRefreshing)
         {
-            var currentIndex = StatusFilterOptions.IndexOf(StatusFilter);
-            var nextIndex = (currentIndex + 1) % StatusFilterOptions.Count;
-            StatusFilter = StatusFilterOptions[nextIndex];
+            this.LogInfo("Refresh already in progress - skipping");
+            return;
+        }
 
-            this.LogInfo($"Status filter changed to: {StatusFilter}");
-            await LoadItemsDataAsync();
-        }, "Toggle Status Filter");
-    }
+        _isRefreshing = true;
 
-    /// <summary>
-    /// Cycle through sort order options
-    /// </summary>
-    [RelayCommand]
-    private void ToggleSort()
-    {
-        this.SafeExecute(() =>
-        {
-            var currentIndex = SortOptions.IndexOf(SortOrder);
-            var nextIndex = (currentIndex + 1) % SortOptions.Count;
-            SortOrder = SortOptions[nextIndex];
-
-            this.LogInfo($"Sort order changed to: {SortOrder}");
-            _ = ApplyFiltersAndSortAsync();
-        }, "Toggle Sort");
-    }
-
-    /// <summary>
-    /// SURGICAL FIX: Move ApplyFiltersAndSortAsync completely to background thread with smart threshold
-    /// </summary>
-    private async Task ApplyFiltersAndSortAsync()
-    {
-        // Move EVERYTHING to background thread
-        await Task.Run(async () =>
+        try
         {
             await this.SafeExecuteAsync(async () =>
             {
-                // SMART THRESHOLD: Use parallel processing only when beneficial
-                var sortedItems = Items.Count > PARALLEL_THRESHOLD
-                    ? Items.ToArray().AsParallel()
-                        .WithDegreeOfParallelism(Math.Min(Environment.ProcessorCount, Math.Max(1, Items.Count / 20)))
-                        .OrderBy(item => item, GetItemComparer())
-                        .ToList()
-                    : Items.ToArray()
-                        .OrderBy(item => item, GetItemComparer())
-                        .ToList();
-
-                // Single batch UI update on main thread
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    Items.Clear();
-
-                    // Batch add items to reduce UI update overhead
-                    foreach (var item in sortedItems)
-                    {
-                        Items.Add(item);
-                    }
-
-                    HasData = Items.Count > 0;
-                    EmptyStateMessage = SearchText?.Length > 0 || StatusFilter != "All"
-                        ? $"No {EntityNamePlural.ToLower()} match your filters"
-                        : $"No {EntityNamePlural.ToLower()} found. Tap + to add one";
-
-                    UpdateCounters();
-                    this.LogDebug($"Applied sort: {SortOrder} - {Items.Count} items");
-                });
-
-            }, "Apply Filters and Sort").ConfigureAwait(false);
-        }).ConfigureAwait(false);
-    }
-
-    /// <summary>
-    /// PERFORMANCE OPTIMIZED: Get optimized comparer for current sort order
-    /// Eliminates repeated string comparisons and switch statements
-    /// </summary>
-    private IComparer<TItemViewModel> GetItemComparer()
-    {
-        return SortOrder switch
+                this.LogInfo($"Starting Refresh {EntityNamePlural}");
+                await _repository.RefreshCacheAsync();
+                await LoadDataAsync();
+                this.LogSuccess($"Refresh completed - {Items.Count} {EntityNamePlural}");
+            }, $"Refresh{EntityNamePlural}");
+        }
+        finally
         {
-            "Name A→Z" => Comparer<TItemViewModel>.Create((x, y) => string.Compare(x.Name, y.Name, StringComparison.OrdinalIgnoreCase)),
-            "Name Z→A" => Comparer<TItemViewModel>.Create((x, y) => string.Compare(y.Name, x.Name, StringComparison.OrdinalIgnoreCase)),
-            "Recent First" => Comparer<TItemViewModel>.Create((x, y) => y.UpdatedAt.CompareTo(x.UpdatedAt)),
-            "Oldest First" => Comparer<TItemViewModel>.Create((x, y) => x.CreatedAt.CompareTo(y.CreatedAt)),
-            "Favorites First" => Comparer<TItemViewModel>.Create((x, y) =>
-            {
-                var xFav = _getFavoriteFunc(x);
-                var yFav = _getFavoriteFunc(y);
-                if (xFav != yFav) return yFav.CompareTo(xFav); // Favorites first
-                return string.Compare(x.Name, y.Name, StringComparison.OrdinalIgnoreCase);
-            }),
-            _ => Comparer<TItemViewModel>.Create((x, y) => string.Compare(x.Name, y.Name, StringComparison.OrdinalIgnoreCase))
-        };
-    }
-
-    /// <summary>
-    /// Apply entity-specific sorting logic - DEPRECATED in favor of GetItemComparer
-    /// Kept for backward compatibility
-    /// </summary>
-    protected virtual IOrderedEnumerable<TItemViewModel> ApplyEntitySpecificSort(IEnumerable<TItemViewModel> filtered)
-    {
-        return SortOrder switch
-        {
-            "Name A→Z" => filtered.OrderBy(item => item.Name),
-            "Name Z→A" => filtered.OrderByDescending(item => item.Name),
-            "Recent First" => filtered.OrderByDescending(item => item.UpdatedAt),
-            "Oldest First" => filtered.OrderBy(item => item.CreatedAt),
-            "Favorites First" => filtered.OrderByDescending(item => _getFavoriteFunc(item)).ThenBy(item => item.Name),
-            _ => filtered.OrderBy(item => item.Name)
-        };
-    }
-
-    #endregion
-
-    #region Counters and Status
-
-    /// <summary>
-    /// PERFORMANCE OPTIMIZED: Update statistical counters for UI display
-    /// Uses cached favorite accessor to eliminate reflection calls
-    /// </summary>
-    protected virtual void UpdateCounters()
-    {
-        this.SafeExecute(() =>
-        {
-            var allEntities = Items;
-            TotalCount = allEntities.Count;
-            ActiveCount = allEntities.Count(e => e.IsActive);
-
-            // PERFORMANCE OPTIMIZATION: Use cached accessor instead of reflection
-            FavoriteCount = allEntities.Count(e => _getFavoriteFunc(e));
-
-            this.LogDebug($"Counters - Total: {TotalCount}, Active: {ActiveCount}, Favorites: {FavoriteCount}");
-        }, "Update Counters");
-    }
-
-    /// <summary>
-    /// Test connection and update status indicators
-    /// </summary>
-    private async Task TestConnectionInternalAsync()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            IsConnected = true;
-            ConnectionStatus = "Connected";
-            ConnectionStatusColor = Colors.Green;
-        }, "Test Connection");
-    }
-
-    /// <summary>
-    /// Update connection status UI indicators
-    /// </summary>
-    private void UpdateConnectionStatus(bool connected)
-    {
-        this.SafeExecute(() =>
-        {
-            IsConnected = connected;
-            ConnectionStatus = connected ? "Connected" : "Offline";
-            ConnectionStatusColor = connected ? Colors.Green : Colors.Orange;
-            UpdateFabForSelection();
-
-            this.LogConnectivity(ConnectionStatus);
-        }, "Update Connection Status");
-    }
-
-    #endregion
-
-    #region FAB Command
-
-    /// <summary>
-    /// Handle FAB button actions based on current mode
-    /// </summary>
-    [RelayCommand]
-    private async Task FabActionAsync()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            if (IsMultiSelectMode)
-            {
-                if (SelectedItems.Count > 0)
-                {
-                    await DeleteSelectedAsync();
-                }
-                else
-                {
-                    ToggleMultiSelect();
-                }
-            }
-            else
-            {
-                await NavigateToAddAsync();
-            }
-        }, "FAB Action");
-    }
-
-    #endregion
-
-    #region Data Loading Commands
-
-    /// <summary>
-    /// Load items with current filter settings
-    /// </summary>
-    [RelayCommand]
-    private async Task LoadItemsAsync()
-    {
-        if (IsLoading) return;
-
-        using (this.LogPerformance($"Load {EntityNamePlural}"))
-        {
-            IsLoading = true;
-
-            var result = await this.SafeDataExecuteAsync(async () =>
-            {
-                await LoadItemsDataAsync();
-                await TestConnectionInBackgroundAsync();
-                return Items.Count;
-            }, EntityNamePlural);
-
-            if (result.Success)
-            {
-                this.LogSuccess($"Loaded {result.Data} {EntityNamePlural}");
-            }
-            else
-            {
-                await ShowErrorToastAsync($"Failed to load {EntityNamePlural}. Check your connection and try again.");
-                UpdateConnectionStatus(false);
-            }
-
-            IsLoading = false;
+            _isRefreshing = false;
+            // NOTE: IsRefreshing will be reset by the Page's HandlePullToRefresh
+            // Don't reset it here to avoid conflicts with SfPullToRefresh control
         }
     }
 
     /// <summary>
-    /// SURGICAL FIX: Ensure LoadItemsDataAsync runs completely in background with smart threshold
+    /// Internal refresh without user loading indicator
     /// </summary>
-    private async Task LoadItemsDataAsync()
+    private async Task RefreshInternalAsync(bool showLoading = true)
     {
-        await Task.Run(async () =>
+        if (showLoading)
+            IsRefreshing = true;
+
+        var result = await this.SafeDataExecuteAsync(async () =>
         {
-            await this.SafeDataExecuteAsync(async () =>
-            {
-                bool? statusFilter = StatusFilter switch
-                {
-                    "Active" => true,
-                    "Inactive" => false,
-                    _ => null
-                };
+            await _repository.RefreshCacheAsync();
+            var entities = await _repository.GetAllAsync(true);
+            await PopulateItemsAsync(entities);
+            return entities;
+        }, EntityNamePlural);
 
-                var entities = await _repository.GetFilteredAsync(SearchText, statusFilter).ConfigureAwait(false);
-
-                // SMART THRESHOLD: Use parallel processing only when beneficial
-                var itemViewModels = entities.Count > PARALLEL_THRESHOLD
-                    ? entities.AsParallel()
-                        .WithDegreeOfParallelism(Math.Min(Environment.ProcessorCount, Math.Max(1, entities.Count / 20)))
-                        .Select(entity =>
-                        {
-                            var itemVm = CreateItemViewModel(entity);
-                            itemVm.SelectionChangedAction = OnItemSelectionChanged;
-                            return itemVm;
-                        })
-                        .ToList()
-                    : entities.Select(entity =>
-                    {
-                        var itemVm = CreateItemViewModel(entity);
-                        itemVm.SelectionChangedAction = OnItemSelectionChanged;
-                        return itemVm;
-                    })
-                        .ToList();
-
-                // Single batch UI update on main thread
-                await MainThread.InvokeOnMainThreadAsync(() =>
-                {
-                    Items.Clear();
-                    foreach (var item in itemViewModels)
-                    {
-                        Items.Add(item);
-                    }
-
-                    TotalCount = entities.Count;
-                    ActiveCount = entities.Count(e => e.IsActive);
-                    FavoriteCount = entities.Count(e => e.IsFavorite);
-                    HasData = entities.Any();
-                });
-
-                this.LogDataOperation("Loaded with filters", EntityNamePlural,
-                    $"Total: {TotalCount}, Active: {ActiveCount}, Favorites: {FavoriteCount}");
-
-                return itemViewModels;
-            }, EntityNamePlural).ConfigureAwait(false);
-        }).ConfigureAwait(false);
-    }
-    #endregion
-
-    #region Search and Filter Commands
-
-    /// <summary>
-    /// Execute search with current search text
-    /// </summary>
-    [RelayCommand]
-    private async Task SearchAsync()
-    {
-        await LoadItemsDataAsync();
-    }
-
-    /// <summary>
-    /// Clear search text and reload data
-    /// </summary>
-    [RelayCommand]
-    private async Task ClearSearchAsync()
-    {
-        SearchText = string.Empty;
-        await LoadItemsDataAsync();
-    }
-
-    /// <summary>
-    /// Apply status filter to data
-    /// </summary>
-    [RelayCommand]
-    private async Task FilterByStatusAsync()
-    {
-        await LoadItemsDataAsync();
+        if (showLoading)
+            IsRefreshing = false;
     }
 
     #endregion
 
-    #region Item Selection Management
+    #region Favorites Management
 
     /// <summary>
-    /// Handle individual item selection changes
+    /// Generic toggle favorite implementation using BaseToggleFavoritePattern
     /// </summary>
-    private void OnItemSelectionChanged(BaseItemViewModel<T> item)
+    protected virtual async Task ToggleFavoriteAsync(TItemViewModel item)
     {
-        this.SafeExecute(() =>
-        {
-            if (item == null)
-            {
-                this.LogWarning($"OnItemSelectionChanged called with null {EntityName}");
-                return;
-            }
-
-            this.LogDebug($"Selection changed: {item.Name}, IsSelected: {item.IsSelected}");
-
-            var typedItem = Items.FirstOrDefault(i => i.Id == item.Id);
-            if (typedItem == null) return;
-
-            if (item.IsSelected)
-            {
-                if (!SelectedItems.Contains(typedItem))
-                {
-                    SelectedItems.Add(typedItem);
-                    this.LogDebug($"Added {item.Name} to selection. Total: {SelectedItems.Count}");
-                }
-
-                if (!IsMultiSelectMode)
-                {
-                    EnterMultiSelectMode();
-                }
-            }
-            else
-            {
-                SelectedItems.Remove(typedItem);
-                this.LogDebug($"Removed {item.Name} from selection. Total: {SelectedItems.Count}");
-
-                if (!SelectedItems.Any() && IsMultiSelectMode)
-                {
-                    ExitMultiSelectMode();
-                }
-            }
-
-            UpdateFabForSelection();
-        }, "Item Selection Changed");
+        await BaseToggleFavoritePattern.ExecuteToggleFavoriteAsync<T, TItemViewModel>(
+            item,
+            _repository,
+            Items,
+            CreateItemViewModel,
+            UpdateCounters);
     }
 
-    /// <summary>
-    /// Enter multi-selection mode
-    /// </summary>
-    private void EnterMultiSelectMode()
-    {
-        this.SafeExecute(() =>
-        {
-            IsMultiSelectMode = true;
-            UpdateFabForSelection();
-            this.LogInfo($"Entered multi-select mode for {EntityNamePlural}");
-        }, "Enter Multi-Select Mode");
-    }
+    #endregion
 
-    /// <summary>
-    /// Exit multi-selection mode and clear selections
-    /// </summary>
-    private void ExitMultiSelectMode()
-    {
-        this.SafeExecute(() =>
-        {
-            IsMultiSelectMode = false;
-            DeselectAll();
-            UpdateFabForSelection();
-            this.LogInfo($"Exited multi-select mode for {EntityNamePlural}");
-        }, "Exit Multi-Select Mode");
-    }
+    #region Multi-Selection
 
     /// <summary>
     /// Select all items in current view
     /// </summary>
-    [RelayCommand]
     private void SelectAll()
     {
         this.SafeExecute(() =>
@@ -1222,7 +778,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     /// <summary>
     /// Deselect all items and exit multi-select mode
     /// </summary>
-    [RelayCommand]
     private void DeselectAll()
     {
         this.SafeExecute(() =>
@@ -1246,10 +801,9 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     }
 
     /// <summary>
-    /// Handle item tap events for selection or navigation
+    /// Handle item tap events for selection or navigation - to be called from UI
     /// </summary>
-    [RelayCommand]
-    private async Task ItemTappedAsync(TItemViewModel item)
+    public async Task HandleItemTappedAsync(TItemViewModel item)
     {
         if (item == null) return;
 
@@ -1260,6 +814,17 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             if (IsMultiSelectMode)
             {
                 item.IsSelected = !item.IsSelected;
+
+                if (item.IsSelected && !SelectedItems.Contains(item))
+                {
+                    SelectedItems.Add(item);
+                }
+                else if (!item.IsSelected)
+                {
+                    SelectedItems.Remove(item);
+                }
+
+                UpdateFabForSelection();
                 this.LogDebug($"Toggled selection for {item.Name}: {item.IsSelected}");
             }
             else
@@ -1270,10 +835,9 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     }
 
     /// <summary>
-    /// Handle long press to enter multi-select mode
+    /// Handle long press to enter multi-select mode - to be called from UI
     /// </summary>
-    [RelayCommand]
-    private void ItemLongPress(TItemViewModel item)
+    public void HandleItemLongPress(TItemViewModel item)
     {
         if (item == null) return;
 
@@ -1303,47 +867,109 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region Connectivity
+    #region Counters and Status
 
     /// <summary>
-    /// Test network connectivity and refresh data if connected
+    /// PERFORMANCE OPTIMIZED: Update statistical counters for UI display
+    /// Uses cached favorite accessor to eliminate reflection calls
     /// </summary>
-    [RelayCommand]
-    private async Task TestConnectionAsync()
+    protected virtual void UpdateCounters()
     {
-        using (this.LogPerformance("Connection Test"))
+        this.SafeExecute(() =>
         {
-            var result = await this.SafeNetworkExecuteAsync(async () =>
-            {
-                return await _repository.TestConnectionAsync();
-            }, "Connection Test");
+            var allEntities = Items;
+            TotalCount = allEntities.Count;
+            ActiveCount = allEntities.Count(e => e.IsActive);
+            FavoriteCount = allEntities.Count(e => _getFavoriteFunc(e));
 
-            var isConnected = result;
-            UpdateConnectionStatus(isConnected);
+            this.LogDebug($"Counters - Total: {TotalCount}, Active: {ActiveCount}, Favorites: {FavoriteCount}");
+        }, "Update Counters");
+    }
 
-            if (isConnected)
+    /// <summary>
+    /// Test connection and update status indicators
+    /// </summary>
+    private async Task TestConnectionInternalAsync()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            IsConnected = true;
+            ConnectionStatus = "Connected";
+            ConnectionStatusColor = Colors.Green;
+        }, "Test Connection");
+    }
+
+    #endregion
+
+    #region FAB Command
+
+    /// <summary>
+    /// Handle FAB button actions based on current mode
+    /// </summary>
+    private async Task FabActionAsync()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            if (IsMultiSelectMode)
             {
-                await ShowSuccessToastAsync("Connection restored! Data is now synchronized.");
-                await RefreshAsync();
+                if (SelectedItems.Count > 0)
+                {
+                    await DeleteSelectedAsync();
+                }
+                else
+                {
+                    IsMultiSelectMode = false;
+                    UpdateFabForSelection();
+                }
             }
             else
             {
-                await ShowErrorToastAsync("Still offline. Check your internet connection and try again.");
+                await NavigateToAddAsync();
             }
+        }, "FAB Action");
+    }
+
+    /// <summary>
+    /// Navigate to entity creation page - MOVED HERE TO AVOID DUPLICATION
+    /// </summary>
+    private async Task NavigateToAddAsync()
+    {
+        var success = await this.SafeNavigationExecuteAsync(async () =>
+        {
+            await _navigationService.NavigateToAsync(EditRoute);
+        }, $"Add {EntityName}");
+
+        if (!success)
+        {
+            await ShowErrorToastAsync($"Failed to navigate to add {EntityName.ToLower()}");
         }
     }
 
     /// <summary>
-    /// Background connectivity test without user feedback
+    /// Update FAB appearance based on selection state
     /// </summary>
-    private async Task TestConnectionInBackgroundAsync()
+    public virtual void UpdateFabForSelection()
     {
-        var isConnected = await this.SafeNetworkExecuteAsync(async () =>
+        this.SafeExecute(() =>
         {
-            return await _repository.TestConnectionAsync();
-        }, "Background Connection Test");
-        UpdateConnectionStatus(isConnected);
-        this.LogConnectivity($"Background test result: {(isConnected ? "Connected" : "Offline")}");
+            if (IsMultiSelectMode && SelectedItems.Count > 0)
+            {
+                FabText = $"Delete ({SelectedItems.Count})";
+                FabIsVisible = true;
+            }
+            else if (IsMultiSelectMode)
+            {
+                FabText = "Cancel";
+                FabIsVisible = true;
+            }
+            else
+            {
+                FabText = $"Add {EntityName}";
+                FabIsVisible = true;
+            }
+
+            this.LogDebug($"FAB updated: '{FabText}' - Visible: {FabIsVisible}");
+        }, "Update FAB");
     }
 
     #endregion
@@ -1415,9 +1041,19 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     {
         if (disposing)
         {
-            _propertyBatchTimer?.Dispose();
+            // Clean disposal - no timer to dispose anymore
         }
     }
+
+    #endregion
+
+    #region Legacy Compatibility - REMOVED DUPLICATE
+
+    /// <summary>
+    /// LEGACY: Use NavigateToAddCommand instead - points to same command
+    /// </summary>
+    [Obsolete("Use NavigateToAddCommand instead")]
+    public IAsyncRelayCommand AddNewCommand => NavigateToAddCommand;
 
     #endregion
 }

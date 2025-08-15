@@ -68,8 +68,14 @@
                                                SelectedDropDownItemBackground="LightGray"
                                                DropDownBackground="White"
                                                MaxDropDownHeight="200"
+                                               DropDownIconColor="Red"
+                                               Stroke="Red" 
+                                               SelectionTextHighlightColor="Transparent"
                                                FontSize="16"
-                                               BackgroundColor="Transparent" />
+                                               BackgroundColor="Transparent"
+                                               HighlightedTextColor="Red"
+                                               HighlightedTextFontAttributes="Bold"
+                                               NoResultsFoundText="Not Found" />
 
                     </StackLayout>
                 </ContentView>

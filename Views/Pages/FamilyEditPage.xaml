@@ -43,7 +43,7 @@
                             <Label Grid.Column="1"
                                    Text="{Binding RelatedGeneraDisplay}"
                                    FontSize="14"
-                                   TextColor="{StaticResource Gray700}"
+                                   TextColor="{StaticResource Gray600}"
                                    VerticalOptions="Center" />
 
                             <ActivityIndicator Grid.Column="2"

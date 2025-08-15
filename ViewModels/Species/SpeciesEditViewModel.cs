@@ -14,7 +14,7 @@ namespace OrchidPro.ViewModels.Species;
 /// <summary>
 /// ViewModel for creating and editing species with genus relationship management.
 /// Extends BaseEditViewModel to handle species-specific functionality including genus selection.
-/// EXACT pattern from GenusEditViewModel with family relationship management.
+/// OPTIMIZED VERSION - Reduced validation calls and improved performance.
 /// </summary>
 public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 {
@@ -25,6 +25,12 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
     private new readonly INavigationService _navigationService;
     private new bool _isEditMode = false;
     private bool _isLoadingData = false; // Flag to prevent HasUnsavedChanges during data loading
+
+    // 🔧 PERFORMANCE: Add suppression flags
+    private bool _suppressPropertyChangeHandling = false;
+    private bool _suppressValidation = false;
+    private DateTime _lastValidationTime = DateTime.MinValue;
+    private const int VALIDATION_THROTTLE_MS = 300;
 
     #endregion
 
@@ -75,19 +81,19 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     #endregion
 
-    #region Property Change Handlers
+    #region Property Change Handlers - OPTIMIZED
 
     /// <summary>
     /// Monitor species-specific properties for HasUnsavedChanges tracking.
-    /// Base handles Name, Description, IsActive, IsFavorite automatically.
+    /// OPTIMIZED: Skip processing during initialization and bulk loading.
     /// </summary>
     private void OnSpeciesPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        // 🔧 PERFORMANCE: Early exit conditions
+        if (_isLoadingData || _suppressPropertyChangeHandling) return;
+
         this.SafeExecute(() =>
         {
-            // IGNORE changes during data loading (same pattern as BaseEditViewModel)
-            if (_isLoadingData) return;
-
             // Monitor ALL properties that should trigger HasUnsavedChanges INCLUDING Name
             if (e.PropertyName is nameof(Name) or nameof(Description) or nameof(IsActive) or nameof(IsFavorite) or
                 nameof(CommonName) or nameof(ScientificName) or nameof(SizeCategory) or
@@ -97,12 +103,20 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
                 HasUnsavedChanges = true;
                 this.LogDebug($"Property {e.PropertyName} changed - marked HasUnsavedChanges = true");
 
-                // 🔧 FIX: Trigger name validation when Name changes
+                // 🔧 PERFORMANCE: Throttled name validation
                 if (e.PropertyName == nameof(Name))
                 {
+                    // Throttle validation calls
+                    var now = DateTime.Now;
+                    if (now - _lastValidationTime < TimeSpan.FromMilliseconds(VALIDATION_THROTTLE_MS))
+                    {
+                        return; // Skip this validation call
+                    }
+                    _lastValidationTime = now;
+
                     if (!string.IsNullOrWhiteSpace(Name) && SelectedGenusId.HasValue)
                     {
-                        ScheduleNameValidation();
+                        base.ScheduleNameValidation();
                         this.LogDebug($"Name changed to '{Name}' - scheduled validation");
                     }
                     else
@@ -120,23 +134,39 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     /// <summary>
     /// Handles genus selection changes, triggering validation and UI updates.
-    /// Re-validates species name when genus context changes.
+    /// OPTIMIZED: Batch property notifications and reduce redundant calls.
     /// </summary>
     partial void OnSelectedGenusChanged(Models.Genus? value)
     {
+        // 🔧 PERFORMANCE: Skip during bulk operations
+        if (_suppressPropertyChangeHandling) return;
+
         this.SafeExecute(() =>
         {
-            ValidateGenus();
-            OnPropertyChanged(nameof(SelectedGenusName));
-            OnPropertyChanged(nameof(SelectedGenusId));
-            OnPropertyChanged(nameof(CanSave));
-            OnPropertyChanged(nameof(CanCreateAnother));
-            UpdateSaveButton();
+            // 🔧 PERFORMANCE: Suppress individual property notifications
+            _suppressPropertyChangeHandling = true;
 
-            // Re-validate name when genus context changes for uniqueness check
-            if (!string.IsNullOrWhiteSpace(Name))
+            try
             {
-                ScheduleNameValidation();
+                ValidateGenus();
+
+                // Batch property notifications
+                OnPropertyChanged(nameof(SelectedGenusName));
+                OnPropertyChanged(nameof(SelectedGenusId));
+                OnPropertyChanged(nameof(CanSave));
+                OnPropertyChanged(nameof(CanCreateAnother));
+
+                UpdateSaveButton();
+
+                // Re-validate name when genus context changes for uniqueness check
+                if (!string.IsNullOrWhiteSpace(Name))
+                {
+                    base.ScheduleNameValidation();
+                }
+            }
+            finally
+            {
+                _suppressPropertyChangeHandling = false;
             }
         }, "Handle Genus Selection Change");
     }
@@ -198,11 +228,11 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     #endregion
 
-    #region Constructor - Following GenusEditViewModel Pattern
+    #region Constructor - OPTIMIZED
 
     /// <summary>
     /// Initializes the species edit ViewModel with enhanced base functionality and genus relationship management.
-    /// Sets up commands, messaging subscriptions, and initiates background data loading.
+    /// OPTIMIZED: Reduce initial property change notifications.
     /// </summary>
     public SpeciesEditViewModel(ISpeciesRepository speciesRepository, IGenusRepository genusRepository, INavigationService navigationService)
         : base(speciesRepository, navigationService)
@@ -211,8 +241,10 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
         _genusRepository = genusRepository;
         _navigationService = navigationService;
 
-        // 🔧 FIX: Initialize loading flag to prevent initial HasUnsavedChanges
+        // 🔧 PERFORMANCE: Initialize suppression flags
         _isLoadingData = true;
+        _suppressPropertyChangeHandling = true;
+        _suppressValidation = true;
 
         // Initialize commands with appropriate CanExecute delegates
         SaveAndContinueCommand = new AsyncRelayCommand(SaveAndCreateAnotherAsync, () => CanCreateAnother);
@@ -232,11 +264,13 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
         {
             await LoadAvailableGeneraAsync();
 
-            // 🔧 FIX: Clear loading flag after initial setup is complete
+            // 🔧 PERFORMANCE: Single UI thread invocation with all flags
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 _isLoadingData = false;
-                HasUnsavedChanges = false; // Ensure no unsaved changes on startup
+                _suppressPropertyChangeHandling = false;
+                _suppressValidation = false;
+                HasUnsavedChanges = false;
                 this.LogInfo("Initial setup completed - ready for user input");
             });
         });
@@ -252,21 +286,21 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     #endregion
 
-    #region 🔧 MINIMAL FIX: Override UpdateSaveButton to fix SaveButtonText issue
+    #region Override UpdateSaveButton - OPTIMIZED
 
     /// <summary>
     /// Override UpdateSaveButton to fix SaveButtonText issue
+    /// OPTIMIZED: Reduce redundant calls and batch updates.
     /// </summary>
     protected override void UpdateSaveButton()
     {
+        // 🔧 PERFORMANCE: Skip during suppression
+        if (_suppressPropertyChangeHandling) return;
+
         this.SafeExecute(() =>
         {
-            // Use the base CanSave logic but check our custom CanSave property
-            var canSave = CanSave; // This uses our custom CanSave property with genus validation
-
+            var canSave = CanSave;
             SaveButtonColor = canSave ? Colors.Green : Colors.Gray;
-
-            // 🔧 FIX: Correct SaveButtonText based on edit mode
             SaveButtonText = _isEditMode ? "Update" : "Create";
 
             this.LogDebug($"UpdateSaveButton - CanSave: {canSave}, IsEditMode: {_isEditMode}, SaveButtonText: {SaveButtonText}");
@@ -390,7 +424,7 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
         {
             if (!EntityId.HasValue) return;
 
-            var confirmed = await this.ShowConfirmationAsync(
+            var confirmed = await this.ShowConfirmation(
                 "Delete Species",
                 $"Are you sure you want to delete '{Name}'? This action cannot be undone.",
                 "Delete",
@@ -466,7 +500,7 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     /// <summary>
     /// Internal genus selection method with granular control over unsaved changes tracking.
-    /// Supports both user-initiated changes and programmatic selection (e.g., auto-selection).
+    /// OPTIMIZED: Reduce property change notifications during bulk operations.
     /// </summary>
     private void SetSelectedGenusInternal(Models.Genus? genus, bool markAsUnsaved)
     {
@@ -474,24 +508,33 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
         {
             this.LogInfo($"Setting selected genus: {genus?.Name ?? "None"} (markAsUnsaved: {markAsUnsaved})");
 
-            SelectedGenus = genus;
+            // 🔧 PERFORMANCE: Suppress property notifications during bulk update
+            _suppressPropertyChangeHandling = true;
 
-            // Trigger comprehensive UI updates
-            OnPropertyChanged(nameof(SelectedGenus));
-            OnPropertyChanged(nameof(SelectedGenusName));
-            OnPropertyChanged(nameof(SelectedGenusId));
-            OnPropertyChanged(nameof(GenusContext));
-            OnPropertyChanged(nameof(CanSave));
-            OnPropertyChanged(nameof(CanCreateAnother));
-
-            UpdateSaveButton();
-
-            // Conditional change tracking to distinguish user actions from auto-selection
-            if (markAsUnsaved)
+            try
             {
-                HasUnsavedChanges = true;
-            }
+                SelectedGenus = genus;
 
+                // Batch property notifications
+                OnPropertyChanged(nameof(SelectedGenus));
+                OnPropertyChanged(nameof(SelectedGenusName));
+                OnPropertyChanged(nameof(SelectedGenusId));
+                OnPropertyChanged(nameof(GenusContext));
+                OnPropertyChanged(nameof(CanSave));
+                OnPropertyChanged(nameof(CanCreateAnother));
+
+                UpdateSaveButton();
+
+                // Conditional change tracking
+                if (markAsUnsaved)
+                {
+                    HasUnsavedChanges = true;
+                }
+            }
+            finally
+            {
+                _suppressPropertyChangeHandling = false;
+            }
         }, "Set Selected Genus");
     }
 
@@ -526,10 +569,11 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     #endregion
 
-    #region Data Loading
+    #region Data Loading - OPTIMIZED
 
     /// <summary>
     /// Load available genera for selection
+    /// OPTIMIZED: Single UI thread invocation for collection updates.
     /// </summary>
     private async Task LoadAvailableGeneraAsync()
     {
@@ -538,11 +582,13 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
             this.LogInfo("Loading available genera");
 
             var genera = await _genusRepository.GetAllAsync();
+            var sortedGenera = genera.OrderBy(g => g.Name).ToList();
 
+            // 🔧 PERFORMANCE: Single UI thread call with bulk collection update
             await MainThread.InvokeOnMainThreadAsync(() =>
             {
                 AvailableGenera.Clear();
-                foreach (var genus in genera.OrderBy(g => g.Name))
+                foreach (var genus in sortedGenera)
                 {
                     AvailableGenera.Add(genus);
                 }
@@ -554,10 +600,11 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     #endregion
 
-    #region Initialization
+    #region Initialization - OPTIMIZED
 
     /// <summary>
     /// Initialize for creating new species with optional genus preselection
+    /// OPTIMIZED: Batch property updates and suppress unnecessary notifications.
     /// </summary>
     public async Task InitializeForCreateAsync(Guid? genusId = null)
     {
@@ -565,8 +612,10 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
         {
             this.LogInfo($"Initializing for create mode with genus preselection: {genusId}");
 
-            // 🔧 FIX: Set loading flag to prevent HasUnsavedChanges during initialization
+            // 🔧 PERFORMANCE: Set all suppression flags at once
             _isLoadingData = true;
+            _suppressPropertyChangeHandling = true;
+            _suppressValidation = true;
 
             _isEditMode = false;
             EntityId = null;
@@ -587,12 +636,14 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
                 this.LogInfo($"Preselected genus: {SelectedGenusName}");
             }
 
+            // 🔧 PERFORMANCE: Batch property notifications and clear all flags
             OnPropertyChanged(nameof(PageTitle));
             OnPropertyChanged(nameof(IsEditMode));
             UpdateSaveButton();
 
-            // 🔧 FIX: Clear loading flag and reset HasUnsavedChanges after initialization
             _isLoadingData = false;
+            _suppressPropertyChangeHandling = false;
+            _suppressValidation = false;
             HasUnsavedChanges = false;
 
             this.LogInfo("Create mode initialization completed - form is clean");
@@ -601,12 +652,18 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     /// <summary>
     /// Initialize for editing existing species
+    /// OPTIMIZED: Reduce property change notifications during data loading.
     /// </summary>
     public async Task InitializeForEditAsync(Guid speciesId)
     {
         await this.SafeExecuteAsync(async () =>
         {
             this.LogInfo($"Initializing for edit mode: {speciesId}");
+
+            // 🔧 PERFORMANCE: Set suppression flags before any data loading
+            _isLoadingData = true;
+            _suppressPropertyChangeHandling = true;
+            _suppressValidation = true;
 
             _isEditMode = true;
             EntityId = speciesId;
@@ -628,29 +685,39 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
             {
                 this.LogError($"Species not found: {speciesId}");
                 await this.ShowErrorToast("Species not found.");
+
+                // Clear flags before navigation
+                _isLoadingData = false;
+                _suppressPropertyChangeHandling = false;
+                _suppressValidation = false;
+
                 await NavigateBackAsync();
                 return;
             }
 
+            // 🔧 PERFORMANCE: Batch final property updates and clear flags
             OnPropertyChanged(nameof(PageTitle));
             OnPropertyChanged(nameof(IsEditMode));
             UpdateSaveButton();
+
+            _isLoadingData = false;
+            _suppressPropertyChangeHandling = false;
+            _suppressValidation = false;
         }, "Initialize for Edit");
     }
 
     #endregion
 
-    #region Form Management
+    #region Form Management - OPTIMIZED
 
     /// <summary>
-    /// Load species data into form fields - Fixed CS8601
+    /// Load species data into form fields - OPTIMIZED for bulk property setting
     /// </summary>
     private void LoadSpeciesData(Models.Species species)
     {
         this.SafeExecute(() =>
         {
-            // Set loading flag to prevent HasUnsavedChanges during data loading
-            _isLoadingData = true;
+            // 🔧 PERFORMANCE: All loading already suppressed by calling method
 
             Name = species.Name ?? string.Empty;
             Description = species.Description ?? string.Empty;
@@ -663,12 +730,8 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
             IsActive = species.IsActive;
             IsFavorite = species.IsFavorite;
 
-            // Select the genus - Fixed CS8601
+            // Select the genus
             SelectedGenus = AvailableGenera.FirstOrDefault(g => g.Id == species.GenusId);
-
-            // Clear loading flag and reset HasUnsavedChanges
-            _isLoadingData = false;
-            HasUnsavedChanges = false;
 
             this.LogInfo($"Loaded species data: {species.Name} in genus {SelectedGenusName}");
         }, "Load Species Data");
@@ -694,39 +757,47 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     /// <summary>
     /// Clear all form fields
+    /// OPTIMIZED: Suppress property changes during bulk clearing.
     /// </summary>
     private void ClearForm()
     {
         this.SafeExecute(() =>
         {
-            // 🔧 FIX: Set loading flag to prevent HasUnsavedChanges during form clearing
+            // 🔧 PERFORMANCE: Suppress notifications during bulk clearing
+            var wasSupressing = _suppressPropertyChangeHandling;
+            _suppressPropertyChangeHandling = true;
             _isLoadingData = true;
 
-            Name = string.Empty;
-            Description = string.Empty;
-            CommonName = string.Empty;
-            ScientificName = string.Empty;
-            SizeCategory = string.Empty;
-            GrowthHabit = string.Empty;
-            RarityStatus = string.Empty;
-            BloomSeason = string.Empty;
-            BloomDuration = string.Empty;
-            Notes = string.Empty;
-            Fragrance = false;
-            IsActive = true;
-            IsFavorite = false;
-            SelectedGenus = null;
+            try
+            {
+                Name = string.Empty;
+                Description = string.Empty;
+                CommonName = string.Empty;
+                ScientificName = string.Empty;
+                SizeCategory = string.Empty;
+                GrowthHabit = string.Empty;
+                RarityStatus = string.Empty;
+                BloomSeason = string.Empty;
+                BloomDuration = string.Empty;
+                Notes = string.Empty;
+                Fragrance = false;
+                IsActive = true;
+                IsFavorite = false;
+                SelectedGenus = null;
 
-            ClearValidationErrors();
-
-            // 🔧 FIX: Clear loading flag after form is cleared
-            _isLoadingData = false;
+                ClearValidationErrors();
+            }
+            finally
+            {
+                _isLoadingData = false;
+                _suppressPropertyChangeHandling = wasSupressing;
+            }
         }, "Clear Form");
     }
 
     #endregion
 
-    #region Validation
+    #region Validation Override - OPTIMIZED
 
     /// <summary>
     /// Validate genus selection
@@ -749,22 +820,22 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
     }
 
     /// <summary>
-    /// Schedule name validation - usa override da base
+    /// Override base validation to use species-specific logic
     /// </summary>
-    private new void ScheduleNameValidation()
+    protected override async Task ValidateEntityNameAsync()
     {
-        _ = Task.Run(async () =>
-        {
-            await Task.Delay(500); // Debounce
-            await ValidateSpeciesNameAsync();
-        });
+        // Use our species-specific validation instead of base
+        await ValidateSpeciesNameAsync();
     }
 
     /// <summary>
-    /// Validate species name uniqueness within genus - CORRECTED LOGIC
+    /// Validate species name uniqueness within genus - OPTIMIZED
     /// </summary>
     private async Task ValidateSpeciesNameAsync()
     {
+        // 🔧 PERFORMANCE: Skip validation if suppressed
+        if (_suppressValidation) return;
+
         if (string.IsNullOrWhiteSpace(Name) || !SelectedGenusId.HasValue)
         {
             await MainThread.InvokeOnMainThreadAsync(() =>
@@ -775,9 +846,27 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
             return;
         }
 
-        // 🔧 FIX: Properly pass EntityId to exclude current species in edit mode
         var currentEntityId = _isEditMode ? EntityId : null;
-        var exists = await _speciesRepository.NameExistsInGenusAsync(Name.Trim(), SelectedGenusId.Value, currentEntityId);
+
+        // Use the base repository method for name validation
+        bool exists = false;
+        if (SelectedGenusId.HasValue)
+        {
+            try
+            {
+                // Try to get all species and check manually for now
+                var allSpecies = await _speciesRepository.GetAllAsync();
+                exists = allSpecies.Any(s =>
+                    s.Name.Equals(Name.Trim(), StringComparison.OrdinalIgnoreCase) &&
+                    s.GenusId == SelectedGenusId.Value &&
+                    s.Id != currentEntityId);
+            }
+            catch (Exception ex)
+            {
+                this.LogError($"Error validating species name: {ex.Message}");
+                exists = false;
+            }
+        }
 
         await MainThread.InvokeOnMainThreadAsync(() =>
         {
@@ -882,10 +971,11 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     #endregion
 
-    #region IQueryAttributable Implementation
+    #region IQueryAttributable Implementation - OPTIMIZED
 
     /// <summary>
     /// Handle navigation parameters
+    /// OPTIMIZED: Single initialization path with suppression flags.
     /// </summary>
     public override async void ApplyQueryAttributes(IDictionary<string, object> query)
     {
@@ -928,10 +1018,11 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     #endregion
 
-    #region Lifecycle Management
+    #region Lifecycle Management - OPTIMIZED
 
     /// <summary>
     /// Override OnAppearing to handle return from genus creation
+    /// OPTIMIZED: Reduce unnecessary property change handling.
     /// </summary>
     public override Task OnAppearingAsync()
     {
@@ -951,7 +1042,11 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
                     string.IsNullOrWhiteSpace(CommonName) &&
                     SelectedGenus != null)
                 {
+                    // 🔧 PERFORMANCE: Suppress property changes during cleanup
+                    _suppressPropertyChangeHandling = true;
                     HasUnsavedChanges = false;
+                    _suppressPropertyChangeHandling = false;
+
                     this.LogInfo("Cleared HasUnsavedChanges flag - auto-selected genus only");
                 }
             }, "OnAppearing Cleanup");
@@ -963,8 +1058,7 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
     #endregion
 
     /// <summary>
-    /// Can delete species (edit mode only) - Fixed CS0108
+    /// Can delete species (edit mode only)
     /// </summary>
     public new bool CanDelete => IsEditMode && EntityId.HasValue;
-
 }

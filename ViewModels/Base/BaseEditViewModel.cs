@@ -13,6 +13,7 @@ namespace OrchidPro.ViewModels.Base;
 /// <summary>
 /// Base ViewModel for entity editing providing comprehensive CRUD operations, validation, and form management.
 /// Implements generic patterns for create/edit workflows across different entity types.
+/// OPTIMIZED VERSION - Reduced validation calls and improved performance.
 /// </summary>
 public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttributable
     where T : class, IBaseEntity, new()
@@ -25,9 +26,15 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     private T? _originalEntity;
     protected bool _isEditMode;
     private Timer? _validationTimer;
-    private readonly int _validationDelay = ValidationConstants.NAME_VALIDATION_DEBOUNCE_DELAY;
+    protected TimeSpan ValidationDebounceTime = TimeSpan.FromMilliseconds(ValidationConstants.NAME_VALIDATION_DEBOUNCE_DELAY);
     private List<T> _allEntities = new();
     private bool _isInitializing = true;
+
+    // 🔧 PERFORMANCE: Enhanced suppression flags
+    private bool _suppressValidation = false;
+    private bool _suppressPropertyChangeHandling = false;
+    private DateTime _lastValidationTime = DateTime.MinValue;
+    private const int VALIDATION_THROTTLE_MS = 300;
 
     #endregion
 
@@ -276,7 +283,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     #endregion
 
-    #region Generic Validation Framework
+    #region Generic Validation Framework - OPTIMIZED
 
     /// <summary>
     /// Setup validation event handlers and timers
@@ -292,23 +299,36 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     /// <summary>
     /// Handle property changes for validation and unsaved change tracking
+    /// OPTIMIZED: Skip unnecessary validation calls during initialization
     /// </summary>
-    private void OnPropertyChangedForValidation(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    protected virtual async void OnPropertyChangedForValidation(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        this.SafeExecute(() =>
+        // 🔧 PERFORMANCE: Early exit conditions
+        if (_isInitializing || _suppressPropertyChangeHandling || _suppressValidation)
         {
-            if (_isInitializing) return;
+            return;
+        }
 
+        await this.SafeExecuteAsync(async () =>
+        {
             // Detect changes and mark as unsaved
             if (e.PropertyName is nameof(Name) or nameof(Description) or nameof(IsActive) or nameof(IsFavorite))
             {
                 HasUnsavedChanges = true;
                 UpdateFormCompletionProgress();
 
-                // Validation with debounce for Name
+                // 🔧 PERFORMANCE: Throttled validation for Name only
                 if (e.PropertyName == nameof(Name))
                 {
-                    ScheduleNameValidation();
+                    // Throttle validation calls
+                    var now = DateTime.Now;
+                    if (now - _lastValidationTime < TimeSpan.FromMilliseconds(VALIDATION_THROTTLE_MS))
+                    {
+                        return; // Skip this validation call
+                    }
+                    _lastValidationTime = now;
+
+                    await ValidateEntityNameAsync();
                 }
                 else
                 {
@@ -320,25 +340,36 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     /// <summary>
     /// Schedule name validation with debounce to avoid excessive API calls
+    /// OPTIMIZED: Enhanced throttling and suppression checks
     /// </summary>
     protected virtual void ScheduleNameValidation()
     {
+        // 🔧 PERFORMANCE: Skip if suppressed
+        if (_suppressValidation) return;
+
         this.SafeExecute(() =>
         {
             _validationTimer?.Dispose();
-            _validationTimer = new Timer(async _ => await ValidateNameWithDebounce(), null, _validationDelay, Timeout.Infinite);
+            _validationTimer = new Timer(async _ => await ValidateNameWithDebounce(), null, (int)ValidationDebounceTime.TotalMilliseconds, Timeout.Infinite);
         }, "Schedule Name Validation");
     }
 
     /// <summary>
     /// Validate name with debounce and thread-safe UI updates
+    /// OPTIMIZED: Additional suppression checks
     /// </summary>
     private async Task ValidateNameWithDebounce()
     {
+        // 🔧 PERFORMANCE: Skip if suppressed during delay
+        if (_suppressValidation) return;
+
         await this.SafeExecuteAsync(async () =>
         {
             await MainThread.InvokeOnMainThreadAsync(async () =>
             {
+                // Double-check suppression after thread switch
+                if (_suppressValidation) return;
+
                 IsValidatingName = true;
                 UpdateSaveButton();
 
@@ -351,10 +382,22 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     }
 
     /// <summary>
+    /// Virtual method for entity-specific name validation - can be overridden
+    /// </summary>
+    protected virtual async Task ValidateEntityNameAsync()
+    {
+        await ValidateNameAsync();
+    }
+
+    /// <summary>
     /// Validate name uniqueness against all entities
+    /// OPTIMIZED: Skip validation if suppressed
     /// </summary>
     protected virtual async Task ValidateNameAsync()
     {
+        // 🔧 PERFORMANCE: Skip if suppressed
+        if (_suppressValidation) return;
+
         await this.SafeValidateAsync(async () =>
         {
             if (string.IsNullOrWhiteSpace(Name))
@@ -420,15 +463,45 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
         }, "Show Validation Errors");
     }
 
+    /// <summary>
+    /// Set validation error for a specific property
+    /// </summary>
+    protected void SetValidationError(string propertyName, string? errorMessage)
+    {
+        this.SafeExecute(() =>
+        {
+            switch (propertyName)
+            {
+                case nameof(Name):
+                    IsNameValid = string.IsNullOrEmpty(errorMessage);
+                    NameValidationMessage = errorMessage ?? string.Empty;
+                    break;
+                case nameof(Description):
+                    IsDescriptionValid = string.IsNullOrEmpty(errorMessage);
+                    DescriptionError = errorMessage ?? string.Empty;
+                    break;
+            }
+        }, "Set Validation Error");
+    }
+
+    /// <summary>
+    /// Check if there are any validation errors
+    /// </summary>
+    protected bool HasValidationErrors => !IsNameValid || !IsDescriptionValid;
+
     #endregion
 
     #region Form Progress Framework
 
     /// <summary>
     /// Update form completion progress for UI feedback
+    /// OPTIMIZED: Skip during suppression
     /// </summary>
     protected virtual void UpdateFormCompletionProgress()
     {
+        // 🔧 PERFORMANCE: Skip during suppression
+        if (_suppressPropertyChangeHandling) return;
+
         this.SafeExecute(() =>
         {
             int totalFields = GetTotalFormFields();
@@ -467,9 +540,13 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     /// <summary>
     /// Update save button state based on validation and form completion
+    /// OPTIMIZED: Skip during suppression
     /// </summary>
     protected virtual void UpdateSaveButton()
     {
+        // 🔧 PERFORMANCE: Skip during suppression
+        if (_suppressPropertyChangeHandling) return;
+
         this.SafeExecute(() =>
         {
             CanSave = IsNameValid &&
@@ -518,7 +595,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     #endregion
 
-    #region Constructor
+    #region Constructor - OPTIMIZED
 
     protected BaseEditViewModel(IBaseRepository<T> repository, INavigationService navigationService)
     {
@@ -527,6 +604,10 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
         Title = $"{EntityName} Details";
         SaveButtonColor = Colors.Green;
+
+        // 🔧 PERFORMANCE: Initialize suppression flags
+        _suppressValidation = true;
+        _suppressPropertyChangeHandling = true;
 
         // Initialize connection status
         IsConnected = true;
@@ -543,6 +624,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     /// <summary>
     /// Load all entities for name uniqueness validation
+    /// OPTIMIZED: Clear suppression flags after loading
     /// </summary>
     protected virtual async Task LoadAllEntitiesForValidationAsync()
     {
@@ -561,20 +643,32 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
             _allEntities = new List<T>();
             this.LogWarning("Failed to load entities for validation, using empty list");
         }
+
+        // 🔧 PERFORMANCE: Clear suppression flags after initial loading
+        await MainThread.InvokeOnMainThreadAsync(() =>
+        {
+            _suppressValidation = false;
+            _suppressPropertyChangeHandling = false;
+        });
     }
 
     #endregion
 
-    #region Navigation and Query Attributes
+    #region Navigation and Query Attributes - OPTIMIZED
 
     /// <summary>
     /// Apply navigation parameters for edit mode initialization
+    /// OPTIMIZED: Set suppression flags during initialization
     /// </summary>
     public virtual void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         this.SafeExecute(() =>
         {
             this.LogInfo($"ApplyQueryAttributes for {EntityName} with {query.Count} parameters");
+
+            // 🔧 PERFORMANCE: Set suppression flags
+            _suppressValidation = true;
+            _suppressPropertyChangeHandling = true;
 
             // Check multiple key variations
             Guid? entityId = null;
@@ -612,8 +706,10 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
                 SaveButtonText = "Create";
                 this.LogInfo($"CREATE MODE for {EntityName}");
 
-                // Finish initialization for creation mode
+                // 🔧 PERFORMANCE: Clear suppression flags for creation mode
                 _isInitializing = false;
+                _suppressValidation = false;
+                _suppressPropertyChangeHandling = false;
                 HasUnsavedChanges = false;
             }
         }, "Apply Query Attributes");
@@ -641,10 +737,11 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     #endregion
 
-    #region Entity Loading and Preparation
+    #region Entity Loading and Preparation - OPTIMIZED
 
     /// <summary>
     /// Load entity data for edit mode
+    /// OPTIMIZED: Manage suppression flags properly
     /// </summary>
     protected virtual async Task LoadEntityAsync()
     {
@@ -678,13 +775,16 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     /// <summary>
     /// Populate form fields from loaded entity
+    /// OPTIMIZED: Use suppression flags during bulk property setting
     /// </summary>
     protected virtual async Task PopulateFromEntityAsync(T entity)
     {
         await this.SafeExecuteAsync(async () =>
         {
-            // Disable change processing during loading
+            // 🔧 PERFORMANCE: Suppress notifications during bulk loading
             _isInitializing = true;
+            _suppressValidation = true;
+            _suppressPropertyChangeHandling = true;
 
             Name = entity.Name;
             Description = entity.Description ?? string.Empty;
@@ -694,8 +794,10 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
             CreatedAt = entity.CreatedAt;
             UpdatedAt = entity.UpdatedAt;
 
-            // Finish initialization
+            // 🔧 PERFORMANCE: Clear suppression flags after bulk loading
             _isInitializing = false;
+            _suppressValidation = false;
+            _suppressPropertyChangeHandling = false;
             HasUnsavedChanges = false;
 
             // Update UI
@@ -783,15 +885,101 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     #endregion
 
-    #region Lifecycle Management
+    #region Lifecycle Management - OPTIMIZED
+
+    /// <summary>
+    /// Virtual method for ViewModel initialization - can be overridden by derived classes
+    /// </summary>
+    protected virtual async Task InitializeAsync()
+    {
+        this.LogDebug($"Base ViewModel initialization (override in derived classes)");
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Virtual method for OnAppearing lifecycle event
+    /// </summary>
+    public virtual async Task OnAppearingAsync()
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            this.LogInfo($"ViewModel Appearing - initializing if needed");
+
+            if (_isInitializing)
+            {
+                this.LogInfo($"Initializing ViewModel for first appearance");
+                await InitializeAsync();
+                _isInitializing = false;
+                this.LogSuccess($"ViewModel initialization completed successfully");
+            }
+        }, "ViewModel Appearing");
+    }
 
     /// <summary>
     /// Clean up resources and dispose timers
     /// </summary>
-    public void Dispose()
+    public virtual void Dispose()
     {
         this.SafeDispose(_validationTimer, "Validation Timer");
         this.LogInfo($"Disposed resources for {EntityName}");
+    }
+
+    #endregion
+
+    #region Helper Methods - PERFORMANCE
+
+    /// <summary>
+    /// Suppress all property change handling temporarily
+    /// </summary>
+    protected void SuppressPropertyChangeHandling(bool suppress)
+    {
+        _suppressPropertyChangeHandling = suppress;
+        this.LogDebug($"Property change handling suppression: {suppress}");
+    }
+
+    /// <summary>
+    /// Suppress validation temporarily
+    /// </summary>
+    protected void SuppressValidation(bool suppress)
+    {
+        _suppressValidation = suppress;
+        this.LogDebug($"Validation suppression: {suppress}");
+    }
+
+    /// <summary>
+    /// Execute action with suppressed property changes
+    /// </summary>
+    protected void ExecuteWithSuppressedChanges(Action action)
+    {
+        var wasSupressing = _suppressPropertyChangeHandling;
+        _suppressPropertyChangeHandling = true;
+
+        try
+        {
+            action();
+        }
+        finally
+        {
+            _suppressPropertyChangeHandling = wasSupressing;
+        }
+    }
+
+    /// <summary>
+    /// Execute async action with suppressed property changes
+    /// </summary>
+    protected async Task ExecuteWithSuppressedChangesAsync(Func<Task> action)
+    {
+        var wasSupressing = _suppressPropertyChangeHandling;
+        _suppressPropertyChangeHandling = true;
+
+        try
+        {
+            await action();
+        }
+        finally
+        {
+            _suppressPropertyChangeHandling = wasSupressing;
+        }
     }
 
     #endregion
