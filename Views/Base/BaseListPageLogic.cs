@@ -417,8 +417,25 @@ public class BaseListPageLogic<T, TItemViewModel>
         try
         {
             var entityName = typeof(T).Name;
-            var result = await page!.DisplayActionSheet($"Filter {entityName}", "Cancel", "Clear All Filters",
-                $"All {entityName}", "Active Only", "Inactive Only", "Favorites Only");
+
+            // Check if filters are at default state
+            var hasSearch = !string.IsNullOrWhiteSpace(viewModel.SearchText);
+            var isDefaultFilter = viewModel.StatusFilter == "All" && !hasSearch;
+
+            // Build main filter options
+            var options = new List<string>
+            {
+                $"All {entityName}",
+                "Active Only",
+                "Inactive Only",
+                "Favorites Only"
+            };
+
+            var result = await page!.DisplayActionSheet(
+                $"Filter {entityName}",
+                "Cancel",
+                isDefaultFilter ? null : "Clear All Filters",  // Destructive button only if not default
+                options.ToArray());
 
             if (result != null && result != "Cancel")
             {
@@ -430,7 +447,7 @@ public class BaseListPageLogic<T, TItemViewModel>
                     case "Clear All Filters":
                         viewModel.SearchText = "";
                         viewModel.StatusFilter = "All";
-                        viewModel.SortOrder = "Name A→Z";
+                        this.LogInfo("🔧 FILTER: Cleared all filters to default");
                         break;
                     case var r when r.StartsWith("All"):
                         viewModel.StatusFilter = "All";
@@ -446,7 +463,7 @@ public class BaseListPageLogic<T, TItemViewModel>
                         break;
                 }
 
-                // FIXED: Use explicit command to avoid ambiguity
+                // Apply the filter
                 if (viewModel.ApplyFilterCommand.CanExecute(null))
                 {
                     await viewModel.ApplyFilterCommand.ExecuteAsync(null);
@@ -468,13 +485,43 @@ public class BaseListPageLogic<T, TItemViewModel>
         try
         {
             var entityName = typeof(T).Name;
-            var result = await page!.DisplayActionSheet($"Sort {entityName}", "Cancel", null,
-                "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First");
+            
+            // Get current sort order
+            var currentSort = viewModel.SortOrder;
+            var isDefaultSort = currentSort == "Name A→Z";
+            
+            // Build options - add "Clear All Sorting" if not default
+            var options = new List<string>
+            {
+                "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First"
+            };
+            
+            if (!isDefaultSort)
+            {
+                options.Add("Clear All Sorting");
+            }
+
+            var result = await page!.DisplayActionSheet(
+                $"Sort {entityName}", 
+                "Cancel", 
+                isDefaultSort ? null : "Clear All Sorting",  // Destructive button
+                options.Take(5).ToArray()); // Only show main options in body
 
             if (result != null && result != "Cancel")
             {
                 this.LogInfo($"🔧 SORT: User selected '{result}'");
-                viewModel.SortOrder = result;
+                
+                // Handle clear sorting
+                if (result == "Clear All Sorting")
+                {
+                    viewModel.SortOrder = "Name A→Z";
+                    this.LogInfo("🔧 SORT: Cleared to default (Name A→Z)");
+                }
+                else
+                {
+                    viewModel.SortOrder = result;
+                }
+                
                 this.LogInfo($"✅ SORT: Applied successfully");
             }
         }

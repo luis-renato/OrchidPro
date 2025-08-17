@@ -133,7 +133,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     /// <summary>
     /// Determines if another entity can be created in the current parent context
-    /// Useful for Save & Continue workflows within the same parent
+    /// Useful for Save and Continue workflows within the same parent
     /// </summary>
     public virtual bool CanCreateAnother => CanSave && ParentEntityId.HasValue;
 
@@ -304,7 +304,6 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
 
     /// <summary>
     /// Generic messenger subscription helper for parent creation events
-    /// Usage: SubscribeToParentCreatedMessages<GenusCreatedMessage>(m => m.GenusId, m => m.GenusName, HandleGenusCreated);
     /// </summary>
     protected virtual void SubscribeToParentCreatedMessages<TMessage>(
         Func<TMessage, Guid> getEntityId,
@@ -614,7 +613,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
             return;
         }
 
-        await this.SafeExecuteAsync(async () =>
+        await this.SafeExecuteAsync(() =>
         {
             if (IsTrackedProperty(e.PropertyName))
             {
@@ -626,7 +625,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
                     var now = DateTime.Now;
                     if (now - _lastValidationTime < TimeSpan.FromMilliseconds(VALIDATION_THROTTLE_MS))
                     {
-                        return;
+                        return Task.CompletedTask;
                     }
                     _lastValidationTime = now;
 
@@ -648,6 +647,8 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
                     UpdateSaveButton();
                 }
             }
+
+            return Task.CompletedTask;
         }, "Property Change Validation");
     }
 
@@ -959,7 +960,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     /// </summary>
     protected virtual async Task ClearFormForNextEntryAsync()
     {
-        await this.SafeExecuteAsync(async () =>
+        await this.SafeExecuteAsync(() =>
         {
             var wasSupressing = _suppressPropertyChangeHandling;
             _suppressPropertyChangeHandling = true;
@@ -982,6 +983,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
             }
 
             this.LogInfo("Form cleared for next entry");
+            return Task.CompletedTask;
         }, "Clear Form For Next Entry");
     }
 

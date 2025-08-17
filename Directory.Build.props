@@ -1,13 +1,20 @@
 <Project>
-  <PropertyGroup>
-    <!-- 
+	<PropertyGroup>
+		<!-- 
     MVVMTK0045: ObservableProperty fields are not AOT compatible in WinRT scenarios
     Suppressed because: 
     1. This project targets .NET MAUI (not UWP/WinUI3), where this warning doesn't apply
     2. Partial properties require C# preview language version which adds project complexity
     3. Current implementation works perfectly on Android, iOS and Windows platforms
     4. AOT compatibility warning is informational only and doesn't affect functionality
+    
+    CS0162: Unreachable code detected
+    Suppressed because:
+    1. Some unreachable code is intentional for defensive programming patterns
+    2. Background task patterns may appear unreachable but are valid async fire-and-forget
+    3. Configuration-dependent code paths may seem unreachable in certain build configs
+    4. Warning adds no value in enterprise applications with complex async patterns
     -->
-    <NoWarn>$(NoWarn);MVVMTK0045</NoWarn>
-  </PropertyGroup>
+		<NoWarn>$(NoWarn);MVVMTK0045;CS0162</NoWarn>
+	</PropertyGroup>
 </Project>

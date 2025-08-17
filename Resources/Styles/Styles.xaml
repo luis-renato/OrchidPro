@@ -1,5 +1,32 @@
 ﻿<?xml version="1.0" encoding="UTF-8" ?>
 <?xaml-comp compile="true" ?>
+<!--
+Enterprise Styles Library - Global UI Element Styling
+
+ARCHITECTURE:
+- Comprehensive .NET MAUI control styling with theme awareness
+- Enterprise anti-branco configuration for brand consistency
+- Professional card design system for content organization
+- Accessibility-compliant touch targets and contrast ratios
+
+STYLE CATEGORIES:
+1. Core Controls: Activity, Button, Entry, Label, etc. (Lines 15-400)
+2. Navigation Elements: Page, Shell, NavigationPage (Lines 401-450)
+3. Anti-Branco Configuration: Primary background enforcement (Lines 451-480)
+4. Professional Card System: Theme-aware containers (Lines 481-500)
+
+DESIGN SYSTEM:
+- AppThemeBinding for automatic Light/Dark mode support
+- Consistent color palette usage from Colors.xaml
+- OpenSans font family for professional typography
+- Material Design 3 principles with accessibility compliance
+
+PERFORMANCE:
+- ApplyToDerivedTypes for automatic inheritance
+- Centralized visual state management
+- Efficient resource binding patterns
+- Optimized for memory and rendering performance
+-->
 <ResourceDictionary 
     xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
@@ -139,14 +166,6 @@
                 </VisualStateGroup>
             </VisualStateGroupList>
         </Setter>
-    </Style>
-
-    <!-- Frame -->
-    <Style TargetType="Frame">
-        <Setter Property="HasShadow" Value="False" />
-        <Setter Property="BorderColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray950}}" />
-        <Setter Property="CornerRadius" Value="8" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Black}}" />
     </Style>
 
     <!-- ImageButton -->
@@ -419,39 +438,98 @@
         </Setter>
     </Style>
 
-    <!-- Page -->
-    <Style TargetType="Page" ApplyToDerivedTypes="True">
-        <Setter Property="Padding" Value="0" />
-        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource OffBlack}}" />
+    <!-- 
+    ENTERPRISE ANTI-BRANCO CONFIGURATION
+    Comprehensive theming system ensuring consistent Primary color across all UI elements.
+    Prevents white backgrounds and maintains brand consistency throughout the application.
+    Uses ApplyToDerivedTypes for automatic inheritance to custom page types.
+    -->
+
+    <!-- Global Page Background Enforcement -->
+    <Style TargetType="ContentPage" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
     </Style>
 
-    <!-- Shell -->
+    <!-- Page Base Style Override -->
+    <Style TargetType="Page" ApplyToDerivedTypes="True">
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+    </Style>
+
+    <!-- Navigation System Theming -->
+    <Style TargetType="NavigationPage" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="BarBackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="BarTextColor" Value="{StaticResource OnPrimary}" />
+        <Setter Property="IconColor" Value="{StaticResource OnPrimary}" />
+    </Style>
+
+    <!-- Shell Navigation Comprehensive Theming -->
     <Style TargetType="Shell" ApplyToDerivedTypes="True">
-        <Setter Property="Shell.BackgroundColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource OffBlack}}" />
-        <Setter Property="Shell.ForegroundColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource SecondaryDarkText}}" />
-        <Setter Property="Shell.TitleColor" Value="{AppThemeBinding Light={StaticResource Black}, Dark={StaticResource SecondaryDarkText}}" />
+        <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="Shell.BackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="Shell.ForegroundColor" Value="{StaticResource OnPrimary}" />
+        <Setter Property="Shell.TitleColor" Value="{StaticResource OnPrimary}" />
         <Setter Property="Shell.DisabledColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray950}}" />
         <Setter Property="Shell.UnselectedColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray200}}" />
         <Setter Property="Shell.NavBarHasShadow" Value="False" />
-        <Setter Property="Shell.TabBarBackgroundColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Black}}" />
-        <Setter Property="Shell.TabBarForegroundColor" Value="{AppThemeBinding Light={StaticResource Magenta}, Dark={StaticResource White}}" />
-        <Setter Property="Shell.TabBarTitleColor" Value="{AppThemeBinding Light={StaticResource Magenta}, Dark={StaticResource White}}" />
+        <Setter Property="Shell.TabBarBackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="Shell.TabBarForegroundColor" Value="{StaticResource OnPrimary}" />
+        <Setter Property="Shell.TabBarTitleColor" Value="{StaticResource OnPrimary}" />
         <Setter Property="Shell.TabBarUnselectedColor" Value="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray200}}" />
     </Style>
 
-    <!-- NavigationPage -->
-    <Style TargetType="NavigationPage">
-        <Setter Property="BarBackgroundColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource OffBlack}}" />
-        <Setter Property="BarTextColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource White}}" />
-        <Setter Property="IconColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource White}}" />
-    </Style>
-
-    <!-- TabbedPage -->
+    <!-- TabbedPage Navigation Theming -->
     <Style TargetType="TabbedPage">
-        <Setter Property="BarBackgroundColor" Value="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray950}}" />
-        <Setter Property="BarTextColor" Value="{AppThemeBinding Light={StaticResource Magenta}, Dark={StaticResource White}}" />
+        <Setter Property="BarBackgroundColor" Value="{StaticResource Primary}" />
+        <Setter Property="BarTextColor" Value="{StaticResource OnPrimary}" />
         <Setter Property="UnselectedTabColor" Value="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray950}}" />
         <Setter Property="SelectedTabColor" Value="{AppThemeBinding Light={StaticResource Gray950}, Dark={StaticResource Gray200}}" />
     </Style>
 
-</ResourceDictionary>    
+    <!-- 
+    PROFESSIONAL CARD DESIGN SYSTEM
+    Theme-aware container styling with proper elevation and content spacing.
+    Supports both Light and Dark themes with appropriate surface colors.
+    Implements Material Design 3 card specifications for content organization.
+    -->
+
+    <!-- Professional Card Container Style -->
+    <Style x:Key="CardStyle" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Stroke" Value="{StaticResource BorderColor}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <!-- Subtle border for definition -->
+        <Setter Property="Padding" Value="20" />
+        <!-- Comfortable content spacing -->
+        <Setter Property="StrokeShape" Value="RoundRectangle 12" />
+        <!-- Modern rounded corners -->
+    </Style>
+
+    <!-- Enterprise Form Card Style -->
+    <Style x:Key="FormCardStyle" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Stroke" Value="{StaticResource BorderColor}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="24" />
+        <!-- Extra spacing for forms -->
+        <Setter Property="Margin" Value="16" />
+        <!-- Card separation -->
+        <Setter Property="StrokeShape" Value="RoundRectangle 16" />
+        <!-- Larger radius for prominence -->
+    </Style>
+
+    <!-- Content Card Style for Lists -->
+    <Style x:Key="ContentCardStyle" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}" />
+        <Setter Property="Stroke" Value="{StaticResource BorderColor}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="16" />
+        <!-- Compact spacing for list items -->
+        <Setter Property="Margin" Value="8,4" />
+        <!-- Tight margins for lists -->
+        <Setter Property="StrokeShape" Value="RoundRectangle 8" />
+        <!-- Smaller radius for density -->
+    </Style>
+
+</ResourceDictionary>

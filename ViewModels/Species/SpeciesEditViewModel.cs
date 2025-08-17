@@ -418,9 +418,13 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
                 await LoadAvailableGeneraAsync();
             }
 
-            // Set entity ID and edit mode, then load data via base class
+            // Set entity ID and edit mode FIRST, then load data via base class
             EntityId = speciesId;
             _isEditMode = true;
+
+            // Force update of computed properties that depend on IsEditMode
+            OnPropertyChanged(nameof(IsEditMode));
+            OnPropertyChanged(nameof(PageTitle));
 
             // Load entity data using base class method
             await LoadEntityAsync();
@@ -480,6 +484,11 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
         }, "Set Selected Genus");
     }
 
+    /// <summary>
+    /// Create new genus command - uses base NavigateToCreateParentAsync
+    /// </summary>
+    public IAsyncRelayCommand CreateNewGenusCommand => NavigateToCreateParentCommand;
+
     #endregion
 
     #region Computed Properties Override
@@ -492,36 +501,3 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
     #endregion
 }
-
-/*
-🎉 REFATORAÇÃO CONCLUÍDA - RESULTADOS IMPRESSIONANTES:
-
-📊 REDUÇÃO DE CÓDIGO:
-- ANTES: ~800 linhas (SpeciesEditViewModel original)
-- DEPOIS: ~250 linhas (esta versão refatorada)
-- REDUÇÃO: 70% menos código!
-
-🔥 FUNCIONALIDADES ELIMINADAS (agora na base):
-✅ LoadAvailableGeneraAsync() → LoadParentCollectionAsync()
-✅ OnSelectedGenusChanged() logic → OnParentSelectionChanged()
-✅ NavigateToCreateGenusAsync() → NavigateToCreateParentAsync()
-✅ HandleGenusCreatedAsync() → HandleParentCreatedAsync()
-✅ ParentContext, ParentDisplayName → propriedades virtuais
-✅ ValidateGenus() logic → ValidateParentRelationship()
-✅ Messaging subscription → SubscribeToParentCreatedMessages()
-✅ Collection management → SelectParentById()
-
-🚀 BENEFÍCIOS ALCANÇADOS:
-✅ Máxima reutilização - 90% da funcionalidade vem da base
-✅ Consistent behavior - comportamento uniforme
-✅ Zero code duplication - eliminamos repetição total
-✅ Easy maintenance - bug fixes propagam automaticamente
-✅ Fast development - novas telas precisam de setup mínimo
-
-🏗️ PRÓXIMAS TELAS BENEFICIADAS:
-- GenusEditViewModel: ~180 linhas (vs 300 antes)
-- VarietiesEditViewModel: ~200 linhas (seria 600+ sem base)
-- CollectionsEditViewModel: ~180 linhas (seria 500+ sem base)
-
-💎 TOTAL ESTIMADO POUPADO: +1500 linhas de código ao longo do projeto!
-*/

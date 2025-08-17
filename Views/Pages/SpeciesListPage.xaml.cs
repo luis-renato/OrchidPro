@@ -43,21 +43,21 @@ public partial class SpeciesListPage : ContentPage
 
     // Core interaction handlers
     private void OnSearchTextChanged(object? sender, TextChangedEventArgs e) => _base.HandleSearchTextChanged(sender, e);
-    private async void OnItemTapped(object? sender, Syncfusion.Maui.ListView.ItemTappedEventArgs e) => _base.HandleItemTapped(sender, e);
+    private void OnItemTapped(object? sender, Syncfusion.Maui.ListView.ItemTappedEventArgs e) => _base.HandleItemTapped(sender, e);
     private void OnItemLongPress(object? sender, Syncfusion.Maui.ListView.ItemLongPressEventArgs e) => _base.HandleItemLongPress(sender, e);
     private void OnSelectionChanged(object? sender, Syncfusion.Maui.ListView.ItemSelectionChangedEventArgs e) => _base.HandleSelectionChanged(sender, e);
 
     // Swipe handlers
-    private async void OnSwipeEnded(object? sender, Syncfusion.Maui.ListView.SwipeEndedEventArgs e) => _base.HandleSwipeEnded(sender, e);
+    private void OnSwipeEnded(object? sender, Syncfusion.Maui.ListView.SwipeEndedEventArgs e) => _base.HandleSwipeEnded(sender, e);
     private void OnSwipeStarting(object? sender, Syncfusion.Maui.ListView.SwipeStartingEventArgs e) => _base.HandleSwipeStarting(sender, e);
     private void OnSwiping(object? sender, Syncfusion.Maui.ListView.SwipingEventArgs e) => _base.HandleSwiping(sender, e);
 
     // Button handlers
-    private async void OnFabTapped(object? sender, EventArgs e) => _base.HandleFabTapped(sender, e);
+    private void OnFabTapped(object? sender, EventArgs e) => _base.HandleFabTapped(sender, e);
     private void OnSelectAllTapped(object? sender, EventArgs e) => _base.HandleSelectAllTapped(sender, e);
     private void OnDeselectAllTapped(object? sender, EventArgs e) => _base.HandleDeselectAllTapped(sender, e);
-    private async void OnFilterTapped(object? sender, EventArgs e) => _base.HandleFilterTapped(sender, e);
-    private async void OnSortTapped(object? sender, EventArgs e) => _base.HandleSortTapped(sender, e);
+    private void OnFilterTapped(object? sender, EventArgs e) => _base.HandleFilterTapped(sender, e);
+    private void OnSortTapped(object? sender, EventArgs e) => _base.HandleSortTapped(sender, e);
 
     // Focus handlers - migrated to base as empty handlers
     private void OnSearchFocused(object? sender, FocusEventArgs e) => _base.HandleSearchFocused(sender, e);
