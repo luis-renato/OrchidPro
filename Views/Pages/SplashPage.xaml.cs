@@ -30,7 +30,7 @@ namespace OrchidPro.Views.Pages;
 /// FLOW:
 /// 1. OnAppearing: Starts concurrent animation + initialization tasks
 /// 2. Animation: Staggered entrance animations with loading indicators
-/// 3. Initialization: Service validation → Authentication check → Navigation prep
+/// 3. Initialization: Service validation → Session restoration → Authentication check → Navigation prep
 /// 4. Navigation: Route to main app or login based on session status
 /// 5. Cleanup: Safe resource disposal on page disappearing
 /// </summary>
@@ -135,10 +135,11 @@ public partial class SplashPage : ContentPage
     /// 1. Semaphore acquisition for thread safety
     /// 2. Service provider validation 
     /// 3. SupabaseService initialization with timeout protection
-    /// 4. Authentication session validation
-    /// 5. Navigation service preparation
-    /// 6. Concurrent exit animation and service pre-warming
-    /// 7. Route determination based on authentication status
+    /// 4. Session restoration from local storage (CRITICAL FIX)
+    /// 5. Authentication session validation
+    /// 6. Navigation service preparation
+    /// 7. Concurrent exit animation and service pre-warming
+    /// 8. Route determination based on authentication status
     /// 
     /// ERROR HANDLING:
     /// - Timeout protection on all async operations
@@ -196,24 +197,29 @@ public partial class SplashPage : ContentPage
             var supabaseService = await GetOrWaitForSupabaseServiceAsync(services) ?? throw new InvalidOperationException("Failed to initialize SupabaseService");
             this.LogSuccess("SupabaseService ready");
 
-            // PHASE 3: Authentication Session Validation
+            // PHASE 3: Session Restoration (CRITICAL FIX)
+            UpdateStatusAsync("Restoring session...");
+            bool sessionRestored = await RestoreSessionIfExistsAsync(supabaseService);
+            this.LogInfo($"Session restoration result: {sessionRestored}");
+
+            // PHASE 4: Authentication Session Validation
             UpdateStatusAsync("Checking authentication...");
             bool hasValidSession = await CheckSessionOptimizedAsync(supabaseService);
-            this.LogInfo($"Session check result: {hasValidSession}");
+            this.LogInfo($"Final session check result: {hasValidSession}");
 
-            // PHASE 4: Navigation Service Preparation
+            // PHASE 5: Navigation Service Preparation
             var navigationService = services.GetRequiredService<INavigationService>();
 
-            // PHASE 5: Mark Initialization Complete
+            // PHASE 6: Mark Initialization Complete
             _isInitialized = true;
             LoadingIndicator.IsRunning = false;
 
-            // PHASE 6: Concurrent Exit Animation and Service Pre-warming
+            // PHASE 7: Concurrent Exit Animation and Service Pre-warming
             var exitTask = PerformExitAnimationAsync();
             var prepareNavTask = PrepareNavigationAsync(hasValidSession);
             await Task.WhenAll(exitTask, prepareNavTask);
 
-            // PHASE 7: Route to Appropriate Destination
+            // PHASE 8: Route to Appropriate Destination
             await NavigateBasedOnSessionAsync(hasValidSession, navigationService);
 
             this.LogSuccess("=== ENTERPRISE APP INITIALIZATION COMPLETED ===");
@@ -295,12 +301,90 @@ public partial class SplashPage : ContentPage
     }
 
     /// <summary>
+    /// CRITICAL FIX: Restore session from local storage before checking authentication.
+    /// This is the missing piece that prevents automatic login on app restart.
+    /// 
+    /// PROCESS:
+    /// 1. Check if there's a saved session in Preferences
+    /// 2. If found, attempt to restore it to SupabaseService
+    /// 3. Validate the restored session is working
+    /// 4. Return restoration status for flow control
+    /// 
+    /// IMPORTANCE:
+    /// Without this step, the app will always show login screen even if user
+    /// has a valid saved session from previous login.
+    /// </summary>
+    private async Task<bool> RestoreSessionIfExistsAsync(SupabaseService supabaseService)
+    {
+        try
+        {
+            this.LogInfo("Checking for saved session in preferences...");
+
+            // Check if there's a saved session
+            var savedSession = Preferences.Get("supabase_session", null);
+            if (string.IsNullOrEmpty(savedSession))
+            {
+                this.LogInfo("No saved session found - proceeding to login flow");
+                return false;
+            }
+
+            this.LogInfo("Saved session found - attempting restoration...");
+
+            // Attempt to restore the session
+            bool restored = await supabaseService.RestoreSessionAsync();
+
+            if (restored)
+            {
+                this.LogSuccess("Session restored successfully");
+
+                // Verify the restored session is working
+                var currentUser = supabaseService.GetCurrentUser();
+                if (currentUser != null)
+                {
+                    this.LogSuccess($"Session validation successful for user: {currentUser.Email}");
+                    return true;
+                }
+                else
+                {
+                    this.LogWarning("Session restored but no current user - clearing invalid session");
+                    Preferences.Remove("supabase_session");
+                    return false;
+                }
+            }
+            else
+            {
+                this.LogWarning("Session restoration failed - clearing invalid session");
+                Preferences.Remove("supabase_session");
+                return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error during session restoration");
+
+            // Clear potentially corrupted session data
+            try
+            {
+                Preferences.Remove("supabase_session");
+                this.LogInfo("Cleared potentially corrupted session data");
+            }
+            catch (Exception clearEx)
+            {
+                this.LogWarning($"Failed to clear session data: {clearEx.Message}");
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
     /// High-performance session validation using synchronous operations.
+    /// Now simplified since session restoration happens before this check.
     /// 
     /// OPTIMIZATION APPROACH:
     /// - Uses synchronous GetCurrentUser() to avoid network overhead
     /// - Returns Task.FromResult() for consistent async interface
-    /// - Defers actual session validation to when API calls are made
+    /// - Session restoration already handled in RestoreSessionIfExistsAsync()
     /// - Comprehensive error handling with fallback to login flow
     /// 
     /// REASONING:
@@ -316,15 +400,15 @@ public partial class SplashPage : ContentPage
             var currentUser = supabaseService.GetCurrentUser();
             if (currentUser is null)
             {
-                this.LogInfo("No current user found - proceeding to login");
+                this.LogInfo("No current user found after restoration - proceeding to login");
                 return Task.FromResult(false);
             }
 
-            this.LogInfo($"Current user found: {currentUser.Email}");
+            this.LogInfo($"Current user confirmed: {currentUser.Email}");
 
-            // Assume session validity based on user presence
-            // Actual session validation will occur during first API call
-            this.LogSuccess($"Valid session found for user: {currentUser.Email}");
+            // At this point, session has been restored and user is present
+            // Assume session validity based on successful restoration + user presence
+            this.LogSuccess($"Valid session confirmed for user: {currentUser.Email}");
             return Task.FromResult(true);
         }
         catch (Exception ex)

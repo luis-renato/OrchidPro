@@ -5,15 +5,15 @@
              xmlns:vm="clr-namespace:OrchidPro.ViewModels.Families"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              x:DataType="vm:FamilyEditViewModel"
-             Title="{Binding PageTitle}"
+             Title="Family"
              BackgroundColor="White">
 
     <Grid>
         <!-- Main Content -->
         <ScrollView>
-            <StackLayout Padding="16" Spacing="20">
+            <StackLayout Padding="16" Spacing="8">
 
-                <!-- Header -->
+                <!-- Header seguindo padrão EXATO do SpeciesEditPage -->
                 <StackLayout Spacing="8">
                     <Label Text="{Binding PageTitle}"
                            FontSize="28"
@@ -62,7 +62,7 @@
                                 Margin="0,8,0,0" />
                 </StackLayout>
 
-                <!-- Name Field usando template -->
+                <!-- Name Field EXATO como SpeciesEditPage -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Name *" Style="{StaticResource FormFieldLabelStyle}" />
@@ -80,7 +80,7 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Description Field usando template -->
+                <!-- Description Field EXATO como SpeciesEditPage -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Description" Style="{StaticResource FormFieldLabelStyle}" />
@@ -94,7 +94,14 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Settings usando template -->
+                <!-- Configuration Section -->
+                <Label Text="Configuration" 
+                       FontSize="18" 
+                       FontAttributes="Bold" 
+                       TextColor="{StaticResource Primary}" 
+                       Margin="0,16,0,8" />
+
+                <!-- Settings EXATO como SpeciesEditPage -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormSettingsStackStyle}">
                         <Label Text="Settings" Style="{StaticResource FormFieldLabelStyle}" />
@@ -154,39 +161,44 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Bottom Buttons usando templates -->
+                <!-- Action Buttons EXATO como SpeciesEditPage -->
                 <Grid ColumnDefinitions="*,*" 
                       ColumnSpacing="16"
-                      Margin="0,24,0,0">
+                      Margin="0,10,0,10">
 
                     <Button Grid.Column="0"
                             Text="Cancel"
-                            Style="{StaticResource SecondaryButtonStyle}"
+                            Style="{StaticResource CancelButtonStyle}"
                             Command="{Binding CancelCommand}" />
 
                     <Button Grid.Column="1"
                             Text="{Binding SaveButtonText}"
                             Style="{StaticResource DynamicPrimaryButtonStyle}"
-                            BackgroundColor="{Binding SaveButtonColor}"
                             Command="{Binding SaveCommand}"
                             IsEnabled="{Binding CanSave}" />
 
                 </Grid>
 
-                <!-- Delete Button (Only in Edit Mode) -->
+                <!-- 🔧 FIXED: Save and Add Another Button (only for new family) -->
+                <Button Text="Save &amp; Add Another"
+                        Command="{Binding SaveAndContinueCommand}"
+                        IsVisible="{Binding ShowSaveAndContinue}"
+                        Style="{StaticResource DynamicPrimaryButtonStyle}"
+                        IsEnabled="{Binding CanSave}"
+                        Margin="0,0,0,0" />
+
+                <!-- 🔧 FIXED: Delete Button (only for edit mode) -->
                 <Button Text="Delete Family"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        BackgroundColor="{StaticResource ErrorColor}"
-                        TextColor="White"
                         Command="{Binding DeleteWithValidationCommand}"
                         IsVisible="{Binding IsEditMode}"
                         IsEnabled="{Binding CanDelete}"
-                        Margin="0,8,0,0" />
+                        Style="{StaticResource ErrorButtonStyle}"
+                        Margin="0,0,0,0" />
 
             </StackLayout>
         </ScrollView>
 
-        <!-- SAVING OVERLAY USANDO TEMPLATE -->
+        <!-- Loading Overlay EXATO como SpeciesEditPage -->
         <ContentView Style="{StaticResource SavingOverlayStyle}" />
 
     </Grid>
