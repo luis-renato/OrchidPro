@@ -1,21 +1,20 @@
-﻿using CommunityToolkit.Mvvm.Input;
-using OrchidPro.Models;
+﻿using OrchidPro.Extensions;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
-using OrchidPro.Extensions;
 
 namespace OrchidPro.ViewModels.Genera;
 
 /// <summary>
 /// Genus list ViewModel - ULTRA CLEAN using BaseListViewModel core
-/// FIXED: Override OnAppearingAsync to use GetAllWithFamilyAsync for proper Family loading
+/// FIXED: Using SAME strategy as Species - silent family hydration monitoring
 /// </summary>
 public partial class GeneraListViewModel : BaseListViewModel<Models.Genus, GenusItemViewModel>
 {
     #region Private Fields
 
     private readonly IGenusRepository _genusRepository;
+    private bool _isFamilyMonitoring = false;
 
     #endregion
 
@@ -50,23 +49,25 @@ public partial class GeneraListViewModel : BaseListViewModel<Models.Genus, Genus
 
     #endregion
 
-    #region Genus-Specific: IMMEDIATE Family Loading
+    #region Genus-Specific: Family Hydration Monitoring (SAME AS SPECIES)
 
     /// <summary>
-    /// Override OnAppearingAsync to load genera WITH family data immediately
-    /// FIXES: "Unknown Family" issue by loading genera with family data from the start
+    /// Override OnAppearingAsync to add family monitoring (Genus-specific feature)
+    /// COPIES EXACT STRATEGY FROM SPECIES - silent monitoring without interference
     /// </summary>
     public override async Task OnAppearingAsync()
     {
         try
         {
-            this.LogInfo("GeneraListViewModel OnAppearing - loading with family data");
-
-            // First, load with family data immediately to avoid "Unknown Family"
-            await LoadGeneraWithFamilyAsync();
-
-            // Then call base for standard functionality
+            // Call base implementation for all standard functionality (SAME AS SPECIES)
             await base.OnAppearingAsync();
+
+            // Start family monitoring ONLY once and AFTER initial load (SAME AS SPECIES)
+            if (!_isFamilyMonitoring)
+            {
+                _isFamilyMonitoring = true;
+                _ = MonitorFamilyHydrationAsync();
+            }
         }
         catch (Exception ex)
         {
@@ -76,51 +77,67 @@ public partial class GeneraListViewModel : BaseListViewModel<Models.Genus, Genus
     }
 
     /// <summary>
-    /// Load genera with family data immediately on first load
-    /// REPLACES: Family hydration monitoring with immediate loading
+    /// Genus-specific: Monitor family hydration WITHOUT triggering additional refreshes
+    /// COPIES EXACT STRATEGY FROM SPECIES but for Family data
     /// </summary>
-    private async Task LoadGeneraWithFamilyAsync()
+    private async Task MonitorFamilyHydrationAsync()
     {
-        await this.SafeExecuteAsync(async () =>
+        await Task.Run(async () =>
         {
-            IsLoading = true;
-
             try
             {
-                this.LogInfo("🔍 Loading genera WITH family data immediately");
+                // Wait for initial data to settle (SAME AS SPECIES)
+                await Task.Delay(3000);
 
-                // Use GetAllWithFamilyAsync to load genera with family data from start
-                var generaWithFamily = await _genusRepository.GetAllWithFamilyAsync(true);
-
-                // Populate Items collection
-                await MainThread.InvokeOnMainThreadAsync(() =>
+                for (int attempt = 0; attempt < 2; attempt++)
                 {
-                    Items.Clear();
-                    foreach (var genus in generaWithFamily)
-                    {
-                        var itemViewModel = CreateItemViewModel(genus);
-                        Items.Add(itemViewModel);
-                    }
-                });
+                    await Task.Delay(2000 * (attempt + 1)); // 2s, 4s (SAME AS SPECIES)
 
-                this.LogSuccess($"✅ Loaded {generaWithFamily.Count} genera with family data immediately");
+                    // Get genera with family data (parallel to species with genus)
+                    var allGenera = await _genusRepository.GetAllWithFamilyAsync(false);
+                    var generaWithFamily = allGenera.Where(g => g.Family != null).ToList();
+
+                    if (generaWithFamily.Any())
+                    {
+                        this.LogInfo($"🔄 Family hydration detected: {generaWithFamily.Count} genera now have family data");
+
+                        // Silent UI update without full refresh (SAME AS SPECIES)
+                        await MainThread.InvokeOnMainThreadAsync(() =>
+                        {
+                            try
+                            {
+                                // Update existing items with family info (parallel to species genus update)
+                                for (int i = 0; i < Items.Count && i < generaWithFamily.Count; i++)
+                                {
+                                    var item = Items[i];
+                                    var genusData = generaWithFamily.FirstOrDefault(g => g.Id == item.Id);
+                                    if (genusData?.Family != null)
+                                    {
+                                        item.UpdateFamilyInfo(genusData.Family.Name);
+                                    }
+                                }
+                                this.LogInfo("🔄 UI silently updated with family data");
+                            }
+                            catch (Exception ex)
+                            {
+                                this.LogError(ex, "Error updating UI with family data");
+                            }
+                        });
+
+                        break;
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                this.LogError(ex, "Error in family hydration monitoring");
             }
             finally
             {
-                IsLoading = false;
+                _isFamilyMonitoring = false;
             }
-        }, "Load Genera With Family Immediate");
+        });
     }
-
-    #endregion
-
-    #region REMOVED - Now in Base
-
-    // ❌ REMOVED: RefreshGeneraAsync - Use base RefreshAsync
-    // ❌ REMOVED: RefreshGeneraCommand - Use base RefreshCommand
-    // ❌ REMOVED: All UI compatibility exposures - Use base commands directly
-    // ❌ REMOVED: _hasInitialized flag - Base handles initialization
-    // ❌ REMOVED: Custom refresh logic - Base handles all refresh scenarios
 
     #endregion
 }

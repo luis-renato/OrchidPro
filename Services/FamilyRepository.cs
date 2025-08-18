@@ -85,6 +85,7 @@ public class FamilyRepository : BaseRepository<Family>, IFamilyRepository
     #endregion
 }
 
+// Keep existing OperationResult if it already exists
 public class OperationResult
 {
     public bool Success { get; set; }

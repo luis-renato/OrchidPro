@@ -9,7 +9,6 @@
              BackgroundColor="White">
 
     <Grid>
-        <!-- Main Content -->
         <ScrollView>
             <StackLayout Padding="16" Spacing="8">
 
@@ -25,35 +24,6 @@
                            FontSize="14" 
                            TextColor="Gray"
                            Opacity="0.8" />
-
-                    <!-- Related Genera Info (Only in Edit Mode) -->
-                    <Frame BackgroundColor="{StaticResource Gray100}"
-                           BorderColor="{StaticResource Gray300}"
-                           CornerRadius="8"
-                           Padding="12,8"
-                           Margin="0,8,0,0"
-                           IsVisible="{Binding IsEditMode}">
-
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
-                            <Label Grid.Column="0"
-                                   Text="🌱"
-                                   FontSize="16"
-                                   VerticalOptions="Center" />
-
-                            <Label Grid.Column="1"
-                                   Text="{Binding RelatedGeneraDisplay}"
-                                   FontSize="14"
-                                   TextColor="{StaticResource Gray600}"
-                                   VerticalOptions="Center" />
-
-                            <ActivityIndicator Grid.Column="2"
-                                               IsRunning="{Binding IsLoadingGeneraCount}"
-                                               Color="{StaticResource Primary}"
-                                               WidthRequest="16"
-                                               HeightRequest="16"
-                                               VerticalOptions="Center" />
-                        </Grid>
-                    </Frame>
 
                     <ProgressBar Progress="{Binding FormCompletionProgress}"
                                 ProgressColor="{StaticResource Primary}"
@@ -188,7 +158,7 @@
                         Margin="0,0,0,0" />
 
                 <!-- 🔧 FIXED: Delete Button (only for edit mode) -->
-                <Button Text="Delete Family"
+                <Button Text="Delete"
                         Command="{Binding DeleteWithValidationCommand}"
                         IsVisible="{Binding IsEditMode}"
                         IsEnabled="{Binding CanDelete}"

@@ -6,12 +6,14 @@ using Syncfusion.Maui.ListView;
 using Syncfusion.Maui.DataSource;
 using SfSelectionMode = Syncfusion.Maui.ListView.SelectionMode;
 using SfSwipeEndedEventArgs = Syncfusion.Maui.ListView.SwipeEndedEventArgs;
+using System.Collections.Specialized;
+using System.Collections.ObjectModel;
 
 namespace OrchidPro.Views.Pages.Base;
 
 /// <summary>
-/// FIXED Logic class containing ALL list page functionality for composition.
-/// All command ambiguities resolved and logging made consistent.
+/// PATCHED Logic class with FIXED IsLoading management for all navigation scenarios.
+/// Ensures loading overlay appears consistently across all tabs and navigations.
 /// </summary>
 public class BaseListPageLogic<T, TItemViewModel>
     where T : class, IBaseEntity, new()
@@ -20,10 +22,15 @@ public class BaseListPageLogic<T, TItemViewModel>
     private readonly BaseListViewModel<T, TItemViewModel> viewModel;
     private SfListView? listView;
     private Grid? rootGrid;
+    private Grid? contentGrid;
+    private Grid? loadingGrid;
     private Button? fabButton;
     private Syncfusion.Maui.PullToRefresh.SfPullToRefresh? pullToRefresh;
     private ContentPage? page;
     private bool hasAppearedOnce = false;
+
+    // CRITICAL FIX: Track current sort order to reapply after data changes
+    private string currentSortOrder = "Name A→Z";
 
     public BaseListPageLogic(BaseListViewModel<T, TItemViewModel> vm)
     {
@@ -32,6 +39,9 @@ public class BaseListPageLogic<T, TItemViewModel>
         this.LogInfo($"Initialized BaseListPageLogic for {typeof(T).Name}");
     }
 
+    /// <summary>
+    /// ENHANCED: Setup page with fade effect support
+    /// </summary>
     public void SetupPage(ContentPage pg, SfListView lv, Grid rg, Button fb,
         Syncfusion.Maui.PullToRefresh.SfPullToRefresh pr)
     {
@@ -42,14 +52,207 @@ public class BaseListPageLogic<T, TItemViewModel>
         pullToRefresh = pr;
         page.BindingContext = viewModel;
 
+        // Find the content and loading grids
+        contentGrid = rootGrid?.FindByName<Grid>("ContentGrid");
+        loadingGrid = rootGrid?.FindByName<Grid>("LoadingGrid");
+
         // Connect the Refreshing event
         if (pullToRefresh != null)
         {
             pullToRefresh.Refreshing += HandlePullToRefresh;
         }
 
-        this.LogInfo($"🔧 Page setup completed forBaseListPageLogic {typeof(T).Name}");
+        // Setup sorting preservation
+        SetupSortingPreservation();
+
+        // Monitor IsLoading for fade effects
+        SetupFadeEffects();
+
+        this.LogInfo($"🔧 Page setup completed for {typeof(T).Name} with fade effects");
     }
+
+    /// <summary>
+    /// FADE EFFECT: Monitor IsLoading changes and apply smooth transitions
+    /// </summary>
+    private void SetupFadeEffects()
+    {
+        if (viewModel == null) return;
+
+        try
+        {
+            viewModel.PropertyChanged += async (s, e) =>
+            {
+                if (e.PropertyName == nameof(viewModel.IsLoading))
+                {
+                    await MainThread.InvokeOnMainThreadAsync(async () =>
+                    {
+                        await HandleLoadingStateChange();
+                    });
+                }
+            };
+
+            this.LogInfo("✨ FADE: Fade effects setup completed");
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error setting up fade effects");
+        }
+    }
+
+    /// <summary>
+    /// SMOOTH TRANSITION: Handle loading state changes with fade animation
+    /// </summary>
+    private async Task HandleLoadingStateChange()
+    {
+        try
+        {
+            if (viewModel.IsLoading)
+            {
+                // Starting to load: Hide everything, show loading
+                this.LogInfo("✨ FADE: Starting loading state");
+
+                // Hide FAB immediately
+                if (fabButton != null)
+                {
+                    fabButton.IsVisible = false;
+                    fabButton.Opacity = 0;
+                    fabButton.Scale = 0.7;
+                }
+
+                if (contentGrid != null)
+                {
+                    contentGrid.IsVisible = false;
+                    contentGrid.Opacity = 0;
+                }
+
+                if (loadingGrid != null)
+                {
+                    loadingGrid.IsVisible = true;
+                    loadingGrid.Opacity = 1;
+                }
+            }
+            else
+            {
+                // Finished loading: Hide loading, fade in content + FAB
+                this.LogInfo("✨ FADE: Finishing loading state");
+
+                if (loadingGrid != null)
+                {
+                    loadingGrid.IsVisible = false;
+                }
+
+                if (contentGrid != null)
+                {
+                    contentGrid.IsVisible = true;
+                    contentGrid.Opacity = 0;
+
+                    // Smooth fade in content
+                    await contentGrid.FadeTo(1, 300, Easing.CubicOut);
+
+                    this.LogInfo("✨ FADE: Content fade-in completed");
+                }
+
+                // Animate FAB entrance - delayed and bouncy
+                if (fabButton != null)
+                {
+                    await Task.Delay(200); // Small delay after content
+
+                    fabButton.IsVisible = true;
+                    fabButton.Opacity = 0;
+                    fabButton.Scale = 0.7;
+
+                    // Parallel animations for smooth entrance
+                    var fadeTask = fabButton.FadeTo(1, 250, Easing.CubicOut);
+                    var scaleTask = fabButton.ScaleTo(1, 300, Easing.SpringOut);
+
+                    await Task.WhenAll(fadeTask, scaleTask);
+
+                    this.LogInfo("✨ FADE: FAB entrance animation completed");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error handling loading state change");
+
+            // Fallback to ensure content is visible
+            if (contentGrid != null)
+            {
+                contentGrid.IsVisible = true;
+                contentGrid.Opacity = 1;
+            }
+
+            if (fabButton != null)
+            {
+                fabButton.IsVisible = true;
+                fabButton.Opacity = 1;
+                fabButton.Scale = 1;
+            }
+        }
+    }
+
+    #region CRITICAL FIX: Sorting Preservation
+
+    /// <summary>
+    /// CRITICAL FIX: Hook into ViewModel's Items collection to detect changes
+    /// This allows us to reapply sorting whenever data is refreshed
+    /// </summary>
+    private void SetupSortingPreservation()
+    {
+        try
+        {
+            if (viewModel?.Items is ObservableCollection<TItemViewModel> observableItems)
+            {
+                observableItems.CollectionChanged += (sender, e) =>
+                {
+                    if (e.Action == NotifyCollectionChangedAction.Reset ||
+                        (e.Action == NotifyCollectionChangedAction.Add && e.NewStartingIndex == 0))
+                    {
+                        // Data was cleared and repopulated - reapply sorting
+                        PreserveSortingAfterDataChange();
+                    }
+                };
+
+                this.LogInfo("🔧 SORTING FIX: Collection change monitoring enabled");
+            }
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error setting up sorting preservation");
+        }
+    }
+
+    /// <summary>
+    /// CRITICAL FIX: Preserve and reapply sorting after ItemsSource changes
+    /// Syncfusion clears SortDescriptors when ItemsSource changes - we need to reapply
+    /// </summary>
+    private void PreserveSortingAfterDataChange()
+    {
+        try
+        {
+            // Get current sort order before it gets cleared
+            var sortOrderToReapply = currentSortOrder;
+
+            if (!string.IsNullOrEmpty(sortOrderToReapply) && listView != null)
+            {
+                this.LogInfo($"🔧 SORTING FIX: Reapplying '{sortOrderToReapply}' after data change");
+
+                // Small delay to allow ItemsSource to settle
+                MainThread.BeginInvokeOnMainThread(async () =>
+                {
+                    await Task.Delay(100); // Allow UI to settle
+                    ApplySyncfusionNativeSorting(sortOrderToReapply);
+                    this.LogInfo($"✅ SORTING FIX: '{sortOrderToReapply}' reapplied successfully");
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error preserving sorting after data change");
+        }
+    }
+
+    #endregion
 
     #region Property Change Handling
 
@@ -115,7 +318,7 @@ public class BaseListPageLogic<T, TItemViewModel>
 
     #endregion
 
-    #region Syncfusion Native Sorting
+    #region Syncfusion Native Sorting - FIXED
 
     private void ApplySyncfusionNativeSorting(string sortOrder)
     {
@@ -125,6 +328,10 @@ public class BaseListPageLogic<T, TItemViewModel>
         {
             this.LogInfo($"🔧 NATIVE SORT: Applying '{sortOrder}'");
 
+            // CRITICAL FIX: Enable LiveDataUpdateMode for dynamic sorting
+            listView.DataSource.LiveDataUpdateMode = LiveDataUpdateMode.AllowDataShaping;
+
+            // Clear existing sort descriptors
             listView.DataSource.SortDescriptors.Clear();
 
             SortDescriptor sortDescriptor = sortOrder switch
@@ -172,6 +379,12 @@ public class BaseListPageLogic<T, TItemViewModel>
                 });
             }
 
+            // CRITICAL FIX: Force refresh to apply sorting
+            listView.RefreshView();
+
+            // CRITICAL FIX: Store current sort order for preservation
+            currentSortOrder = sortOrder;
+
             this.LogInfo($"🔧 NATIVE SORT: Applied '{sortOrder}' successfully");
         }
         catch (Exception ex)
@@ -182,24 +395,104 @@ public class BaseListPageLogic<T, TItemViewModel>
 
     #endregion
 
-    #region Lifecycle Management
+    #region Lifecycle Management - CRITICAL LOADING FIX
 
+    /// <summary>
+    /// BALANCED FIX: Enhanced BaseOnAppearing with proper IsLoading management
+    /// Shows loading briefly but ensures it's always turned off
+    /// </summary>
     public async Task BaseOnAppearing()
     {
-        listView?.SelectedItems?.Clear();
-        UpdateFabVisual();
-
-        if (!hasAppearedOnce)
+        try
         {
-            await PerformEntranceAnimation();
-            hasAppearedOnce = true;
+            this.LogInfo($"🔄 BALANCED FIX: BaseOnAppearing for {typeof(T).Name}");
+
+            // Clear selections and update FAB first
+            listView?.SelectedItems?.Clear();
+            UpdateFabVisual();
+
+            // Handle first-time animation
+            if (!hasAppearedOnce)
+            {
+                await PerformEntranceAnimation();
+                hasAppearedOnce = true;
+            }
+            else
+            {
+                // For subsequent appearances, ensure grid is visible
+                if (rootGrid != null)
+                {
+                    rootGrid.Opacity = 1;
+                }
+            }
+
+            // BALANCED FIX: Only show loading if we expect actual loading time
+            var shouldShowLoading = ShouldShowLoadingOverlay();
+
+            if (shouldShowLoading)
+            {
+                this.LogInfo($"🔄 BALANCED: Showing loading overlay for {typeof(T).Name}");
+                viewModel.IsLoading = true;
+
+                // Small delay to show loading state
+                await Task.Delay(150);
+            }
+
+            // Call ViewModel's OnAppearing
+            await viewModel.OnAppearingAsync();
+
+            // CRITICAL: Always ensure loading is turned off
+            if (viewModel.IsLoading)
+            {
+                this.LogInfo($"🔄 BALANCED: Turning off loading overlay for {typeof(T).Name}");
+                viewModel.IsLoading = false;
+            }
+
+            // Apply sorting after data loads
+            if (!string.IsNullOrEmpty(viewModel.SortOrder))
+            {
+                currentSortOrder = viewModel.SortOrder;
+                ApplySyncfusionNativeSorting(viewModel.SortOrder);
+            }
+
+            this.LogInfo($"✅ BALANCED: BaseOnAppearing completed for {typeof(T).Name}");
         }
-
-        await viewModel.OnAppearingAsync();
-
-        if (!string.IsNullOrEmpty(viewModel.SortOrder))
+        catch (Exception ex)
         {
-            ApplySyncfusionNativeSorting(viewModel.SortOrder);
+            this.LogError(ex, $"Error in BaseOnAppearing for {typeof(T).Name}");
+            // Ensure loading is ALWAYS turned off on error
+            viewModel.IsLoading = false;
+        }
+    }
+
+    /// <summary>
+    /// SMART: Determine if we should show loading overlay based on data state
+    /// </summary>
+    private bool ShouldShowLoadingOverlay()
+    {
+        try
+        {
+            // Show loading if:
+            // 1. No items yet (first load)
+            // 2. Items exist but we're refreshing and it's been a while since last load
+
+            var hasNoItems = viewModel.Items?.Count == 0;
+            var isFirstAppearance = !hasAppearedOnce;
+
+            // For subsequent visits, only show loading if no data or explicitly refreshing
+            if (!isFirstAppearance && !hasNoItems)
+            {
+                this.LogInfo($"🤖 SMART: Skipping loading overlay - data already present");
+                return false;
+            }
+
+            this.LogInfo($"🤖 SMART: Will show loading overlay - first load or no data");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error determining loading overlay state");
+            return false; // Default to no loading on error
         }
     }
 
@@ -216,12 +509,30 @@ public class BaseListPageLogic<T, TItemViewModel>
         }
     }
 
+    /// <summary>
+    /// ENHANCED: Entrance animation that coordinates with loading state
+    /// </summary>
     private async Task PerformEntranceAnimation()
     {
         if (rootGrid == null) return;
-        rootGrid.Opacity = 0;
-        await Task.Delay(50);
-        await rootGrid.FadeTo(1, 250, Easing.CubicOut);
+
+        try
+        {
+            // Start invisible (loading overlay should be visible)
+            rootGrid.Opacity = 0;
+
+            // Quick delay then fade in
+            await Task.Delay(50);
+            await rootGrid.FadeTo(1, 250, Easing.CubicOut);
+
+            this.LogInfo($"✨ ENHANCED: Entrance animation completed for {typeof(T).Name}");
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error in entrance animation");
+            // Fallback to visible
+            rootGrid.Opacity = 1;
+        }
     }
 
     #endregion
@@ -485,32 +796,32 @@ public class BaseListPageLogic<T, TItemViewModel>
         try
         {
             var entityName = typeof(T).Name;
-            
+
             // Get current sort order
             var currentSort = viewModel.SortOrder;
             var isDefaultSort = currentSort == "Name A→Z";
-            
+
             // Build options - add "Clear All Sorting" if not default
             var options = new List<string>
             {
                 "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First"
             };
-            
+
             if (!isDefaultSort)
             {
                 options.Add("Clear All Sorting");
             }
 
             var result = await page!.DisplayActionSheet(
-                $"Sort {entityName}", 
-                "Cancel", 
+                $"Sort {entityName}",
+                "Cancel",
                 isDefaultSort ? null : "Clear All Sorting",  // Destructive button
                 options.Take(5).ToArray()); // Only show main options in body
 
             if (result != null && result != "Cancel")
             {
                 this.LogInfo($"🔧 SORT: User selected '{result}'");
-                
+
                 // Handle clear sorting
                 if (result == "Clear All Sorting")
                 {
@@ -521,7 +832,7 @@ public class BaseListPageLogic<T, TItemViewModel>
                 {
                     viewModel.SortOrder = result;
                 }
-                
+
                 this.LogInfo($"✅ SORT: Applied successfully");
             }
         }
@@ -536,7 +847,10 @@ public class BaseListPageLogic<T, TItemViewModel>
     {
         await this.SafeExecuteAsync(async () =>
         {
-            this.LogInfo("Pull-to-refresh triggered");
+            this.LogInfo("🔄 CRITICAL FIX: Pull-to-refresh triggered with loading state");
+
+            // CRITICAL FIX: Set loading state during refresh
+            viewModel.IsLoading = true;
 
             if (pullToRefresh != null)
             {
@@ -549,12 +863,15 @@ public class BaseListPageLogic<T, TItemViewModel>
                 await viewModel.RefreshCommand.ExecuteAsync(null);
             }
 
+            // Ensure loading is turned off
+            viewModel.IsLoading = false;
+
             if (pullToRefresh != null)
             {
                 pullToRefresh.IsRefreshing = false;
             }
 
-            this.LogInfo("Pull-to-refresh completed");
+            this.LogInfo("✅ CRITICAL FIX: Pull-to-refresh completed");
         }, "Pull-to-refresh failed");
     }
 

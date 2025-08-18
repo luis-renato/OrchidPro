@@ -58,6 +58,102 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>
 
     #endregion
 
+    // ADICIONAR ESTE MÉTODO AO GenusEditViewModel EXISTENTE:
+
+    #region Navigation Parameter Handling - EXACTLY like Species
+
+    /// <summary>
+    /// Enhanced navigation parameter handling for genus-specific scenarios - EXACTLY like Species
+    /// </summary>
+    public override void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        this.SafeExecute(() =>
+        {
+            this.LogInfo("Applying query attributes for Genus edit");
+
+            if (query.TryGetValue("GenusId", out var genusIdObj) &&
+                Guid.TryParse(genusIdObj?.ToString(), out var genusId))
+            {
+                // Use genus-specific initialization for edit mode - EXACTLY like Species
+                _ = InitializeForEditAsync(genusId);
+            }
+            else if (query.TryGetValue("FamilyId", out var familyIdObj) &&
+                     Guid.TryParse(familyIdObj?.ToString(), out var familyId))
+            {
+                // Use genus-specific initialization for create mode with family preselection
+                _ = InitializeForCreateAsync(familyId);
+            }
+            else
+            {
+                // Use genus-specific initialization for create mode
+                _ = InitializeForCreateAsync();
+            }
+        }, "Apply Query Attributes");
+    }
+
+    #endregion
+
+    #region Initialization Methods - EXACTLY like Species
+
+    /// <summary>
+    /// Initialize for creating new genus with optional family preselection - EXACTLY like Species
+    /// </summary>
+    public async Task InitializeForCreateAsync(Guid? familyId = null)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            this.LogInfo($"Initializing for create mode with family preselection: {familyId}");
+
+            // Ensure families are loaded
+            if (!AvailableFamilies.Any())
+            {
+                await LoadAvailableFamiliesAsync();
+            }
+
+            // Preselect family if provided using base method
+            if (familyId.HasValue)
+            {
+                SelectParentById(AvailableFamilies, familyId.Value, family => SelectedFamily = family, "Family");
+                this.LogInfo($"Preselected family: {ParentDisplayName}");
+            }
+
+            HasUnsavedChanges = false;
+            this.LogInfo("Create mode initialization completed - form is clean");
+        }, "Initialize for Create");
+    }
+
+    /// <summary>
+    /// Initialize for editing existing genus - EXACTLY like Species
+    /// </summary>
+    public async Task InitializeForEditAsync(Guid genusId)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            this.LogInfo($"Initializing for edit mode: {genusId}");
+
+            // Ensure families are loaded first
+            if (!AvailableFamilies.Any())
+            {
+                await LoadAvailableFamiliesAsync();
+            }
+
+            // Set entity ID and edit mode FIRST, then load data via base class
+            EntityId = genusId;
+            _isEditMode = true;
+
+            // Force update of computed properties that depend on IsEditMode
+            OnPropertyChanged(nameof(IsEditMode));
+            OnPropertyChanged(nameof(PageTitle));
+
+            // Load entity data using base class method
+            await LoadEntityAsync();
+
+            this.LogInfo("Edit mode initialization completed");
+        }, "Initialize for Edit");
+    }
+
+    #endregion
+
     #region 🔧 UI Properties - EXACTLY like Species
 
     /// <summary>

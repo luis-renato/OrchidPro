@@ -34,266 +34,297 @@
                                StatusBarStyle="LightContent" />
     </ContentPage.Behaviors>
 
-    <!-- FIXED: Proper loading and empty state layering -->
-    <Grid x:Name="RootGrid" Opacity="0">
+    <Grid x:Name="RootGrid">
 
-        <!-- Main content card -->
-        <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray950}}"
-                Stroke="Transparent"
-                StrokeThickness="0"
-                Margin="10,15,10,10"
-                Padding="0">
-            <Border.StrokeShape>
-                <RoundRectangle CornerRadius="16" />
-            </Border.StrokeShape>
+        <!-- 1. MAIN CONTENT GRID - Hidden during loading -->
+        <Grid x:Name="ContentGrid" 
+              IsVisible="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}"
+              Opacity="0">
 
-            <Grid RowDefinitions="Auto,Auto,*">
+            <!-- Main content card -->
+            <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray950}}"
+                    Stroke="Transparent"
+                    StrokeThickness="0"
+                    Margin="10,15,10,10"
+                    Padding="0">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="16" />
+                </Border.StrokeShape>
 
-                <!-- Header with statistics and connection status -->
-                <Border Grid.Row="0" 
-                        BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SurfaceDark}}"
-                        Padding="15,8">
+                <Grid RowDefinitions="Auto,Auto,*">
 
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="15">
-                        <Label Grid.Column="0"
-                               FontSize="13"
-                               TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
-                               VerticalOptions="Center">
-                            <Label.Text>
-                                <MultiBinding StringFormat="{}{0} families • {1} active • {2} favorites">
-                                    <Binding Path="TotalCount" />
-                                    <Binding Path="ActiveCount" />
-                                    <Binding Path="FavoriteCount" FallbackValue="0" />
-                                </MultiBinding>
-                            </Label.Text>
-                        </Label>
+                    <!-- Header with statistics and connection status -->
+                    <Border Grid.Row="0" 
+                            BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SurfaceDark}}"
+                            Padding="15,8">
 
-                        <Border Grid.Column="1"
-                                BackgroundColor="{Binding ConnectionStatusColor}"
-                                Padding="8,4"
-                                VerticalOptions="Center">
-                            <Border.StrokeShape>
-                                <RoundRectangle CornerRadius="12" />
-                            </Border.StrokeShape>
-                            <Label Text="{Binding ConnectionStatus}"
-                                   FontSize="10"
-                                   FontAttributes="Bold"
-                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}" />
-                        </Border>
-                    </Grid>
-                </Border>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="15">
+                            <Label Grid.Column="0"
+                                   FontSize="13"
+                                   TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
+                                   VerticalOptions="Center">
+                                <Label.Text>
+                                    <MultiBinding StringFormat="{}{0} families • {1} active • {2} favorites">
+                                        <Binding Path="TotalCount" />
+                                        <Binding Path="ActiveCount" />
+                                        <Binding Path="FavoriteCount" FallbackValue="0" />
+                                    </MultiBinding>
+                                </Label.Text>
+                            </Label>
 
-                <!-- Search bar -->
-                <Border Grid.Row="1" Style="{StaticResource SearchBarContainerStyle}">
-                    <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="5" Padding="2,0,2,0">
-                        <!-- Search field -->
-                        <Border Grid.Column="0" Style="{StaticResource SearchFieldBorderStyle}" >
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="0" Margin="5,0,5,0">
-                                <Entry Grid.Column="1"
-                                       Text="{Binding SearchText}"
-                                       Placeholder="Search..."
-                                       Style="{StaticResource SearchEntryStyle}"
-                                       ReturnCommand="{Binding ApplyFilterCommand}"
-                                       Focused="OnSearchFocused"
-                                       Unfocused="OnSearchUnfocused"
-                                       TextChanged="OnSearchTextChanged" />
-                                <Button Grid.Column="2"
-                                        Style="{StaticResource SearchClearButtonStyle}"
-                                        Command="{Binding ClearFilterCommand}"
-                                        IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}" />
-                            </Grid>
-                        </Border>
-                        <!-- Filter button -->
-                        <Border Grid.Column="1" Style="{StaticResource SearchActionButtonStyle}">
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnFilterTapped" />
-                            </Border.GestureRecognizers>
-                            <Label Text="📊" Style="{StaticResource SearchActionIconStyle}" />
-                        </Border>
-                        <!-- Sort button -->
-                        <Border Grid.Column="2" Style="{StaticResource SearchActionButtonStyle}">
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Tapped="OnSortTapped" />
-                            </Border.GestureRecognizers>
-                            <Label Text="🔄" Style="{StaticResource SearchActionIconStyle}" />
-                        </Border>
-                    </Grid>
-                </Border>
+                            <Border Grid.Column="1"
+                                    BackgroundColor="{Binding ConnectionStatusColor}"
+                                    Padding="8,4"
+                                    VerticalOptions="Center">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="12" />
+                                </Border.StrokeShape>
+                                <Label Text="{Binding ConnectionStatus}"
+                                       FontSize="10"
+                                       FontAttributes="Bold"
+                                       TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}" />
+                            </Border>
+                        </Grid>
+                    </Border>
 
-                <!-- FIXED: ListView container with proper EmptyState handling -->
-                <sfpulltorefresh:SfPullToRefresh x:Name="ListRefresh"
-                                 Grid.Row="2" 
-                                 IsRefreshing="{Binding IsRefreshing}">
-                    <sfpulltorefresh:SfPullToRefresh.PullableContent>
-
-                        <sflistview:SfListView x:Name="FamilyListView"
-                                           ItemsSource="{Binding Items}"
-                                           SelectionMode="Multiple"
-                                           SelectionGesture="LongPress"
-                                           SelectionBackground="{AppThemeBinding Light=#E8D5C4, Dark=#4A3A30}"
-                                           ItemTapped="OnItemTapped"
-                                           ItemLongPress="OnItemLongPress"
-                                           SelectionChanged="OnSelectionChanged"
-                                           SwipeStarting="OnSwipeStarting"
-                                           Swiping="OnSwiping"
-                                           SwipeEnded="OnSwipeEnded"
-                                           ItemSpacing="0"
-                                           BackgroundColor="Transparent"
-                                           ScrollBarVisibility="Never"
-                                           Margin="0,0,0,0"
-                                           ItemSize="100"
-                                           AllowSwiping="True"
-                                           SwipeOffset="90"
-                                           SwipeThreshold="90">
-
-                            <sflistview:SfListView.StartSwipeTemplate>
-                                <DataTemplate>
-                                    <Grid BackgroundColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}" 
-                                          HorizontalOptions="Fill" 
-                                          VerticalOptions="Fill">
-                                        <Label Text="⭐"
-                                               FontSize="32"
-                                               TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
-                                               HorizontalOptions="Center"
-                                               VerticalOptions="Center" />
-                                    </Grid>
-                                </DataTemplate>
-                            </sflistview:SfListView.StartSwipeTemplate>
-
-                            <sflistview:SfListView.EndSwipeTemplate>
-                                <DataTemplate>
-                                    <Grid BackgroundColor="{AppThemeBinding Light={StaticResource ErrorColor}, Dark={StaticResource ErrorColor}}" 
-                                          HorizontalOptions="Fill" 
-                                          VerticalOptions="Fill">
-                                        <Label Text="🗑️"
-                                               FontSize="32"
-                                               TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
-                                               HorizontalOptions="Center"
-                                               VerticalOptions="Center" />
-                                    </Grid>
-                                </DataTemplate>
-                            </sflistview:SfListView.EndSwipeTemplate>
-
-                            <sflistview:SfListView.ItemTemplate>
-                                <DataTemplate x:DataType="vm:FamilyItemViewModel">
-                                    <Grid Margin="0" BackgroundColor="Transparent">
-                                        <Border BackgroundColor="#F9F9F9"
-                                            Stroke="#E0E0E0"
-                                            StrokeThickness="1"
-                                            Margin="6,2">
-                                            <Border.StrokeShape>
-                                                <RoundRectangle CornerRadius="18" />
-                                            </Border.StrokeShape>
-
-                                            <StackLayout Padding="15,12" Spacing="1" BackgroundColor="#EEEEEE">
-
-                                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" >
-                                                    <Label Grid.Column="0"
-                                                           Text="Family"
-                                                           FontSize="14"
-                                                           FontAttributes="Italic"
-                                                           TextColor="#666666"
-                                                           VerticalOptions="End" />
-
-                                                    <Label Grid.Column="1"
-                                                           Text="⭐"
-                                                           FontSize="17"
-                                                           IsVisible="{Binding IsFavorite}"
-                                                           VerticalOptions="Center" />
-
-                                                    <Border Grid.Column="2"
-                                                            BackgroundColor="#4CAF50"
-                                                            Padding="10,4"
-                                                            VerticalOptions="Center"
-                                                            IsVisible="{Binding IsActive}">
-                                                        <Border.StrokeShape>
-                                                            <RoundRectangle CornerRadius="12" />
-                                                        </Border.StrokeShape>
-                                                        <Label Text="Active"
-                                                               FontSize="8"
-                                                               FontAttributes="Bold"
-                                                               TextColor="White" />
-                                                    </Border>
-
-                                                    <!-- Badge Inactive -->
-                                                    <Border Grid.Column="2"
-                                                            BackgroundColor="#F44336"
-                                                            Padding="10,4"
-                                                            VerticalOptions="Center">
-                                                        <Border.IsVisible>
-                                                            <Binding Path="IsActive">
-                                                                <Binding.Converter>
-                                                                    <toolkit:InvertedBoolConverter />
-                                                                </Binding.Converter>
-                                                            </Binding>
-                                                        </Border.IsVisible>
-                                                        <Border.StrokeShape>
-                                                            <RoundRectangle CornerRadius="12" />
-                                                        </Border.StrokeShape>
-                                                        <Label Text="Inactive"
-                                                               FontSize="8"
-                                                               FontAttributes="Bold"
-                                                               TextColor="White" />
-                                                    </Border>
-                                                </Grid>
-
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,4">
-                                                    <StackLayout Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalOptions="Start">
-                                                        <Label Text="{Binding Name}"
-                                                               FontSize="16"
-                                                               FontAttributes="Bold"
-                                                               TextColor="#333333"
-                                                               VerticalOptions="End" />
-                                                    </StackLayout>
-
-                                                    <Label Grid.Column="1"
-                                                           Text="{Binding CreatedAt, StringFormat='{0:dd/MM/yyyy}'}"
-                                                           FontSize="12"
-                                                           TextColor="#999999"
-                                                           VerticalOptions="End"
-                                                           HorizontalOptions="Center" />
-                                                </Grid>
-
-                                                <Label Text="{Binding DescriptionPreview}"
-                                                       FontSize="12"
-                                                       TextColor="#666666"
-                                                       LineBreakMode="TailTruncation"
-                                                       MaxLines="1"
-                                                       IsVisible="{Binding DescriptionPreview, Converter={StaticResource StringToBoolConverter}}" />
-
-                                            </StackLayout>
-                                        </Border>
-                                    </Grid>
-                                </DataTemplate>
-                            </sflistview:SfListView.ItemTemplate>
-
-                            <!-- CRITICAL FIX: EmptyView that shows ONLY when not loading -->
-                            <sflistview:SfListView.EmptyView>
-                                <Grid>
-                                    <!-- Empty state - only visible when NOT loading -->
-                                    <ContentView Style="{StaticResource GenericEmptyStateStyle}"
-                                               BindingContext="{Binding Source={x:Reference ParentPage}, Path=BindingContext}">
-                                        <ContentView.IsVisible>
-                                            <Binding Path="IsLoading">
-                                                <Binding.Converter>
-                                                    <toolkit:InvertedBoolConverter />
-                                                </Binding.Converter>
-                                            </Binding>
-                                        </ContentView.IsVisible>
-                                    </ContentView>
+                    <!-- Search bar -->
+                    <Border Grid.Row="1" Style="{StaticResource SearchBarContainerStyle}">
+                        <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="5" Padding="2,0,2,0">
+                            <!-- Search field -->
+                            <Border Grid.Column="0" Style="{StaticResource SearchFieldBorderStyle}" >
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="0" Margin="5,0,5,0">
+                                    <Entry Grid.Column="1"
+                                           Text="{Binding SearchText}"
+                                           Placeholder="Search..."
+                                           Style="{StaticResource SearchEntryStyle}"
+                                           ReturnCommand="{Binding ApplyFilterCommand}"
+                                           Focused="OnSearchFocused"
+                                           Unfocused="OnSearchUnfocused"
+                                           TextChanged="OnSearchTextChanged" />
+                                    <Button Grid.Column="2"
+                                            Style="{StaticResource SearchClearButtonStyle}"
+                                            Command="{Binding ClearFilterCommand}"
+                                            IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}" />
                                 </Grid>
-                            </sflistview:SfListView.EmptyView>
+                            </Border>
+                            <!-- Filter button -->
+                            <Border Grid.Column="1" Style="{StaticResource SearchActionButtonStyle}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnFilterTapped" />
+                                </Border.GestureRecognizers>
+                                <Label Text="📊" Style="{StaticResource SearchActionIconStyle}" />
+                            </Border>
+                            <!-- Sort button -->
+                            <Border Grid.Column="2" Style="{StaticResource SearchActionButtonStyle}">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnSortTapped" />
+                                </Border.GestureRecognizers>
+                                <Label Text="🔄" Style="{StaticResource SearchActionIconStyle}" />
+                            </Border>
+                        </Grid>
+                    </Border>
 
-                        </sflistview:SfListView>
-                    </sfpulltorefresh:SfPullToRefresh.PullableContent>
+                    <!-- ListView container -->
+                    <sfpulltorefresh:SfPullToRefresh x:Name="ListRefresh"
+                                     Grid.Row="2" 
+                                     IsRefreshing="{Binding IsRefreshing}">
+                        <sfpulltorefresh:SfPullToRefresh.PullableContent>
 
-                </sfpulltorefresh:SfPullToRefresh>
+                            <sflistview:SfListView x:Name="FamilyListView"
+                                               ItemsSource="{Binding Items}"
+                                               SelectionMode="Multiple"
+                                               SelectionGesture="LongPress"
+                                               SelectionBackground="{AppThemeBinding Light=#E8D5C4, Dark=#4A3A30}"
+                                               ItemTapped="OnItemTapped"
+                                               ItemLongPress="OnItemLongPress"
+                                               SelectionChanged="OnSelectionChanged"
+                                               SwipeStarting="OnSwipeStarting"
+                                               Swiping="OnSwiping"
+                                               SwipeEnded="OnSwipeEnded"
+                                               ItemSpacing="0"
+                                               BackgroundColor="Transparent"
+                                               ScrollBarVisibility="Never"
+                                               Margin="0,0,0,0"
+                                               ItemSize="100"
+                                               AllowSwiping="True"
+                                               SwipeOffset="90"
+                                               SwipeThreshold="90">
 
-            </Grid>
-        </Border>
+                                <sflistview:SfListView.StartSwipeTemplate>
+                                    <DataTemplate>
+                                        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource WarningColor}, Dark={StaticResource WarningColor}}" 
+                                              HorizontalOptions="Fill" 
+                                              VerticalOptions="Fill">
+                                            <Label Text="⭐"
+                                                   FontSize="32"
+                                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </sflistview:SfListView.StartSwipeTemplate>
 
-        <!-- CRITICAL FIX: Custom loading overlay (not using style template) -->
-        <Grid IsVisible="{Binding IsLoading}" BackgroundColor="#80000000">
+                                <sflistview:SfListView.EndSwipeTemplate>
+                                    <DataTemplate>
+                                        <Grid BackgroundColor="{AppThemeBinding Light={StaticResource ErrorColor}, Dark={StaticResource ErrorColor}}" 
+                                              HorizontalOptions="Fill" 
+                                              VerticalOptions="Fill">
+                                            <Label Text="🗑️"
+                                                   FontSize="32"
+                                                   TextColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource White}}"
+                                                   HorizontalOptions="Center"
+                                                   VerticalOptions="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </sflistview:SfListView.EndSwipeTemplate>
+
+                                <sflistview:SfListView.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FamilyItemViewModel">
+                                        <Grid Margin="0" BackgroundColor="Transparent">
+                                            <Border BackgroundColor="#F9F9F9"
+                                                Stroke="#E0E0E0"
+                                                StrokeThickness="1"
+                                                Margin="6,2">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="18" />
+                                                </Border.StrokeShape>
+
+                                                <StackLayout Padding="15,12" Spacing="1" BackgroundColor="#EEEEEE">
+
+                                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" >
+                                                        <Label Grid.Column="0"
+                                                               Text="Family"
+                                                               FontSize="14"
+                                                               FontAttributes="Italic"
+                                                               TextColor="#666666"
+                                                               VerticalOptions="End" />
+
+                                                        <Label Grid.Column="1"
+                                                               Text="⭐"
+                                                               FontSize="17"
+                                                               IsVisible="{Binding IsFavorite}"
+                                                               VerticalOptions="Center" />
+
+                                                        <Border Grid.Column="2"
+                                                                BackgroundColor="#4CAF50"
+                                                                Padding="10,4"
+                                                                VerticalOptions="Center"
+                                                                IsVisible="{Binding IsActive}">
+                                                            <Border.StrokeShape>
+                                                                <RoundRectangle CornerRadius="12" />
+                                                            </Border.StrokeShape>
+                                                            <Label Text="Active"
+                                                                   FontSize="8"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="White" />
+                                                        </Border>
+
+                                                        <!-- Badge Inactive -->
+                                                        <Border Grid.Column="2"
+                                                                BackgroundColor="#F44336"
+                                                                Padding="10,4"
+                                                                VerticalOptions="Center">
+                                                            <Border.IsVisible>
+                                                                <Binding Path="IsActive">
+                                                                    <Binding.Converter>
+                                                                        <toolkit:InvertedBoolConverter />
+                                                                    </Binding.Converter>
+                                                                </Binding>
+                                                            </Border.IsVisible>
+                                                            <Border.StrokeShape>
+                                                                <RoundRectangle CornerRadius="12" />
+                                                            </Border.StrokeShape>
+                                                            <Label Text="Inactive"
+                                                                   FontSize="8"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="White" />
+                                                        </Border>
+                                                    </Grid>
+
+                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,4">
+                                                        <StackLayout Grid.Column="0" Orientation="Horizontal" Spacing="8" VerticalOptions="Start">
+                                                            <Label Text="{Binding Name}"
+                                                                   FontSize="16"
+                                                                   FontAttributes="Bold"
+                                                                   TextColor="#333333"
+                                                                   VerticalOptions="End" />
+                                                        </StackLayout>
+
+                                                        <Label Grid.Column="1"
+                                                               Text="{Binding CreatedAt, StringFormat='{0:dd/MM/yyyy}'}"
+                                                               FontSize="12"
+                                                               TextColor="#999999"
+                                                               VerticalOptions="End"
+                                                               HorizontalOptions="Center" />
+                                                    </Grid>
+
+                                                    <Label Text="{Binding DescriptionPreview}"
+                                                           FontSize="12"
+                                                           TextColor="#666666"
+                                                           LineBreakMode="TailTruncation"
+                                                           MaxLines="1"
+                                                           IsVisible="{Binding DescriptionPreview, Converter={StaticResource StringToBoolConverter}}" />
+
+                                                </StackLayout>
+                                            </Border>
+                                        </Grid>
+                                    </DataTemplate>
+                                </sflistview:SfListView.ItemTemplate>
+
+                                <!-- EmptyView - works great when content is visible -->
+                                <sflistview:SfListView.EmptyView>
+                                    <Grid>
+                                        <StackLayout Spacing="20" 
+                                                   HorizontalOptions="Center" 
+                                                   VerticalOptions="Center"
+                                                   Padding="40">
+
+                                            <!-- Plant icon with background -->
+                                            <Border BackgroundColor="{AppThemeBinding Light=#E8F5E8, Dark=#2E4A2E}"
+                                                    Stroke="{AppThemeBinding Light=#4CAF50, Dark=#4CAF50}"
+                                                    StrokeThickness="2"
+                                                    WidthRequest="80"
+                                                    HeightRequest="80"
+                                                    HorizontalOptions="Center">
+                                                <Border.StrokeShape>
+                                                    <RoundRectangle CornerRadius="40" />
+                                                </Border.StrokeShape>
+                                                <Label Text="🌿"
+                                                       FontSize="40"
+                                                       HorizontalOptions="Center"
+                                                       VerticalOptions="Center" />
+                                            </Border>
+
+                                            <!-- Text content -->
+                                            <StackLayout Spacing="8" HorizontalOptions="Center">
+                                                <Label Text="No families found"
+                                                       FontSize="18"
+                                                       FontAttributes="Bold"
+                                                       TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                                                       HorizontalOptions="Center" />
+                                                <Label Text="No families to display"
+                                                       FontSize="14"
+                                                       TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                                                       HorizontalOptions="Center" />
+                                            </StackLayout>
+                                        </StackLayout>
+                                    </Grid>
+                                </sflistview:SfListView.EmptyView>
+
+                            </sflistview:SfListView>
+                        </sfpulltorefresh:SfPullToRefresh.PullableContent>
+
+                    </sfpulltorefresh:SfPullToRefresh>
+
+                </Grid>
+            </Border>
+        </Grid>
+
+        <!-- 2. LOADING GRID - Completely separate, covers everything -->
+        <Grid x:Name="LoadingGrid" 
+              IsVisible="{Binding IsLoading}"
+              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
+
             <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray900}}"
                     Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
                     StrokeThickness="1"
@@ -305,7 +336,7 @@
                 </Border.StrokeShape>
 
                 <StackLayout Spacing="15" HorizontalOptions="Center">
-                    <ActivityIndicator IsRunning="True" 
+                    <ActivityIndicator IsRunning="{Binding IsLoading}" 
                                      Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" 
                                      WidthRequest="40" 
                                      HeightRequest="40" />
@@ -315,13 +346,16 @@
                            HorizontalOptions="Center" />
                 </StackLayout>
             </Border>
+
         </Grid>
 
-        <!-- FAB -->
+        <!-- 3. FAB - Hidden during loading, with animation -->
         <Button x:Name="FabButton"
                 Text="{Binding FabText, FallbackValue='Add Family'}"
                 Style="{StaticResource FabButtonStyle}"
-                IsVisible="True"
+                IsVisible="False"
+                Opacity="0"
+                Scale="0.7"
                 IsEnabled="{Binding IsConnected, FallbackValue=True}"
                 Clicked="OnFabTapped" />
 
