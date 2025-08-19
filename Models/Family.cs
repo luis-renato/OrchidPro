@@ -91,7 +91,7 @@ public class Family : IBaseEntity
     /// </summary>
     public bool IsValid(out List<string> errors)
     {
-        errors = new List<string>();
+        errors = [];
 
         if (string.IsNullOrWhiteSpace(Name))
             errors.Add("Family name is required");

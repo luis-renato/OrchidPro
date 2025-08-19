@@ -5,15 +5,15 @@ using System.Runtime.CompilerServices;
 namespace OrchidPro.Extensions;
 
 /// <summary>
-/// 🛡️ PADRONIZAÇÃO: Extensions para tratamento centralizado de erros do OrchidPro
-/// Substitui todos os try/catch espalhados pelo código
+/// Extension methods for centralized error handling throughout OrchidPro
+/// Replaces scattered try-catch blocks with consistent error handling
 /// </summary>
 public static class ErrorHandlingExtensions
 {
-    #region 🛡️ Safe Execution Methods
+    #region Safe Execution Methods
 
     /// <summary>
-    /// ✅ Execução segura de ação síncrona com logging automático
+    /// Safe execution of synchronous action with automatic logging
     /// </summary>
     public static bool SafeExecute(this object source, Action action, string? operationName = null, [CallerMemberName] string memberName = "")
     {
@@ -34,7 +34,7 @@ public static class ErrorHandlingExtensions
     }
 
     /// <summary>
-    /// ✅ Execução segura de ação assíncrona com logging automático
+    /// Safe execution of asynchronous action with automatic logging
     /// </summary>
     public static async Task<bool> SafeExecuteAsync(this object source, Func<Task> action, string? operationName = null, [CallerMemberName] string memberName = "")
     {
@@ -55,7 +55,7 @@ public static class ErrorHandlingExtensions
     }
 
     /// <summary>
-    /// ✅ Execução segura com retorno de valor
+    /// Safe execution with return value
     /// </summary>
     public static T? SafeExecute<T>(this object source, Func<T> func, T? fallbackValue = default, string? operationName = null, [CallerMemberName] string memberName = "")
     {
@@ -76,7 +76,7 @@ public static class ErrorHandlingExtensions
     }
 
     /// <summary>
-    /// ✅ Execução segura assíncrona com retorno de valor
+    /// Safe asynchronous execution with return value
     /// </summary>
     public static async Task<T?> SafeExecuteAsync<T>(this object source, Func<Task<T>> func, T? fallbackValue = default, string? operationName = null, [CallerMemberName] string memberName = "")
     {
@@ -98,10 +98,10 @@ public static class ErrorHandlingExtensions
 
     #endregion
 
-    #region 🎯 Specialized Error Handling
+    #region Specialized Error Handling
 
     /// <summary>
-    /// 💾 Execução segura para operações de dados com tratamento específico
+    /// Safe execution for data operations with specific error handling
     /// </summary>
     public static async Task<RepositoryResult<T>> SafeDataExecuteAsync<T>(this object source, Func<Task<T>> dataOperation, string entityType, [CallerMemberName] string memberName = "")
     {
@@ -171,7 +171,7 @@ public static class ErrorHandlingExtensions
     }
 
     /// <summary>
-    /// 🎨 Execução segura para animações com fallback silencioso
+    /// Safe execution for animations with silent fallback
     /// </summary>
     public static async Task SafeAnimationExecuteAsync(this object source, Func<Task> animationAction, string animationType, [CallerMemberName] string memberName = "")
     {
@@ -183,13 +183,13 @@ public static class ErrorHandlingExtensions
         }
         catch (Exception ex)
         {
-            // Para animações, log de warning apenas - não quebrar UX
+            // For animations, only log warning - don't break UX
             source.LogWarning($"Animation {animationType} failed: {ex.Message}", memberName);
         }
     }
 
     /// <summary>
-    /// 🧭 Execução segura para navegação com fallback
+    /// Safe execution for navigation with fallback
     /// </summary>
     public static async Task<bool> SafeNavigationExecuteAsync(this object source, Func<Task> navigationAction, string destination, [CallerMemberName] string memberName = "")
     {
@@ -209,10 +209,10 @@ public static class ErrorHandlingExtensions
 
     #endregion
 
-    #region 🔄 Retry Mechanisms
+    #region Retry Mechanisms
 
     /// <summary>
-    /// 🔄 Execução com retry automático para operações críticas
+    /// Execution with automatic retry for critical operations
     /// </summary>
     public static async Task<T?> SafeExecuteWithRetryAsync<T>(
         this object source,
@@ -224,7 +224,6 @@ public static class ErrorHandlingExtensions
     {
         var operation = operationName ?? memberName;
         var retryDelay = delay ?? TimeSpan.FromSeconds(1);
-        Exception? lastException = null;
 
         for (int attempt = 1; attempt <= maxRetries; attempt++)
         {
@@ -246,8 +245,6 @@ public static class ErrorHandlingExtensions
             }
             catch (Exception ex)
             {
-                lastException = ex;
-
                 if (attempt < maxRetries)
                 {
                     source.LogWarning($"{operation} failed on attempt {attempt}: {ex.Message}, retrying in {retryDelay.TotalSeconds}s", memberName);
@@ -260,11 +257,11 @@ public static class ErrorHandlingExtensions
             }
         }
 
-        return default(T);
+        return default;
     }
 
     /// <summary>
-    /// 🔄 Retry específico para operações de rede
+    /// Retry specific for network operations
     /// </summary>
     public static async Task<T?> SafeNetworkExecuteAsync<T>(
         this object source,
@@ -283,10 +280,10 @@ public static class ErrorHandlingExtensions
 
     #endregion
 
-    #region 🔧 Validation Helpers
+    #region Validation Helpers
 
     /// <summary>
-    /// ✅ Validação segura com logging
+    /// Safe validation with logging
     /// </summary>
     public static bool SafeValidate(this object source, Func<bool> validation, string validationType, [CallerMemberName] string memberName = "")
     {
@@ -310,7 +307,7 @@ public static class ErrorHandlingExtensions
     }
 
     /// <summary>
-    /// ✅ Validação assíncrona segura
+    /// Safe asynchronous validation
     /// </summary>
     public static async Task<bool> SafeValidateAsync(this object source, Func<Task<bool>> validation, string validationType, [CallerMemberName] string memberName = "")
     {
@@ -335,10 +332,10 @@ public static class ErrorHandlingExtensions
 
     #endregion
 
-    #region 🔄 IDisposable Safe Disposal
+    #region IDisposable Safe Disposal
 
     /// <summary>
-    /// 🗑️ Dispose seguro com logging
+    /// Safe disposal with logging
     /// </summary>
     public static void SafeDispose(this object source, IDisposable? disposable, string? resourceName = null, [CallerMemberName] string memberName = "")
     {
@@ -360,10 +357,10 @@ public static class ErrorHandlingExtensions
     #endregion
 }
 
-#region 📊 Result Classes
+#region Result Classes
 
 /// <summary>
-/// ✅ Classe padrão para resultados de operações de repositório
+/// Standard class for repository operation results
 /// </summary>
 public class RepositoryResult<T>
 {
@@ -375,7 +372,7 @@ public class RepositoryResult<T>
 }
 
 /// <summary>
-/// ✅ Tipos de erro padronizados
+/// Standard error types
 /// </summary>
 public enum ErrorType
 {

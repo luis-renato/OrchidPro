@@ -6,7 +6,7 @@ using System.Collections.Concurrent;
 namespace OrchidPro.Services.Base;
 
 /// <summary>
-/// PERFORMANCE OPTIMIZED Base repository with smart caching and background refresh.
+/// Performance optimized base repository with smart caching and background refresh.
 /// Fixed version with proper syntax and all interface implementations.
 /// </summary>
 public abstract class BaseRepository<T> : IBaseRepository<T>
@@ -22,7 +22,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
 
     #endregion
 
-    #region PERFORMANCE: Smart Background Refresh
+    #region Performance Smart Background Refresh
 
     /// <summary>
     /// Background refresh timer for proactive cache updates
@@ -63,10 +63,10 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
 
     #endregion
 
-    #region PERFORMANCE OPTIMIZED: Core Methods
+    #region Performance Optimized Core Methods
 
     /// <summary>
-    /// OPTIMIZED GetAll with smart cache management and background refresh
+    /// Optimized GetAll with smart cache management and background refresh
     /// </summary>
     public virtual async Task<List<T>> GetAllAsync(bool includeInactive = false)
     {
@@ -87,7 +87,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
                     }
 
                     // Start background refresh if cache is stale but not empty
-                    if (_entityCache.Any() && IsCacheStale())
+                    if (!_entityCache.IsEmpty && IsCacheStale())
                     {
                         _ = Task.Run(RefreshCacheInternalAsync);
                         this.LogInfo("Using stale cache while refreshing in background");
@@ -126,7 +126,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
     }
 
     /// <summary>
-    /// OPTIMIZED GetById with cache-first approach
+    /// Optimized GetById with cache-first approach
     /// </summary>
     public virtual async Task<T?> GetByIdAsync(Guid id)
     {
@@ -149,7 +149,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
     }
 
     /// <summary>
-    /// OPTIMIZED Create with immediate cache update
+    /// Optimized Create with immediate cache update
     /// </summary>
     public virtual async Task<T> CreateAsync(T entity)
     {
@@ -189,7 +189,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
     }
 
     /// <summary>
-    /// OPTIMIZED Update with immediate cache sync
+    /// Optimized Update with immediate cache sync
     /// </summary>
     public virtual async Task<T> UpdateAsync(T entity)
     {
@@ -225,7 +225,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
     }
 
     /// <summary>
-    /// OPTIMIZED Delete with immediate cache removal
+    /// Optimized Delete with immediate cache removal
     /// </summary>
     public virtual async Task<bool> DeleteAsync(Guid id)
     {
@@ -253,7 +253,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
 
     #endregion
 
-    #region PERFORMANCE OPTIMIZED: Cache Management
+    #region Performance Optimized Cache Management
 
     /// <summary>
     /// Check if cache is valid (not expired)
@@ -262,7 +262,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
     {
         return _lastCacheUpdate.HasValue &&
                DateTime.UtcNow - _lastCacheUpdate.Value < _cacheValidTime &&
-               _entityCache.Any();
+               !_entityCache.IsEmpty;
     }
 
     /// <summary>
@@ -272,7 +272,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
     {
         return _lastCacheUpdate.HasValue &&
                DateTime.UtcNow - _lastCacheUpdate.Value > TimeSpan.FromMinutes(6) &&
-               _entityCache.Any();
+               !_entityCache.IsEmpty;
     }
 
     /// <summary>
@@ -283,11 +283,11 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
         var entities = _entityCache.Values.ToList();
         return includeInactive
             ? entities
-            : entities.Where(e => e.IsActive).ToList();
+            : [.. entities.Where(e => e.IsActive)];
     }
 
     /// <summary>
-    /// OPTIMIZED refresh cache with parallel processing
+    /// Optimized refresh cache with parallel processing
     /// </summary>
     protected async Task RefreshCacheInternalAsync()
     {
@@ -415,7 +415,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
                 });
             }, $"Filtered {EntityTypeName}");
 
-            return result.Success && result.Data != null ? result.Data : new List<T>();
+            return result.Success && result.Data != null ? result.Data : [];
         }
     }
 
@@ -480,7 +480,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
             TrackAccess($"NameExists-{name}");
 
             // Use cache if available
-            if (_entityCache.Any())
+            if (!_entityCache.IsEmpty)
             {
                 var exists = _entityCache.Values.Any(e =>
                     string.Equals(e.Name, name, StringComparison.OrdinalIgnoreCase) &&
@@ -501,12 +501,7 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                var entity = await GetByIdAsync(entityId);
-                if (entity == null)
-                {
-                    throw new ArgumentException($"{EntityTypeName} with ID {entityId} not found");
-                }
-
+                var entity = await GetByIdAsync(entityId) ?? throw new ArgumentException($"{EntityTypeName} with ID {entityId} not found");
                 var originalStatus = entity.IsFavorite;
                 entity.IsFavorite = !entity.IsFavorite;
                 entity.UpdatedAt = DateTime.UtcNow;
@@ -602,17 +597,16 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
 
     #endregion
 
-    #region PERFORMANCE OPTIMIZED: Helper Methods
+    #region Performance Optimized Helper Methods
 
     /// <summary>
-    /// OPTIMIZED parallel text search
+    /// Optimized parallel text search with improved string comparisons
     /// </summary>
     protected virtual ParallelQuery<T> ApplyTextSearchParallel(ParallelQuery<T> entities, string searchText)
     {
-        var searchLower = searchText.ToLower();
         return entities.Where(e =>
-            e.Name.ToLower().Contains(searchLower) ||
-            (!string.IsNullOrEmpty(e.Description) && e.Description.ToLower().Contains(searchLower)));
+            e.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+            (!string.IsNullOrEmpty(e.Description) && e.Description.Contains(searchText, StringComparison.OrdinalIgnoreCase)));
     }
 
     #endregion
@@ -627,12 +621,136 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
             _semaphore?.Dispose();
         }
     }
-
+    /*
     public void Dispose()
     {
         Dispose(true);
         GC.SuppressFinalize(this);
     }
 
+    #endregion
+
+    #region Performance Extensions
+
+    /// <summary>
+    /// Performance optimized: Get multiple entities by IDs in a single efficient operation
+    /// </summary>
+    public virtual async Task<List<T>> GetByIdsAsync(IEnumerable<Guid> ids)
+    {
+        var idsList = ids.ToList();
+        if (idsList.Count == 0) return [];
+
+        using (this.LogPerformance($"Batch Get {EntityTypeName} by {idsList.Count} IDs"))
+        {
+            TrackAccess($"GetByIds-{idsList.Count}");
+
+            // Try to get from cache first
+            var cachedEntities = new List<T>();
+            var missingIds = new List<Guid>();
+
+            foreach (var id in idsList)
+            {
+                if (_entityCache.TryGetValue(id, out var cachedEntity))
+                {
+                    cachedEntities.Add(cachedEntity);
+                }
+                else
+                {
+                    missingIds.Add(id);
+                }
+            }
+
+            // If we have all entities cached, return immediately
+            if (missingIds.Count == 0)
+            {
+                this.LogInfo($"All {idsList.Count} entities found in cache");
+                return cachedEntities;
+            }
+
+            // Load missing entities efficiently
+            if (missingIds.Count < idsList.Count / 2)
+            {
+                // Less than half missing - load individually
+                foreach (var id in missingIds)
+                {
+                    var entity = await GetByIdFromServiceAsync(id);
+                    if (entity != null)
+                    {
+                        cachedEntities.Add(entity);
+                        _entityCache.TryAdd(entity.Id, entity);
+                    }
+                }
+            }
+            else
+            {
+                // More than half missing - refresh entire cache
+                await RefreshCacheInternalAsync();
+
+                // Get all requested entities from refreshed cache
+                cachedEntities.Clear();
+                foreach (var id in idsList)
+                {
+                    if (_entityCache.TryGetValue(id, out var entity))
+                    {
+                        cachedEntities.Add(entity);
+                    }
+                }
+            }
+
+            return cachedEntities;
+        }
+    }
+
+    /// <summary>
+    /// Performance optimized: Preload related entities to warm cache
+    /// </summary>
+    public virtual async Task WarmCacheAsync(TimeSpan? maxAge = null)
+    {
+        var cacheAge = _lastCacheUpdate.HasValue ? DateTime.UtcNow - _lastCacheUpdate.Value : TimeSpan.MaxValue;
+        var maxCacheAge = maxAge ?? TimeSpan.FromMinutes(5);
+
+        if (cacheAge < maxCacheAge && _entityCache.Count > 0)
+        {
+            this.LogInfo($"Cache is warm (age: {cacheAge.TotalMinutes:F1}min) - skipping");
+            return;
+        }
+
+        using (this.LogPerformance($"Warm Cache {EntityTypeName}"))
+        {
+            await _semaphore.WaitAsync();
+            try
+            {
+                this.LogInfo($"Warming cache - current age: {cacheAge.TotalMinutes:F1}min");
+                await RefreshCacheInternalAsync();
+            }
+            finally
+            {
+                _semaphore.Release();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Performance monitoring: Get detailed cache statistics
+    /// </summary>
+    public virtual Dictionary<string, object> GetCacheStatistics()
+    {
+        var cacheAge = _lastCacheUpdate.HasValue ? DateTime.UtcNow - _lastCacheUpdate.Value : TimeSpan.Zero;
+        var recentAccessCount = _accessPatterns.Values.Count(time =>
+            DateTime.UtcNow - time < TimeSpan.FromMinutes(5));
+
+        return new Dictionary<string, object>
+        {
+            ["EntityCount"] = _entityCache.Count,
+            ["CacheAgeMinutes"] = cacheAge.TotalMinutes,
+            ["IsValid"] = IsCacheValid(),
+            ["IsStale"] = IsCacheStale(),
+            ["AccessPatternsCount"] = _accessPatterns.Count,
+            ["RecentAccessCount"] = recentAccessCount,
+            ["LastUpdate"] = _lastCacheUpdate?.ToString() ?? "Never",
+            ["MemoryPressure"] = GC.GetTotalMemory(false)
+        };
+    }
+    */
     #endregion
 }

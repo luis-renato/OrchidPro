@@ -4,81 +4,94 @@
                     xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core">
 
     <!-- ✅ TEMPLATE 1: LOADING OVERLAY CONTROL TEMPLATE -->
-    <!-- Para FamiliesListPage com IsLoading -->
     <ControlTemplate x:Key="LoadingOverlayTemplate">
-        <Grid IsVisible="{Binding IsLoading}" 
-              BackgroundColor="#80000000">
-            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                   BorderColor="{StaticResource BorderColor}"
-                   CornerRadius="16"
-                   Padding="32"
-                   HorizontalOptions="Center"
-                   VerticalOptions="Center"
-                   HasShadow="True">
+        <Grid x:Name="LoadingGrid" 
+             IsVisible="{Binding IsLoading}"
+             BackgroundColor="#90000000"
+             InputTransparent="False">
+
+            <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray900}}"
+                 Stroke="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray700}}"
+                 StrokeThickness="0.5"
+                 Padding="32,24"
+                 HorizontalOptions="Center"
+                 VerticalOptions="Center"
+                 Shadow="{AppThemeBinding Light={StaticResource ButtonShadow}, Dark={StaticResource ButtonShadowDark}}">
+
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
 
                 <StackLayout Spacing="16" HorizontalOptions="Center">
-                    <!-- SfBusyIndicator sem overlay próprio -->
-                    <sfbusy:SfBusyIndicator IsVisible="True"
-                                            IsRunning="True"
-                                            AnimationType="HorizontalPulsingBox"
-                                            IndicatorColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
-                                            OverlayFill="Transparent"
-                                            WidthRequest="50"
-                                            HeightRequest="50" />
 
-                    <!-- Mensagem customizada para FamiliesListPage -->
-                    <Label Text="Loading..."
-                           FontSize="16"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
+                    <!-- 🌺 Orchid icon + Loading text inline -->
+                    <StackLayout Orientation="Horizontal" Spacing="12" HorizontalOptions="Center">
+                        <Label Text="🌺"
+                     FontSize="20"
+                     VerticalOptions="Center" />
+                        <Label Text="Loading..."
+                     FontSize="16"
+                     TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                     VerticalOptions="Center" />
+                    </StackLayout>
+
+                    <!-- 🎯 Compact LinearMaterial progress bar -->
+                    <sfbusy:SfBusyIndicator IsRunning="{Binding IsLoading}"
+                           AnimationType="LinearMaterial"
+                           IndicatorColor="{StaticResource Primary}"
+                           WidthRequest="160"
+                           HeightRequest="4"
                            HorizontalOptions="Center" />
 
-                    <!-- Ícone opcional para operações de loading -->
-                    <Label Text="🌿"
-                           FontSize="24"
-                           HorizontalOptions="Center" />
                 </StackLayout>
-
-            </Frame>
+            </Border>
         </Grid>
+
     </ControlTemplate>
 
     <!-- Para FamilyEditPage com IsBusy -->
     <ControlTemplate x:Key="SavingOverlayTemplate">
-        <Grid IsVisible="{Binding IsBusy}" 
-              BackgroundColor="#80000000">
-            <Frame BackgroundColor="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}"
-                   BorderColor="{StaticResource BorderColor}"
-                   CornerRadius="16"
-                   Padding="32"
-                   HorizontalOptions="Center"
-                   VerticalOptions="Center"
-                   HasShadow="True">
+        <Grid x:Name="SavingGrid" 
+             IsVisible="{Binding IsBusy}"
+             BackgroundColor="#90000000"
+             InputTransparent="False">
+            
+            <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray900}}"
+                 Stroke="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray700}}"
+                 StrokeThickness="0.5"
+                 Padding="32,24"
+                 HorizontalOptions="Center"
+                 VerticalOptions="Center"
+                 Shadow="{AppThemeBinding Light={StaticResource ButtonShadow}, Dark={StaticResource ButtonShadowDark}}">
+
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
 
                 <StackLayout Spacing="16" HorizontalOptions="Center">
-                    <!-- SfBusyIndicator sem overlay próprio -->
-                    <sfbusy:SfBusyIndicator IsVisible="True"
-                                            IsRunning="True"
-                                            AnimationType="HorizontalPulsingBox"
-                                            IndicatorColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}"
-                                            OverlayFill="Transparent"
-                                            WidthRequest="50"
-                                            HeightRequest="50" />
 
-                    <!-- Mensagem customizada para FamilyEditPage -->
-                    <Label Text="Saving..."
-                           FontSize="16"
-                           FontAttributes="Bold"
-                           TextColor="{AppThemeBinding Light={StaticResource OnSurface}, Dark={StaticResource White}}"
+                    <!-- 🌺 Orchid icon + Loading text inline -->
+                    <StackLayout Orientation="Horizontal" Spacing="12" HorizontalOptions="Center">
+                        <Label Text="💾"
+                     FontSize="20"
+                     VerticalOptions="Center" />
+                        <Label Text="Saving..."
+                     FontSize="16"
+                     TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                     VerticalOptions="Center" />
+                    </StackLayout>
+
+                    <!-- 🎯 Compact LinearMaterial progress bar -->
+                    <sfbusy:SfBusyIndicator IsRunning="{Binding IsBusy}"
+                           AnimationType="LinearMaterial"
+                           IndicatorColor="{StaticResource Primary}"
+                           WidthRequest="160"
+                           HeightRequest="4"
                            HorizontalOptions="Center" />
 
-                    <!-- Ícone opcional para operações de save -->
-                    <Label Text="💾"
-                           FontSize="24"
-                           HorizontalOptions="Center" />
                 </StackLayout>
-
-            </Frame>
+            </Border>            
+            
         </Grid>
     </ControlTemplate>
 

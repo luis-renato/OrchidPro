@@ -31,7 +31,7 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
     #region UI Properties - EXACTLY like Species
 
     /// <summary>
-    /// Controls visibility of Save & Add Another button - only show in CREATE mode
+    /// Controls visibility of Save and Add Another button - only show in CREATE mode
     /// </summary>
     public bool ShowSaveAndContinue => !IsEditMode;
 
@@ -81,16 +81,19 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
 
     /// <summary>
     /// Initialize for creating new family - EXACTLY like Species
+    /// FIXED CS1998: Return completed task instead of async without await
     /// </summary>
-    public async Task InitializeForCreateAsync()
+    public Task InitializeForCreateAsync()
     {
-        await this.SafeExecuteAsync(async () =>
+        return this.SafeExecuteAsync(() =>
         {
             this.LogInfo("Initializing for create mode");
 
             HasUnsavedChanges = false;
             OnPropertyChanged(nameof(ShowSaveAndContinue)); // Show Save & Add Another in create mode
             this.LogInfo("Create mode initialization completed - form is clean");
+
+            return Task.CompletedTask;
         }, "Initialize for Create");
     }
 
@@ -177,11 +180,6 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
             }
         }, "Delete Family");
     }
-
-    /// <summary>
-    /// Expose the validation delete command for XAML binding
-    /// The RelayCommand attribute automatically creates DeleteWithValidationCommand
-    /// </summary>
 
     #endregion
 }

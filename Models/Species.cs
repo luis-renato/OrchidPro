@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using OrchidPro.Models.Base;
+using OrchidPro.Services.Base;
 using Supabase.Postgrest.Attributes;
 
 namespace OrchidPro.Models;
@@ -211,7 +212,7 @@ public class Species : IBaseEntity, IHierarchicalEntity<Genus>
             if (Fragrance == true) characteristics.Add("Fragrant");
             if (!string.IsNullOrWhiteSpace(FloweringSeason)) characteristics.Add($"Blooms: {FloweringSeason}");
 
-            return characteristics.Any() ? string.Join(" • ", characteristics) : "Standard species";
+            return characteristics.Count > 0 ? string.Join(" • ", characteristics) : "Standard species";
         }
     }
 
@@ -252,7 +253,7 @@ public class Species : IBaseEntity, IHierarchicalEntity<Genus>
     /// </summary>
     public bool IsValid(out List<string> errors)
     {
-        errors = new List<string>();
+        errors = [];
 
         if (string.IsNullOrWhiteSpace(Name))
             errors.Add("Species name is required");
@@ -376,25 +377,26 @@ public class Species : IBaseEntity, IHierarchicalEntity<Genus>
     /// </summary>
     public string GetSearchableContent()
     {
-        var content = new List<string>
-        {
-            Name,
-            ScientificName,
-            CommonName,
-            Description,
-            CultivationNotes,
-            HabitatInfo,
-            FloweringSeason,
-            FlowerColors,
-            SizeCategory,
-            RarityStatus,
-            TemperaturePreference,
-            LightRequirements,
-            HumidityPreference,
-            GrowthHabit
-        };
+        var content = new List<string>();
 
-        return string.Join(" ", content.Where(s => !string.IsNullOrWhiteSpace(s)));
+        // Add only non-null/non-empty strings to avoid CS8604 warnings
+        if (!string.IsNullOrWhiteSpace(Name)) content.Add(Name);
+        if (!string.IsNullOrWhiteSpace(ScientificName)) content.Add(ScientificName);
+        if (!string.IsNullOrWhiteSpace(CommonName)) content.Add(CommonName);
+        if (!string.IsNullOrWhiteSpace(Description)) content.Add(Description);
+        if (!string.IsNullOrWhiteSpace(CultivationNotes)) content.Add(CultivationNotes);
+        if (!string.IsNullOrWhiteSpace(HabitatInfo)) content.Add(HabitatInfo);
+        if (!string.IsNullOrWhiteSpace(FloweringSeason)) content.Add(FloweringSeason);
+        if (!string.IsNullOrWhiteSpace(FlowerColors)) content.Add(FlowerColors);
+        if (!string.IsNullOrWhiteSpace(SizeCategory)) content.Add(SizeCategory);
+        if (!string.IsNullOrWhiteSpace(RarityStatus)) content.Add(RarityStatus);
+        if (!string.IsNullOrWhiteSpace(TemperaturePreference)) content.Add(TemperaturePreference);
+        if (!string.IsNullOrWhiteSpace(LightRequirements)) content.Add(LightRequirements);
+        if (!string.IsNullOrWhiteSpace(HumidityPreference)) content.Add(HumidityPreference);
+        if (!string.IsNullOrWhiteSpace(GrowthHabit)) content.Add(GrowthHabit);
+        if (!string.IsNullOrWhiteSpace(BloomDuration)) content.Add(BloomDuration);
+
+        return string.Join(" ", content);
     }
 
     #endregion

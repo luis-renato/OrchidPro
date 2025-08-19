@@ -6,17 +6,10 @@ namespace OrchidPro.ViewModels.Families;
 /// <summary>
 /// Family item ViewModel - MINIMAL implementation using base class
 /// MIGRATED FROM 180 LINES TO ~60 LINES - Same pattern as SpeciesItemViewModel
+/// MODERNIZED: Uses primary constructor for cleaner code
 /// </summary>
-public partial class FamilyItemViewModel : BaseItemViewModel<Models.Family>
+public partial class FamilyItemViewModel(Models.Family entity) : BaseItemViewModel<Models.Family>(entity)
 {
-    #region Constructor
-
-    public FamilyItemViewModel(Models.Family entity) : base(entity)
-    {
-    }
-
-    #endregion
-
     #region Required Base Class Override
 
     public override string EntityName => "Family";

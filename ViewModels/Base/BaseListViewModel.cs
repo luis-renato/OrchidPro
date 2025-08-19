@@ -9,8 +9,51 @@ using System.Collections.ObjectModel;
 namespace OrchidPro.ViewModels.Base;
 
 /// <summary>
-/// FIXED Base ViewModel for list views with Syncfusion native sorting support.
-/// All command duplications removed and properly consolidated.
+/// MEMORY OPTIMIZATION: Object pools for temporary collections - MODERNIZED
+/// </summary>
+public static class ListViewModelPools
+{
+    // FIXED IDE0330: Use System.Threading.Lock
+    private static readonly ConcurrentQueue<object> _entityListPool = new();
+    private static readonly Lock _poolLock = new();
+
+    public static List<TEntity> GetTempList<TEntity>()
+    {
+        lock (_poolLock)
+        {
+            if (_entityListPool.TryDequeue(out var pooledItem))
+            {
+                // Safe casting - clear and return typed list
+                if (pooledItem is List<TEntity> typedList)
+                {
+                    typedList.Clear();
+                    return typedList;
+                }
+            }
+
+            // Create new list if nothing available in pool
+            return new List<TEntity>(50);
+        }
+    }
+
+    public static void ReturnTempList<TEntity>(List<TEntity> list)
+    {
+        if (list == null || list.Count > 500) return; // Don't pool huge lists
+
+        lock (_poolLock)
+        {
+            list.Clear();
+            if (_entityListPool.Count < 10) // Limit pool size
+            {
+                _entityListPool.Enqueue(list);
+            }
+        }
+    }
+}
+
+/// <summary>
+/// PERFORMANCE OPTIMIZED Base ViewModel with throttled property changes and debounced UI updates.
+/// FIXED: Loading flash issue during filter operations and all nullability warnings.
 /// </summary>
 public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewModel, IDisposable
     where T : class, IBaseEntity, new()
@@ -37,13 +80,46 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
+    #region PERFORMANCE OPTIMIZATION: Property Change Throttling
+
+    /// <summary>
+    /// Throttle timer for property change events to prevent excessive UI updates
+    /// </summary>
+    private Timer? _propertyChangeThrottleTimer;
+    // FIXED IDE0330: Use System.Threading.Lock
+    private readonly Lock _throttleLock = new();
+    private volatile bool _isPendingPropertyUpdate = false;
+    private string? _pendingPropertyName;
+
+    #endregion
+
+    #region 🔧 LOADING FLASH FIX: State Tracking
+
+    /// <summary>
+    /// Track if initial data has been loaded to prevent unnecessary loading overlays
+    /// </summary>
+    private bool _hasInitialDataLoaded = false;
+
+    /// <summary>
+    /// Track the source of loading operations to determine if overlay should show
+    /// </summary>
+    private enum LoadingSource
+    {
+        InitialLoad,    // First time loading data
+        Filter,         // Filtering existing data
+        Refresh,        // Pull-to-refresh or manual refresh
+        Navigation      // Navigation back to page
+    }
+
+    #endregion
+
     #region Observable Properties
 
     [ObservableProperty]
-    private ObservableCollection<TItemViewModel> items = new();
+    private ObservableCollection<TItemViewModel> items = [];
 
     [ObservableProperty]
-    private ObservableCollection<TItemViewModel> selectedItems = new();
+    private ObservableCollection<TItemViewModel> selectedItems = [];
 
     [ObservableProperty]
     private string searchText = string.Empty;
@@ -97,11 +173,9 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #region Filter and Sort Options
 
-    public List<string> StatusFilterOptions { get; } = new() { "All", "Active", "Inactive", "Favorites" };
-    public List<string> SortOptions { get; } = new()
-    {
-        "Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First"
-    };
+    // FIXED IDE0028: Collection initialization simplified
+    public List<string> StatusFilterOptions { get; } = ["All", "Active", "Inactive", "Favorites"];
+    public List<string> SortOptions { get; } = ["Name A→Z", "Name Z→A", "Recent First", "Oldest First", "Favorites First"];
 
     #endregion
 
@@ -128,21 +202,21 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region Core Commands - FIXED: No Duplications
+    #region Core Commands - FIXED CS8618: Non-nullable properties initialized
 
-    public IAsyncRelayCommand ApplyFilterCommand { get; private set; }
-    public IRelayCommand ClearFilterCommand { get; private set; }
-    public IRelayCommand ClearSelectionCommand { get; private set; }
-    public IAsyncRelayCommand<TItemViewModel> DeleteSingleItemCommand { get; private set; }
-    public IAsyncRelayCommand RefreshCommand { get; private set; }
-    public IAsyncRelayCommand FabActionCommand { get; private set; }
-    public IRelayCommand SelectAllCommand { get; private set; }
-    public IRelayCommand DeselectAllCommand { get; private set; }
-    public IAsyncRelayCommand<TItemViewModel> ToggleFavoriteCommand { get; private set; }
-    public IAsyncRelayCommand DeleteSelectedCommand { get; private set; }
-    public IAsyncRelayCommand NavigateToAddCommand { get; private set; }
-    public IRelayCommand ToggleSortCommand { get; private set; }
-    public IAsyncRelayCommand ToggleStatusFilterCommand { get; private set; }
+    public IAsyncRelayCommand ApplyFilterCommand { get; private set; } = null!;
+    public IRelayCommand ClearFilterCommand { get; private set; } = null!;
+    public IRelayCommand ClearSelectionCommand { get; private set; } = null!;
+    public IAsyncRelayCommand<TItemViewModel> DeleteSingleItemCommand { get; private set; } = null!;
+    public IAsyncRelayCommand RefreshCommand { get; private set; } = null!;
+    public IAsyncRelayCommand FabActionCommand { get; private set; } = null!;
+    public IRelayCommand SelectAllCommand { get; private set; } = null!;
+    public IRelayCommand DeselectAllCommand { get; private set; } = null!;
+    public IAsyncRelayCommand<TItemViewModel?> ToggleFavoriteCommand { get; private set; } = null!; // FIXED CS8622: nullable parameter
+    public IAsyncRelayCommand DeleteSelectedCommand { get; private set; } = null!;
+    public IAsyncRelayCommand NavigateToAddCommand { get; private set; } = null!;
+    public IRelayCommand ToggleSortCommand { get; private set; } = null!;
+    public IAsyncRelayCommand ToggleStatusFilterCommand { get; private set; } = null!;
 
     #endregion
 
@@ -180,9 +254,10 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     #region PERFORMANCE OPTIMIZATION: Favorite Accessor Initialization
 
     /// <summary>
+    /// FIXED CA1822: Made static for better performance
     /// Initialize high-performance IsFavorite accessor eliminating reflection calls
     /// </summary>
-    private Func<TItemViewModel, bool> InitializeFavoriteAccessor()
+    private static Func<TItemViewModel, bool> InitializeFavoriteAccessor()
     {
         var itemType = typeof(TItemViewModel);
 
@@ -230,7 +305,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         FabActionCommand = new AsyncRelayCommand(FabActionAsync);
         SelectAllCommand = new RelayCommand(SelectAll);
         DeselectAllCommand = new RelayCommand(DeselectAll);
-        ToggleFavoriteCommand = new AsyncRelayCommand<TItemViewModel>(ToggleFavoriteAsync);
+        ToggleFavoriteCommand = new AsyncRelayCommand<TItemViewModel?>(ToggleFavoriteAsync);
         DeleteSelectedCommand = new AsyncRelayCommand(DeleteSelectedAsync);
         NavigateToAddCommand = new AsyncRelayCommand(NavigateToAddAsync);
         ToggleSortCommand = new RelayCommand(ToggleSort);
@@ -247,24 +322,118 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region Core Property Change Handling
+    #region PERFORMANCE OPTIMIZATION: Throttled Property Change Handling
 
     /// <summary>
-    /// STREAMLINED: Handle only essential property changes
+    /// PERFORMANCE OPTIMIZED: Throttled property change handler to prevent excessive UI updates
     /// </summary>
     private void OnPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        switch (e.PropertyName)
+        // Critical properties that need immediate response (no throttling)
+        var criticalProperties = new[] { nameof(IsLoading), nameof(SortOrder), nameof(IsMultiSelectMode) };
+
+        if (criticalProperties.Contains(e.PropertyName))
         {
-            case nameof(SearchText):
-            case nameof(StatusFilter):
-                _ = LoadDataAsync();
-                break;
+            HandlePropertyChangeImmediate(e.PropertyName);
+            return;
+        }
+
+        // Non-critical properties use throttled handling
+        var throttleableProperties = new[] { nameof(SearchText), nameof(StatusFilter), nameof(SelectedItems) };
+
+        if (throttleableProperties.Contains(e.PropertyName))
+        {
+            ScheduleThrottledPropertyUpdate(e.PropertyName);
+        }
+    }
+
+    /// <summary>
+    /// PERFORMANCE OPTIMIZATION: Handle critical properties immediately without throttling
+    /// </summary>
+    private void HandlePropertyChangeImmediate(string? propertyName)
+    {
+        switch (propertyName)
+        {
             case nameof(SortOrder):
                 OnSyncfusionSortChanged(SortOrder);
                 break;
             case nameof(SelectedItems):
                 MainThread.BeginInvokeOnMainThread(() => UpdateFabForSelection());
+                break;
+        }
+    }
+
+    /// <summary>
+    /// PERFORMANCE OPTIMIZATION: Schedule throttled property update to prevent rapid-fire changes
+    /// </summary>
+    private void ScheduleThrottledPropertyUpdate(string? propertyName)
+    {
+        if (string.IsNullOrEmpty(propertyName)) return;
+
+        lock (_throttleLock)
+        {
+            // Store the latest property name
+            _pendingPropertyName = propertyName;
+
+            // Cancel existing timer if one is running
+            _propertyChangeThrottleTimer?.Dispose();
+
+            if (!_isPendingPropertyUpdate)
+            {
+                _isPendingPropertyUpdate = true;
+            }
+
+            // Schedule new throttled execution (200ms debounce)
+            _propertyChangeThrottleTimer = new Timer(async _ =>
+            {
+                await ExecuteThrottledPropertyUpdate();
+            }, null, 200, Timeout.Infinite);
+        }
+    }
+
+    /// <summary>
+    /// PERFORMANCE OPTIMIZATION: Execute property update after throttle period
+    /// </summary>
+    private async Task ExecuteThrottledPropertyUpdate()
+    {
+        try
+        {
+            string? propertyToHandle;
+
+            lock (_throttleLock)
+            {
+                propertyToHandle = _pendingPropertyName;
+                _isPendingPropertyUpdate = false;
+                _pendingPropertyName = null;
+                _propertyChangeThrottleTimer?.Dispose();
+                _propertyChangeThrottleTimer = null;
+            }
+
+            if (!string.IsNullOrEmpty(propertyToHandle))
+            {
+                await HandleThrottledPropertyChange(propertyToHandle);
+            }
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error executing throttled property update");
+        }
+    }
+
+    /// <summary>
+    /// PERFORMANCE OPTIMIZATION: Handle throttled property changes
+    /// </summary>
+    private async Task HandleThrottledPropertyChange(string propertyName)
+    {
+        switch (propertyName)
+        {
+            case nameof(SearchText):
+            case nameof(StatusFilter):
+                // 🔧 LOADING FLASH FIX: Use filter-specific loading method
+                await LoadDataAsync(LoadingSource.Filter);
+                break;
+            case nameof(SelectedItems):
+                await MainThread.InvokeOnMainThreadAsync(() => UpdateFabForSelection());
                 break;
         }
     }
@@ -283,7 +452,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region Core Data Loading
+    #region Core Data Loading - 🔧 LOADING FLASH FIXED
 
     /// <summary>
     /// Handle view appearing lifecycle event with data loading
@@ -296,24 +465,34 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         {
             if (!HasData || Items.Count == 0)
             {
-                await LoadDataAsync();
+                // 🔧 LOADING FLASH FIX: First time load - show overlay
+                await LoadDataAsync(LoadingSource.InitialLoad);
             }
             else
             {
                 this.LogInfo($"Refreshing data on return to {EntityNamePlural} page");
-                await RefreshInternalAsync(showLoading: false);
+                // 🔧 LOADING FLASH FIX: Navigation refresh - no overlay
+                await LoadDataAsync(LoadingSource.Navigation);
             }
         }, "View Appearing");
     }
 
     /// <summary>
-    /// Core data loading with proper state management
+    /// 🔧 LOADING FLASH FIXED: Core data loading with intelligent overlay management
     /// </summary>
-    private async Task LoadDataAsync()
+    private async Task LoadDataAsync(LoadingSource source = LoadingSource.InitialLoad)
     {
         using (this.LogPerformance($"Load {EntityNamePlural}"))
         {
-            IsLoading = true;
+            // 🔧 LOADING FLASH FIX: Intelligent loading overlay decision
+            var shouldShowLoading = ShouldShowLoadingOverlay(source);
+
+            this.LogInfo($"🔧 LOADING FIX: Source={source}, ShowLoading={shouldShowLoading}, HasInitialData={_hasInitialDataLoaded}");
+
+            if (shouldShowLoading)
+            {
+                IsLoading = true;
+            }
 
             try
             {
@@ -327,6 +506,8 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
                 if (result.Success && result.Data != null)
                 {
+                    // 🔧 LOADING FLASH FIX: Mark that initial data has been loaded
+                    _hasInitialDataLoaded = true;
                     this.LogSuccess($"Loaded {result.Data.Count} {EntityNamePlural}");
                 }
                 else
@@ -336,81 +517,146 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             }
             finally
             {
-                IsLoading = false;
+                if (shouldShowLoading)
+                {
+                    IsLoading = false;
+                }
             }
         }
     }
 
     /// <summary>
-    /// PERFORMANCE OPTIMIZED: Populate UI items collection from entity data with filtering
-    /// Uses smart threshold to decide between sequential and parallel processing
+    /// 🔧 LOADING FLASH FIX: Smart loading overlay decision based on operation type
+    /// </summary>
+    private bool ShouldShowLoadingOverlay(LoadingSource source)
+    {
+        try
+        {
+            switch (source)
+            {
+                case LoadingSource.InitialLoad:
+                    // Always show for initial load
+                    this.LogInfo($"🔧 LOADING FIX: Showing overlay for initial load");
+                    return true;
+
+                case LoadingSource.Filter:
+                    // 🔧 CRITICAL FIX: NEVER show loading overlay for filter operations
+                    this.LogInfo($"🔧 LOADING FIX: NO overlay for filter operation (prevents flash)");
+                    return false;
+
+                case LoadingSource.Refresh:
+                    // Show for explicit refresh only if no data exists
+                    var showForRefresh = !_hasInitialDataLoaded || Items.Count == 0;
+                    this.LogInfo($"🔧 LOADING FIX: Refresh overlay decision: {showForRefresh}");
+                    return showForRefresh;
+
+                case LoadingSource.Navigation:
+                    // Don't show overlay when returning to page with existing data
+                    var showForNavigation = !_hasInitialDataLoaded;
+                    this.LogInfo($"🔧 LOADING FIX: Navigation overlay decision: {showForNavigation}");
+                    return showForNavigation;
+
+                default:
+                    return false;
+            }
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error determining loading overlay state");
+            return false; // Default to no loading on error
+        }
+    }
+
+    #endregion
+
+    #region PERFORMANCE OPTIMIZED: Populate UI Items
+
+    /// <summary>
+    /// PERFORMANCE OPTIMIZED: Populate UI items collection with memory pooling
+    /// FIXED CA1862: Using StringComparison.OrdinalIgnoreCase for performance
     /// </summary>
     private async Task PopulateItemsAsync(List<T> entities)
     {
         await this.SafeExecuteAsync(async () =>
         {
-            // FILTER FIRST: Apply status and search filters before creating ViewModels
-            var filteredEntities = entities.AsQueryable();
-
-            // Apply status filter
-            if (StatusFilter != "All")
+            // Use pooled list for filtering to reduce GC pressure
+            var tempFilteredList = ListViewModelPools.GetTempList<T>();
+            try
             {
-                if (StatusFilter == "Active")
-                    filteredEntities = filteredEntities.Where(e => e.IsActive);
-                else if (StatusFilter == "Inactive")
-                    filteredEntities = filteredEntities.Where(e => !e.IsActive);
-            }
+                tempFilteredList.AddRange(entities);
 
-            // Apply search filter
-            if (!string.IsNullOrWhiteSpace(SearchText))
-            {
-                var searchLower = SearchText.ToLower();
-                filteredEntities = filteredEntities.Where(e =>
-                    e.Name.ToLower().Contains(searchLower) ||
-                    (e.Description != null && e.Description.ToLower().Contains(searchLower)));
-            }
-
-            var finalEntities = filteredEntities.ToList();
-
-            const int PARALLEL_THRESHOLD = 50;
-
-            // SMART THRESHOLD: Use parallel processing only when beneficial
-            var itemVMs = finalEntities.Count > PARALLEL_THRESHOLD
-                ? await Task.Run(() =>
+                // Apply status filter
+                if (StatusFilter != "All")
                 {
-                    return finalEntities.AsParallel()
-                        .WithDegreeOfParallelism(Math.Min(Environment.ProcessorCount, Math.Max(1, finalEntities.Count / 20)))
-                        .Select(e => CreateItemViewModel(e))
-                        .ToList();
-                }).ConfigureAwait(false)
-                : finalEntities.Select(e => CreateItemViewModel(e)).ToList();
-
-            // Apply favorites filter AFTER creating ViewModels (needs IsFavorite property)
-            if (StatusFilter == "Favorites")
-            {
-                itemVMs = itemVMs.Where(vm => _getFavoriteFunc(vm)).ToList();
-            }
-
-            // Return to main thread for UI updates
-            await MainThread.InvokeOnMainThreadAsync(() =>
-            {
-                Items.Clear();
-                foreach (var item in itemVMs)
-                {
-                    Items.Add(item);
+                    if (StatusFilter == "Active")
+                        tempFilteredList.RemoveAll(e => !e.IsActive);
+                    else if (StatusFilter == "Inactive")
+                        tempFilteredList.RemoveAll(e => e.IsActive);
                 }
-            });
 
-            UpdateCounters();
-            HasData = Items.Count > 0;
+                // Apply search filter - FIXED CA1862: Using StringComparison.OrdinalIgnoreCase
+                if (!string.IsNullOrWhiteSpace(SearchText))
+                {
+                    tempFilteredList.RemoveAll(e =>
+                        !e.Name.Contains(SearchText, StringComparison.OrdinalIgnoreCase) &&
+                        (e.Description == null || !e.Description.Contains(SearchText, StringComparison.OrdinalIgnoreCase)));
+                }
 
-            this.LogDataOperation("Populated", EntityNamePlural, $"{Items.Count} items (filtered from {entities.Count})");
+                const int PARALLEL_THRESHOLD = 50;
+
+                // Use parallel processing only when beneficial
+                // FIXED CS9174/CS8030/CS1662: Proper Task.Run with ToList()
+                var itemVMs = tempFilteredList.Count > PARALLEL_THRESHOLD
+                    ? await Task.Run(() =>
+                    {
+                        return tempFilteredList.AsParallel()
+                            .WithDegreeOfParallelism(Math.Min(Environment.ProcessorCount, Math.Max(1, tempFilteredList.Count / 20)))
+                            .Select(e => CreateItemViewModel(e))
+                            .ToList();
+                    }).ConfigureAwait(false)
+                    : [.. tempFilteredList.Select(e => CreateItemViewModel(e))];
+
+                // Apply favorites filter AFTER creating ViewModels
+                if (StatusFilter == "Favorites")
+                {
+                    // FIXED CA1859: Use concrete List<> type for better performance
+                    var favoritesList = new List<TItemViewModel>();
+                    foreach (var vm in itemVMs)
+                    {
+                        if (_getFavoriteFunc(vm))
+                        {
+                            favoritesList.Add(vm);
+                        }
+                    }
+                    itemVMs = favoritesList;
+                }
+
+                // Batch UI update
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    Items.Clear();
+                    foreach (var item in itemVMs)
+                    {
+                        Items.Add(item);
+                    }
+                });
+
+                UpdateCounters();
+                HasData = Items.Count > 0;
+
+                this.LogDataOperation("Populated", EntityNamePlural, $"{Items.Count} items (filtered from {entities.Count})");
+            }
+            finally
+            {
+                // CRITICAL: Return temp list to pool
+                ListViewModelPools.ReturnTempList(tempFilteredList);
+            }
         }, "Populate Items");
     }
 
     #endregion
 
-    #region Filter and Sort Commands
+    #region Filter and Sort Commands - 🔧 LOADING FLASH FIXED
 
     /// <summary>
     /// Cycle through sort order options
@@ -428,11 +674,12 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     }
 
     /// <summary>
-    /// Cycle through status filter options
+    /// 🔧 LOADING FLASH FIXED: Cycle through status filter options without loading overlay
+    /// FIXED CS1998: Return completed task instead of async/await
     /// </summary>
-    private async Task ToggleStatusFilterAsync()
+    private Task ToggleStatusFilterAsync()
     {
-        await this.SafeExecuteAsync(async () =>
+        this.SafeExecute(() =>
         {
             var currentIndex = StatusFilterOptions.IndexOf(StatusFilter);
             var nextIndex = (currentIndex + 1) % StatusFilterOptions.Count;
@@ -440,21 +687,24 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
             this.LogInfo($"Status filter changed to: {StatusFilter}");
         }, "Toggle Status Filter");
+
+        return Task.CompletedTask;
     }
 
     /// <summary>
-    /// Apply current filters and reload data from repository
+    /// 🔧 LOADING FLASH FIXED: Apply current filters without showing loading overlay
     /// </summary>
     private async Task ApplyFilterAsync()
     {
         await this.SafeExecuteAsync(async () =>
         {
-            await LoadDataAsync();
+            // 🔧 LOADING FLASH FIX: Use Filter source to prevent overlay
+            await LoadDataAsync(LoadingSource.Filter);
         }, "Apply Filter");
     }
 
     /// <summary>
-    /// Clear all filters and reload original data from repository
+    /// 🔧 LOADING FLASH FIXED: Clear all filters without showing loading overlay
     /// </summary>
     private async void ClearFilterAction()
     {
@@ -463,7 +713,9 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             SearchText = string.Empty;
             StatusFilter = "All";
             SortOrder = "Name A→Z";
-            await LoadDataAsync();
+
+            // 🔧 LOADING FLASH FIX: Use Filter source to prevent overlay
+            await LoadDataAsync(LoadingSource.Filter);
             this.LogSuccess($"Filters cleared and data reloaded for {EntityNamePlural}");
         }, "Clear Filter");
     }
@@ -487,7 +739,8 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             IsMultiSelectMode = false;
             UpdateFabForSelection();
 
-            await LoadDataAsync();
+            // 🔧 LOADING FLASH FIX: Use Filter source to prevent overlay
+            await LoadDataAsync(LoadingSource.Filter);
             this.LogSuccess($"Selection and filters cleared for {EntityNamePlural}");
         }, "Clear Selection");
     }
@@ -516,7 +769,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 if (!confirmed)
                 {
                     this.LogInfo("Delete cancelled by user");
-                    // FIXED: Return "CANCELLED" string to clearly indicate user cancellation
                     return "CANCELLED";
                 }
 
@@ -535,7 +787,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 return "FAILED";
             }, EntityName);
 
-            // FIXED: Only show error toast for actual failures, not cancellations
+            // Only show error toast for actual failures, not cancellations
             if (!result.Success && result.Data != "CANCELLED")
             {
                 await ShowErrorToastAsync($"Failed to delete {item.Name}: {result.Message}");
@@ -568,7 +820,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 if (!confirmed)
                 {
                     this.LogInfo("Delete cancelled by user");
-                    // FIXED: Return -1 to indicate cancellation (not 0 which indicates failure)
                     return -1;
                 }
 
@@ -602,7 +853,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                 return deletedCount;
             }, EntityNamePlural);
 
-            // FIXED: Check for cancellation (-1) vs failure (0 or false)
+            // Check for cancellation (-1) vs failure (0 or false)
             if (result.Success && result.Data > 0)
             {
                 await ShowSuccessToastAsync($"{result.Data} {EntityNamePlural.ToLower()} deleted successfully");
@@ -610,7 +861,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             }
             else if (result.Data == -1)
             {
-                // FIXED: User cancelled - just cleanup, no error toast
+                // User cancelled - just cleanup, no error toast
                 SelectedItems.Clear();
                 IsMultiSelectMode = false;
                 UpdateFabForSelection();
@@ -618,7 +869,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             }
             else
             {
-                // FIXED: Real failure - show error toast
+                // Real failure - show error toast
                 SelectedItems.Clear();
                 IsMultiSelectMode = false;
                 UpdateFabForSelection();
@@ -664,38 +915,35 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     #endregion
 
-    #region Refresh and Data Management
+    #region Refresh and Data Management - 🔧 LOADING FLASH FIXED
 
     /// <summary>
-    /// STREAMLINED: Prevent double refresh calls
+    /// 🔧 LOADING FLASH FIXED: Prevent double refresh calls and use correct loading source
     /// </summary>
-    private bool _isRefreshing = false;
-
     private async Task RefreshAsync()
     {
-        if (_isRefreshing)
+        if (IsRefreshing)
         {
             this.LogInfo("Refresh already in progress - skipping");
             return;
         }
 
-        _isRefreshing = true;
-
+        IsRefreshing = true;
         try
         {
             await this.SafeExecuteAsync(async () =>
             {
                 this.LogInfo($"Starting Refresh {EntityNamePlural}");
                 await _repository.RefreshCacheAsync();
-                await LoadDataAsync();
+
+                // 🔧 LOADING FLASH FIX: Use Refresh source for proper overlay management
+                await LoadDataAsync(LoadingSource.Refresh);
                 this.LogSuccess($"Refresh completed - {Items.Count} {EntityNamePlural}");
             }, $"Refresh{EntityNamePlural}");
         }
         finally
         {
-            _isRefreshing = false;
-            // NOTE: IsRefreshing will be reset by the Page's HandlePullToRefresh
-            // Don't reset it here to avoid conflicts with SfPullToRefresh control
+            IsRefreshing = false;
         }
     }
 
@@ -725,9 +973,12 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     /// <summary>
     /// Generic toggle favorite implementation using BaseToggleFavoritePattern
+    /// FIXED CS8622: Accept nullable parameter to match command signature
     /// </summary>
-    protected virtual async Task ToggleFavoriteAsync(TItemViewModel item)
+    protected virtual async Task ToggleFavoriteAsync(TItemViewModel? item)
     {
+        if (item == null) return;
+
         await BaseToggleFavoritePattern.ExecuteToggleFavoriteAsync<T, TItemViewModel>(
             item,
             _repository,
@@ -877,10 +1128,21 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     {
         this.SafeExecute(() =>
         {
-            var allEntities = Items;
-            TotalCount = allEntities.Count;
-            ActiveCount = allEntities.Count(e => e.IsActive);
-            FavoriteCount = allEntities.Count(e => _getFavoriteFunc(e));
+            // FIXED CA1859: Use concrete collection type for better performance
+            var itemsList = Items;
+            TotalCount = itemsList.Count;
+
+            var activeCountLocal = 0;
+            var favoriteCountLocal = 0;
+
+            foreach (var entity in itemsList)
+            {
+                if (entity.IsActive) activeCountLocal++;
+                if (_getFavoriteFunc(entity)) favoriteCountLocal++;
+            }
+
+            ActiveCount = activeCountLocal;
+            FavoriteCount = favoriteCountLocal;
 
             this.LogDebug($"Counters - Total: {TotalCount}, Active: {ActiveCount}, Favorites: {FavoriteCount}");
         }, "Update Counters");
@@ -888,15 +1150,18 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     /// <summary>
     /// Test connection and update status indicators
+    /// FIXED CS1998: Return completed task instead of async/await
     /// </summary>
-    private async Task TestConnectionInternalAsync()
+    private Task TestConnectionInternalAsync()
     {
-        await this.SafeExecuteAsync(async () =>
+        this.SafeExecute(() =>
         {
             IsConnected = true;
             ConnectionStatus = "Connected";
             ConnectionStatusColor = Colors.Green;
         }, "Test Connection");
+
+        return Task.CompletedTask;
     }
 
     #endregion
@@ -930,7 +1195,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     }
 
     /// <summary>
-    /// Navigate to entity creation page - MOVED HERE TO AVOID DUPLICATION
+    /// Navigate to entity creation page
     /// </summary>
     private async Task NavigateToAddAsync()
     {
@@ -978,8 +1243,9 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     /// <summary>
     /// Show confirmation dialog for destructive actions
+    /// FIXED CS0507: Make public to match base class visibility
     /// </summary>
-    protected virtual async Task<bool> ShowConfirmAsync(string title, string message)
+    public override async Task<bool> ShowConfirmAsync(string title, string message)
     {
         var result = await this.SafeExecuteAsync(async () =>
         {
@@ -1012,12 +1278,19 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
     /// <summary>
     /// Get current page from application window hierarchy
+    /// FIXED CA1826: Direct indexable access instead of LINQ
     /// </summary>
     private static Page? GetCurrentPage()
     {
         return new object().SafeExecute(() =>
         {
-            return Application.Current?.Windows?.FirstOrDefault()?.Page;
+            // FIXED CA1826: Use direct indexing instead of FirstOrDefault()
+            var windows = Application.Current?.Windows;
+            if (windows != null && windows.Count > 0)
+            {
+                return windows[0].Page;
+            }
+            return null;
         }, fallbackValue: null, "Get Current Page");
     }
 
@@ -1026,7 +1299,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     #region Disposal
 
     /// <summary>
-    /// Dispose pattern implementation for proper cleanup
+    /// PERFORMANCE OPTIMIZATION: Dispose pattern implementation for proper cleanup
     /// </summary>
     public void Dispose()
     {
@@ -1035,19 +1308,29 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     }
 
     /// <summary>
-    /// Protected dispose implementation
+    /// PERFORMANCE OPTIMIZATION: Protected dispose implementation with timer cleanup
     /// </summary>
     protected virtual void Dispose(bool disposing)
     {
         if (disposing)
         {
-            // Clean disposal - no timer to dispose anymore
+            // Cleanup throttle timer
+            lock (_throttleLock)
+            {
+                _propertyChangeThrottleTimer?.Dispose();
+                _propertyChangeThrottleTimer = null;
+                _isPendingPropertyUpdate = false;
+                _pendingPropertyName = null;
+            }
+
+            // Remove property change handler
+            PropertyChanged -= OnPropertyChanged;
         }
     }
 
     #endregion
 
-    #region Legacy Compatibility - REMOVED DUPLICATE
+    #region Legacy Compatibility
 
     /// <summary>
     /// LEGACY: Use NavigateToAddCommand instead - points to same command

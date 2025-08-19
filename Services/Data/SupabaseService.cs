@@ -20,27 +20,30 @@ public class SupabaseService
     private DateTime? _lastConnectionTest = null;
     private readonly TimeSpan _connectionCacheTime = TimeSpan.FromMinutes(1);
 
-    #region Configuration Properties
+    #region Configuration Properties - FIXED CA1822
 
     /// <summary>
     /// Connection timeout configured from application settings
+    /// PERFORMANCE OPTIMIZED: Static property for nonvirtual call sites
     /// </summary>
-    public TimeSpan ConnectionTimeout => TimeSpan.FromSeconds(AppSettings.NetworkTimeoutSeconds);
+    public static TimeSpan ConnectionTimeout => TimeSpan.FromSeconds(AppSettings.NetworkTimeoutSeconds);
 
     /// <summary>
     /// Maximum retry attempts from application settings
+    /// PERFORMANCE OPTIMIZED: Static property for nonvirtual call sites
     /// </summary>
-    public int MaxRetryAttempts => AppSettings.MaxRetryAttempts;
+    public static int MaxRetryAttempts => AppSettings.MaxRetryAttempts;
 
     /// <summary>
-    /// Current connection status
+    /// Current connection status - instance-specific
     /// </summary>
     public bool IsConnected => Client is not null && IsInitialized;
 
     /// <summary>
     /// Environment information for debugging
+    /// PERFORMANCE OPTIMIZED: Static property for nonvirtual call sites
     /// </summary>
-    public string Environment => AppSettings.Environment;
+    public static string Environment => AppSettings.Environment;
 
     #endregion
 
@@ -366,10 +369,10 @@ public class SupabaseService
             {
                 IsInitialized = IsInitialized,
                 HasClient = Client != null,
-                Environment = AppSettings.Environment,
+                Environment = Environment, // Using static property
                 Version = AppSettings.ApplicationVersion,
-                ConnectionTimeout = ConnectionTimeout,
-                MaxRetryAttempts = MaxRetryAttempts,
+                ConnectionTimeout = ConnectionTimeout, // Using static property
+                MaxRetryAttempts = MaxRetryAttempts, // Using static property
                 RealTimeEnabled = AppSettings.EnableRealTimeUpdates,
                 LastChecked = DateTime.UtcNow
             };
@@ -397,7 +400,7 @@ public class SupabaseService
         this.SafeExecute(() =>
         {
             this.LogInfo("Supabase service state debug");
-            this.LogInfo($"Environment: {AppSettings.Environment}");
+            this.LogInfo($"Environment: {Environment}"); // Using static property
             this.LogInfo($"Version: {AppSettings.ApplicationVersion}");
             this.LogInfo($"Client initialized: {IsInitialized}");
             this.LogInfo($"User authenticated: {IsAuthenticated}");
@@ -422,8 +425,8 @@ public class SupabaseService
             this.LogInfo($"Connection cache: {_lastConnectionState?.ToString() ?? "null"}");
             this.LogInfo("Cache age: " + (_lastConnectionTest.HasValue ? (DateTime.UtcNow - _lastConnectionTest.Value).TotalSeconds.ToString("F1") + "s" : "null"));
 
-            this.LogInfo("Connection timeout: " + ConnectionTimeout.TotalSeconds + "s");
-            this.LogInfo("Max retries: " + MaxRetryAttempts);
+            this.LogInfo("Connection timeout: " + ConnectionTimeout.TotalSeconds + "s"); // Using static property
+            this.LogInfo("Max retries: " + MaxRetryAttempts); // Using static property
             this.LogInfo("Real-time enabled: " + AppSettings.EnableRealTimeUpdates);
         }, operationName: "DebugCurrentState");
     }

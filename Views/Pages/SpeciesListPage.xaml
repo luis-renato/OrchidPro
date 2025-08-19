@@ -126,8 +126,16 @@
 
                     <!-- ListView container -->
                     <sfpulltorefresh:SfPullToRefresh x:Name="ListRefresh"
-                                     Grid.Row="2" 
-                                     IsRefreshing="{Binding IsRefreshing}">
+                                        Grid.Row="2" 
+                                        IsRefreshing="{Binding IsRefreshing}"
+                                        RefreshViewThreshold="40"
+                                        PullingThreshold="40"
+                                        TransitionMode="Push"
+                                        ProgressBackground = "{StaticResource Primary}"
+                                        ProgressColor = "White"
+                                        ProgressThickness="3"
+                                        RefreshViewWidth="40"
+                                        RefreshViewHeight="40">
                         <sfpulltorefresh:SfPullToRefresh.PullableContent>
 
                             <sflistview:SfListView x:Name="SpeciesListView"
@@ -350,35 +358,9 @@
             </Border>
         </Grid>
 
-        <!-- 2. LOADING GRID - Completely separate, covers everything -->
-        <Grid x:Name="LoadingGrid" 
-              IsVisible="{Binding IsLoading}"
-              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}">
-
-            <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray900}}"
-                    Stroke="{AppThemeBinding Light={StaticResource Gray200}, Dark={StaticResource Gray600}}"
-                    StrokeThickness="1"
-                    Padding="30,20"
-                    HorizontalOptions="Center"
-                    VerticalOptions="Center">
-                <Border.StrokeShape>
-                    <RoundRectangle CornerRadius="12" />
-                </Border.StrokeShape>
-
-                <StackLayout Spacing="15" HorizontalOptions="Center">
-                    <ActivityIndicator IsRunning="{Binding IsLoading}" 
-                                     Color="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}" 
-                                     WidthRequest="40" 
-                                     HeightRequest="40" />
-                    <Label Text="Loading Species..." 
-                           FontSize="16" 
-                           TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
-                           HorizontalOptions="Center" />
-                </StackLayout>
-            </Border>
-
-        </Grid>
-
+        <!-- Loading Overlay -->
+        <ContentView Style="{StaticResource LoadingOverlayStyle}" />        
+        
         <!-- 3. FAB - Hidden during loading, with animation -->
         <Button x:Name="FabButton"
                 Text="{Binding FabText, FallbackValue='Add Species'}"

@@ -14,26 +14,17 @@
 /// 
 /// TECHNICAL: Uses WeakReferenceMessenger pattern for loose coupling between ViewModels.
 /// </summary>
-public class FamilyCreatedMessage
+/// <param name="familyId">ID of newly created family</param>
+/// <param name="familyName">Name of newly created family</param>
+public class FamilyCreatedMessage(Guid familyId, string familyName)
 {
     /// <summary>
     /// ID of the newly created family for auto-selection lookup
     /// </summary>
-    public Guid FamilyId { get; init; }
+    public Guid FamilyId { get; init; } = familyId;
 
     /// <summary>
     /// Name of the newly created family for logging and UI feedback
     /// </summary>
-    public string FamilyName { get; init; } = string.Empty;
-
-    /// <summary>
-    /// Initialize message with created family details for auto-selection workflow
-    /// </summary>
-    /// <param name="familyId">ID of newly created family</param>
-    /// <param name="familyName">Name of newly created family</param>
-    public FamilyCreatedMessage(Guid familyId, string familyName)
-    {
-        FamilyId = familyId;
-        FamilyName = familyName;
-    }
+    public string FamilyName { get; init; } = familyName;
 }

@@ -146,7 +146,7 @@ public class SupabaseSpecies : BaseModel
 }
 
 /// <summary>
-/// MINIMAL Species service implementing ISupabaseEntityService<Species> interface.
+/// MINIMAL Species service implementing ISupabaseEntityService interface. 
 /// Following the exact pattern of SupabaseFamilyService and SupabaseGenusService.
 /// Handles direct database operations for species entities.
 /// </summary>
@@ -181,7 +181,7 @@ public class SupabaseSpeciesService : ISupabaseEntityService<Species>
         var result = await this.SafeDataExecuteAsync(async () =>
         {
             if (_supabaseService.Client == null)
-                return new List<Species>();
+                return [];
 
             var currentUserId = GetCurrentUserId();
             var response = await _supabaseService.Client
@@ -190,7 +190,7 @@ public class SupabaseSpeciesService : ISupabaseEntityService<Species>
                 .Get();
 
             if (response?.Models == null)
-                return new List<Species>();
+                return [];
 
             // Filter: user species OR system defaults (UserId == null)
             var filteredSpecies = response.Models.Where(ss =>
@@ -199,7 +199,7 @@ public class SupabaseSpeciesService : ISupabaseEntityService<Species>
             return filteredSpecies.Select(ss => ss.ToSpecies()).OrderBy(s => s.Name).ToList();
         }, "Species");
 
-        return result.Success && result.Data != null ? result.Data : new List<Species>();
+        return result.Success && result.Data != null ? result.Data : [];
     }
 
     public async Task<Species?> GetByIdAsync(Guid id)

@@ -81,7 +81,7 @@ public class SupabaseGenus : BaseModel
 }
 
 /// <summary>
-/// REFACTORED: Genus service implementing ISupabaseEntityService<Genus> interface.
+/// REFACTORED: Genus service implementing ISupabaseEntityService interface.
 /// Reduced from ~500 lines to minimal implementation focused on Genus-specific logic.
 /// </summary>
 public class SupabaseGenusService : ISupabaseEntityService<Genus>
@@ -109,7 +109,7 @@ public class SupabaseGenusService : ISupabaseEntityService<Genus>
         var result = await this.SafeDataExecuteAsync(async () =>
         {
             if (_supabaseService.Client == null)
-                return new List<Genus>();
+                return [];
 
             var currentUserId = GetCurrentUserId();
             var response = await _supabaseService.Client
@@ -124,10 +124,10 @@ public class SupabaseGenusService : ISupabaseEntityService<Genus>
             var filteredGenera = response.Models.Where(sg =>
                 sg.UserId == currentUserId || sg.UserId == null);
 
-            return filteredGenera.Select(sg => sg.ToGenus()).OrderBy(g => g.Name).ToList();
+            return [.. filteredGenera.Select(sg => sg.ToGenus()).OrderBy(g => g.Name)];
         }, "Genera");
 
-        return result.Success && result.Data != null ? result.Data : new List<Genus>();
+        return result.Success && result.Data != null ? result.Data : [];
     }
 
     public async Task<Genus?> GetByIdAsync(Guid id)

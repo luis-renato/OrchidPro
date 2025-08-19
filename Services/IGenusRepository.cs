@@ -166,5 +166,5 @@ public class GenusStatistics : BaseStatistics
     /// <summary>
     /// Distribution of genera across families
     /// </summary>
-    public Dictionary<string, int> FamilyDistribution { get; set; } = new();
+    public Dictionary<string, int> FamilyDistribution { get; set; } = [];
 }

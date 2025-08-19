@@ -266,7 +266,7 @@ public static class ValidationExtensions
     /// <summary>
     /// ✅ Cria timer de debounce usando constantes centralizadas
     /// </summary>
-    public static Timer CreateValidationTimer(this object source, Func<Task> validationAction)
+    public static Timer CreateValidationTimer(Func<Task> validationAction)
     {
         return new Timer(async _ => await validationAction(), null,
             ValidationConstants.NAME_VALIDATION_DEBOUNCE_DELAY,

@@ -43,7 +43,7 @@ public class OperationResult
     /// <summary>
     /// Collection of error messages encountered during processing
     /// </summary>
-    public List<string> ErrorMessages { get; set; } = new();
+    public List<string> ErrorMessages { get; set; } = [];
 
     /// <summary>
     /// Success rate as percentage (0-100)
@@ -137,7 +137,7 @@ public class OperationResult
             Successful = 0,
             Failed = totalProcessed,
             IsSuccess = false,
-            ErrorMessages = errors ?? new List<string>()
+            ErrorMessages = errors ?? []
         };
     }
 
@@ -156,7 +156,7 @@ public class OperationResult
             Successful = successful,
             Failed = failed,
             IsSuccess = failed == 0, // Only success if no failures
-            ErrorMessages = errors ?? new List<string>()
+            ErrorMessages = errors ?? []
         };
     }
 

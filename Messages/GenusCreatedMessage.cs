@@ -15,26 +15,17 @@
 /// PATTERN: Same as FamilyCreatedMessage but for Genus→Species relationship.
 /// TECHNICAL: Uses WeakReferenceMessenger for decoupled ViewModel communication.
 /// </summary>
-public class GenusCreatedMessage
+/// <param name="genusId">ID of newly created genus for parent selection</param>
+/// <param name="genusName">Name of newly created genus for logging</param>
+public class GenusCreatedMessage(Guid genusId, string genusName)
 {
     /// <summary>
     /// ID of the newly created genus for auto-selection lookup in species form
     /// </summary>
-    public Guid GenusId { get; init; }
+    public Guid GenusId { get; init; } = genusId;
 
     /// <summary>
     /// Name of the newly created genus for logging and UI feedback
     /// </summary>
-    public string GenusName { get; init; } = string.Empty;
-
-    /// <summary>
-    /// Initialize message with created genus details for auto-selection workflow
-    /// </summary>
-    /// <param name="genusId">ID of newly created genus for parent selection</param>
-    /// <param name="genusName">Name of newly created genus for logging</param>
-    public GenusCreatedMessage(Guid genusId, string genusName)
-    {
-        GenusId = genusId;
-        GenusName = genusName;
-    }
+    public string GenusName { get; init; } = genusName;
 }

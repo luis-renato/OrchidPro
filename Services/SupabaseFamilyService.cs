@@ -76,7 +76,7 @@ public class SupabaseFamily : BaseModel
 }
 
 /// <summary>
-/// REFACTORED: Family service implementing ISupabaseEntityService<Family> interface.
+/// REFACTORED: Family service implementing ISupabaseEntityServic interface.
 /// Reduced from ~500 lines to minimal implementation focused on Family-specific logic.
 /// </summary>
 public class SupabaseFamilyService : ISupabaseEntityService<Family>
@@ -104,7 +104,7 @@ public class SupabaseFamilyService : ISupabaseEntityService<Family>
         var result = await this.SafeDataExecuteAsync(async () =>
         {
             if (_supabaseService.Client == null)
-                return new List<Family>();
+                return [];
 
             var currentUserId = GetCurrentUserId();
             var response = await _supabaseService.Client
@@ -113,7 +113,7 @@ public class SupabaseFamilyService : ISupabaseEntityService<Family>
                 .Get();
 
             if (response?.Models == null)
-                return new List<Family>();
+                return [];
 
             // Filter: user families OR system defaults (UserId == null)
             var filteredFamilies = response.Models.Where(sf =>
@@ -122,7 +122,7 @@ public class SupabaseFamilyService : ISupabaseEntityService<Family>
             return filteredFamilies.Select(sf => sf.ToFamily()).OrderBy(f => f.Name).ToList();
         }, "Families");
 
-        return result.Success && result.Data != null ? result.Data : new List<Family>();
+        return result.Success && result.Data != null ? result.Data : [];
     }
 
     public async Task<Family?> GetByIdAsync(Guid id)

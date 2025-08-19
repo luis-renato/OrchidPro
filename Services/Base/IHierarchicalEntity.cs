@@ -1,4 +1,6 @@
-﻿namespace OrchidPro.Models.Base;
+﻿using OrchidPro.Models.Base;
+
+namespace OrchidPro.Services.Base;
 
 /// <summary>
 /// Interface for entities that participate in hierarchical relationships.

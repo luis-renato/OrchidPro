@@ -79,6 +79,7 @@ public partial class GeneraListViewModel : BaseListViewModel<Models.Genus, Genus
     /// <summary>
     /// Genus-specific: Monitor family hydration WITHOUT triggering additional refreshes
     /// COPIES EXACT STRATEGY FROM SPECIES but for Family data
+    /// FIXED CA1860: Use Count > 0 instead of Any() for better performance
     /// </summary>
     private async Task MonitorFamilyHydrationAsync()
     {
@@ -97,7 +98,8 @@ public partial class GeneraListViewModel : BaseListViewModel<Models.Genus, Genus
                     var allGenera = await _genusRepository.GetAllWithFamilyAsync(false);
                     var generaWithFamily = allGenera.Where(g => g.Family != null).ToList();
 
-                    if (generaWithFamily.Any())
+                    // FIXED CA1860: Use Count > 0 instead of Any() for better performance
+                    if (generaWithFamily.Count > 0)
                     {
                         this.LogInfo($"🔄 Family hydration detected: {generaWithFamily.Count} genera now have family data");
 

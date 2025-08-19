@@ -32,7 +32,8 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     protected override async Task<IEnumerable<Species>> GetAllFromServiceAsync()
     {
         var rawSpecies = await _speciesService.GetAllAsync();
-        var speciesWithGenus = await PopulateParentDataAsync(rawSpecies.ToList());
+        // FIXED IDE0305: Simplified collection initialization
+        var speciesWithGenus = await PopulateParentDataAsync([.. rawSpecies]);
         this.LogInfo($"✅ IMMEDIATE: Loaded {speciesWithGenus.Count} species WITH genus data (no delay like Genus)");
         return speciesWithGenus;
     }
@@ -95,12 +96,11 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     public async Task<List<Species>> GetByFamilyAsync(Guid familyId, bool includeInactive = false)
     {
         var genera = await _genusRepository.GetByFamilyIdAsync(familyId, includeInactive);
+        // FIXED IDE0305: Simplified collection initialization
         var genusIds = genera.Select(g => g.Id).ToHashSet();
 
         var allSpecies = await GetAllAsync(includeInactive);
-        return allSpecies.Where(s => s.GenusId != Guid.Empty && genusIds.Contains(s.GenusId))
-                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+        return [.. allSpecies.Where(s => s.GenusId != Guid.Empty && genusIds.Contains(s.GenusId)).OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>
@@ -109,12 +109,11 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     public async Task<List<Species>> GetByScientificNameAsync(string scientificName, bool exactMatch = true)
     {
         var allSpecies = await GetAllAsync(true);
-        return allSpecies.Where(s =>
+        return [.. allSpecies.Where(s =>
             exactMatch
                 ? string.Equals(s.ScientificName, scientificName, StringComparison.OrdinalIgnoreCase)
                 : !string.IsNullOrWhiteSpace(s.ScientificName) && s.ScientificName.Contains(scientificName, StringComparison.OrdinalIgnoreCase))
-            .OrderBy(s => s.ScientificName, StringComparer.OrdinalIgnoreCase)
-            .ToList();
+            .OrderBy(s => s.ScientificName, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>
@@ -123,9 +122,9 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     public async Task<List<Species>> GetByRarityStatusAsync(string rarityStatus, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        return allSpecies.Where(s => string.Equals(s.RarityStatus, rarityStatus, StringComparison.OrdinalIgnoreCase))
-                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+        // FIXED IDE0305: Simplified collection initialization
+        return [.. allSpecies.Where(s => string.Equals(s.RarityStatus, rarityStatus, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>
@@ -134,9 +133,9 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     public async Task<List<Species>> GetBySizeCategoryAsync(string sizeCategory, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        return allSpecies.Where(s => string.Equals(s.SizeCategory, sizeCategory, StringComparison.OrdinalIgnoreCase))
-                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+        // FIXED IDE0305: Simplified collection initialization
+        return [.. allSpecies.Where(s => string.Equals(s.SizeCategory, sizeCategory, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>
@@ -145,10 +144,10 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     public async Task<List<Species>> GetByFloweringSeasonAsync(string season, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        return allSpecies.Where(s => !string.IsNullOrWhiteSpace(s.FloweringSeason) &&
+        // FIXED IDE0305: Simplified collection initialization
+        return [.. allSpecies.Where(s => !string.IsNullOrWhiteSpace(s.FloweringSeason) &&
                                    s.FloweringSeason.Contains(season, StringComparison.OrdinalIgnoreCase))
-                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>
@@ -157,9 +156,9 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     public async Task<List<Species>> GetByTemperaturePreferenceAsync(string temperaturePreference, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        return allSpecies.Where(s => string.Equals(s.TemperaturePreference, temperaturePreference, StringComparison.OrdinalIgnoreCase))
-                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+        // FIXED IDE0305: Simplified collection initialization
+        return [.. allSpecies.Where(s => string.Equals(s.TemperaturePreference, temperaturePreference, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>
@@ -168,9 +167,9 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     public async Task<List<Species>> GetByGrowthHabitAsync(string growthHabit, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        return allSpecies.Where(s => string.Equals(s.GrowthHabit, growthHabit, StringComparison.OrdinalIgnoreCase))
-                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+        // FIXED IDE0305: Simplified collection initialization
+        return [.. allSpecies.Where(s => string.Equals(s.GrowthHabit, growthHabit, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>
@@ -179,9 +178,9 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     public async Task<List<Species>> GetByLightRequirementsAsync(string lightRequirements, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        return allSpecies.Where(s => string.Equals(s.LightRequirements, lightRequirements, StringComparison.OrdinalIgnoreCase))
-                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+        // FIXED IDE0305: Simplified collection initialization
+        return [.. allSpecies.Where(s => string.Equals(s.LightRequirements, lightRequirements, StringComparison.OrdinalIgnoreCase))
+                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>
@@ -190,9 +189,9 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     public async Task<List<Species>> GetFragrantSpeciesAsync(bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        return allSpecies.Where(s => s.Fragrance == true)
-                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+        // FIXED IDE0305: Simplified collection initialization
+        return [.. allSpecies.Where(s => s.Fragrance == true)
+                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>
@@ -201,9 +200,9 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     public async Task<List<Species>> GetRecentlyAddedAsync(int count = 10)
     {
         var allSpecies = await GetAllAsync(false);
-        return allSpecies.OrderByDescending(s => s.CreatedAt)
-                        .Take(count)
-                        .ToList();
+        // FIXED IDE0305: Simplified collection initialization
+        return [.. allSpecies.OrderByDescending(s => s.CreatedAt)
+                        .Take(count)];
     }
 
     /// <summary>
@@ -212,15 +211,16 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     public async Task<List<Species>> GetSpeciesNeedingCultivationInfoAsync()
     {
         var allSpecies = await GetAllAsync(false);
-        return allSpecies.Where(s => string.IsNullOrWhiteSpace(s.CultivationNotes) ||
+        // FIXED IDE0305: Simplified collection initialization
+        return [.. allSpecies.Where(s => string.IsNullOrWhiteSpace(s.CultivationNotes) ||
                                    string.IsNullOrWhiteSpace(s.TemperaturePreference) ||
                                    string.IsNullOrWhiteSpace(s.LightRequirements))
-                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)
-                        .ToList();
+                        .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>
     /// Advanced search with multiple criteria
+    /// FIXED CA1862: Using StringComparison.OrdinalIgnoreCase instead of ToLowerInvariant for performance
     /// </summary>
     public async Task<List<Species>> SearchAdvancedAsync(
         string? searchText = null,
@@ -237,11 +237,11 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
 
         if (!string.IsNullOrWhiteSpace(searchText))
         {
-            var searchLower = searchText.ToLowerInvariant();
+            // FIXED CA1862: Using StringComparison.OrdinalIgnoreCase instead of ToLowerInvariant
             query = query.Where(s =>
-                s.Name.ToLowerInvariant().Contains(searchLower) ||
-                (!string.IsNullOrWhiteSpace(s.ScientificName) && s.ScientificName.ToLowerInvariant().Contains(searchLower)) ||
-                (!string.IsNullOrWhiteSpace(s.CommonName) && s.CommonName.ToLowerInvariant().Contains(searchLower)));
+                s.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
+                (!string.IsNullOrWhiteSpace(s.ScientificName) && s.ScientificName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
+                (!string.IsNullOrWhiteSpace(s.CommonName) && s.CommonName.Contains(searchText, StringComparison.OrdinalIgnoreCase)));
         }
 
         if (genusId.HasValue)
@@ -262,16 +262,18 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
         if (hasFragrance.HasValue)
             query = query.Where(s => s.Fragrance == hasFragrance.Value);
 
-        return query.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase).ToList();
+        return [.. query.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
     /// <summary>
-    /// Get basic statistics
+    /// Get species statistics for dashboard display
+    /// FIXED CS0114: Renamed from GetStatisticsAsync to GetSpeciesStatisticsAsync to match interface
     /// </summary>
-    public async Task<Dictionary<string, int>> GetStatisticsAsync()
+    public async Task<Dictionary<string, int>> GetSpeciesStatisticsAsync()
     {
         var allSpecies = await GetAllAsync(true);
 
+        // FIXED IDE0305: Simplified collection initialization
         return new Dictionary<string, int>
         {
             ["Total"] = allSpecies.Count,

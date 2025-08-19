@@ -9,8 +9,9 @@ namespace OrchidPro.ViewModels;
 /// PERFORMANCE OPTIMIZED Base ViewModel representing individual list items.
 /// Eliminates logging overhead in constructor, caches computed properties, optimizes property access.
 /// Maintains 100% API compatibility while delivering 90% faster item creation.
+/// MODERNIZED: Uses primary constructor and compound assignments for cleaner code.
 /// </summary>
-public abstract partial class BaseItemViewModel<T> : ObservableObject where T : class, IBaseEntity
+public abstract partial class BaseItemViewModel<T>(T entity) : ObservableObject where T : class, IBaseEntity
 {
     #region Observable Properties
 
@@ -21,7 +22,7 @@ public abstract partial class BaseItemViewModel<T> : ObservableObject where T : 
 
     #region PERFORMANCE OPTIMIZATION: Cached Properties
 
-    private readonly T _model;
+    private readonly T _model = entity;
 
     // Cache expensive computations
     private string? _descriptionPreview;
@@ -32,17 +33,18 @@ public abstract partial class BaseItemViewModel<T> : ObservableObject where T : 
 
     #endregion
 
-    #region Public Properties
+    #region Public Properties - MODERNIZED: Primary Constructor
 
-    public Guid Id { get; }
-    public string Name { get; }
-    public string? Description { get; }
-    public bool IsActive { get; }
-    public bool IsSystemDefault { get; }
-    public string DisplayName { get; }
-    public string StatusDisplay { get; }
-    public DateTime CreatedAt { get; }
-    public DateTime UpdatedAt { get; }
+    // FIXED IDE0290: Using primary constructor for cleaner initialization
+    public Guid Id { get; } = entity.Id;
+    public string Name { get; } = entity.Name;
+    public string? Description { get; } = entity.Description;
+    public bool IsActive { get; } = entity.IsActive;
+    public bool IsSystemDefault { get; } = entity.IsSystemDefault;
+    public string DisplayName { get; } = entity.DisplayName;
+    public string StatusDisplay { get; } = entity.StatusDisplay;
+    public DateTime CreatedAt { get; } = entity.CreatedAt;
+    public DateTime UpdatedAt { get; } = entity.UpdatedAt;
 
     /// <summary>
     /// Action callback for selection state changes
@@ -53,32 +55,6 @@ public abstract partial class BaseItemViewModel<T> : ObservableObject where T : 
     /// Entity name for logging and display purposes - must be implemented by derived classes
     /// </summary>
     public abstract string EntityName { get; }
-
-    #endregion
-
-    #region Constructor
-
-    /// <summary>
-    /// PERFORMANCE OPTIMIZED: Initialize base item ViewModel with minimal overhead
-    /// Eliminates logging calls during construction for 90% faster creation
-    /// </summary>
-    protected BaseItemViewModel(T entity)
-    {
-        // PERFORMANCE OPTIMIZATION: Direct assignment without logging overhead
-        _model = entity;
-        Id = entity.Id;
-        Name = entity.Name;
-        Description = entity.Description;
-        IsActive = entity.IsActive;
-        IsSystemDefault = entity.IsSystemDefault;
-        DisplayName = entity.DisplayName;
-        StatusDisplay = entity.StatusDisplay;
-        CreatedAt = entity.CreatedAt;
-        UpdatedAt = entity.UpdatedAt;
-
-        // PERFORMANCE OPTIMIZATION: No logging in constructor - called too frequently
-        // Logging moved to occasional debug methods only
-    }
 
     #endregion
 
@@ -167,14 +143,12 @@ public abstract partial class BaseItemViewModel<T> : ObservableObject where T : 
     {
         get
         {
-            if (_descriptionPreview == null)
-            {
-                _descriptionPreview = string.IsNullOrWhiteSpace(Description)
-                    ? "No description available"
-                    : Description.Length > 100
-                        ? $"{Description[..97]}..."
-                        : Description;
-            }
+            // FIXED IDE0074: Using compound assignment
+            _descriptionPreview ??= string.IsNullOrWhiteSpace(Description)
+                ? "No description available"
+                : Description.Length > 100
+                    ? $"{Description[..97]}..."
+                    : Description;
             return _descriptionPreview;
         }
     }
@@ -200,10 +174,8 @@ public abstract partial class BaseItemViewModel<T> : ObservableObject where T : 
     {
         get
         {
-            if (_isRecent == null)
-            {
-                _isRecent = DateTime.UtcNow - CreatedAt <= TimeSpan.FromDays(7);
-            }
+            // FIXED IDE0074: Using compound assignment pattern with nullable bool
+            _isRecent ??= DateTime.UtcNow - CreatedAt <= TimeSpan.FromDays(7);
             return _isRecent.Value;
         }
     }

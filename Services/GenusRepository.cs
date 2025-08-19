@@ -31,7 +31,7 @@ public class GenusRepository : BaseHierarchicalRepository<Genus, Family>, IGenus
     protected override async Task<IEnumerable<Genus>> GetAllFromServiceAsync()
     {
         var rawGenera = await _genusService.GetAllAsync();
-        var generaWithFamily = await PopulateParentDataAsync(rawGenera.ToList());
+        var generaWithFamily = await PopulateParentDataAsync([.. rawGenera]);
         this.LogInfo($"✅ Loaded {generaWithFamily.Count} genera WITH family data immediately");
         return generaWithFamily;
     }

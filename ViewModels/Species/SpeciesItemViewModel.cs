@@ -5,17 +5,10 @@ namespace OrchidPro.ViewModels.Species;
 
 /// <summary>
 /// Species item ViewModel - MINIMAL implementation using base class
+/// MODERNIZED: Uses primary constructor and fixed null reference warnings
 /// </summary>
-public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
+public partial class SpeciesItemViewModel(Models.Species entity) : BaseItemViewModel<Models.Species>(entity)
 {
-    #region Constructor
-
-    public SpeciesItemViewModel(Models.Species entity) : base(entity)
-    {
-    }
-
-    #endregion
-
     #region Required Base Class Override
 
     public override string EntityName => "Species";
@@ -37,16 +30,23 @@ public partial class SpeciesItemViewModel : BaseItemViewModel<Models.Species>
 
     /// <summary>
     /// Update genus information and notify UI
+    /// FIXED CS8602: Added null checks to prevent null reference exceptions
     /// </summary>
     public void UpdateGenusInfo(string genusName)
     {
         try
         {
-            if (ToModel()?.Genus != null)
+            var model = ToModel();
+            // FIXED CS8602: Check model and Genus for null before dereferencing
+            if (model?.Genus != null)
             {
-                ToModel().Genus.Name = genusName;
+                model.Genus.Name = genusName;
                 OnPropertyChanged(nameof(GenusName));
                 this.LogInfo($"Updated genus info for species {Name}: {genusName}");
+            }
+            else
+            {
+                this.LogWarning($"Cannot update genus info for species {Name}: model or genus is null");
             }
         }
         catch (Exception ex)

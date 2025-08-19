@@ -122,9 +122,10 @@ public interface ISpeciesRepository : IBaseRepository<Species>
 
     /// <summary>
     /// Get species statistics for dashboard display
+    /// FIXED CS0108: Renamed from GetStatisticsAsync to avoid conflict with base interface
     /// </summary>
     /// <returns>Dictionary with statistical data (total, active, favorites, etc.)</returns>
-    Task<Dictionary<string, int>> GetStatisticsAsync();
+    Task<Dictionary<string, int>> GetSpeciesStatisticsAsync();
 
     /// <summary>
     /// Get the most recently added species for "What's New" features
