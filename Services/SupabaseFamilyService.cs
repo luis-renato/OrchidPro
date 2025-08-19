@@ -1,6 +1,7 @@
 ﻿using OrchidPro.Models;
 using OrchidPro.Models.Base;
 using OrchidPro.Services.Data;
+using OrchidPro.Services.Base;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 using OrchidPro.Extensions;
@@ -76,152 +77,18 @@ public class SupabaseFamily : BaseModel
 }
 
 /// <summary>
-/// REFACTORED: Family service implementing ISupabaseEntityServic interface.
-/// Reduced from ~500 lines to minimal implementation focused on Family-specific logic.
+/// REFACTORED: Family service using BaseSupabaseEntityService.
+/// Reduced from ~150 lines to minimal implementation focused on Family-specific logic.
+/// MODERNIZED: Uses primary constructor for cleaner initialization.
 /// </summary>
-public class SupabaseFamilyService : ISupabaseEntityService<Family>
+public class SupabaseFamilyService(SupabaseService supabaseService) : BaseSupabaseEntityService<Family, SupabaseFamily>(supabaseService)
 {
-    #region Private Fields
+    protected override string EntityTypeName => "Family";
+    protected override string EntityPluralName => "Families";
 
-    private readonly SupabaseService _supabaseService;
+    protected override Family ConvertToEntity(SupabaseFamily supabaseModel)
+        => supabaseModel.ToFamily();
 
-    #endregion
-
-    #region Constructor
-
-    public SupabaseFamilyService(SupabaseService supabaseService)
-    {
-        _supabaseService = supabaseService ?? throw new ArgumentNullException(nameof(supabaseService));
-        this.LogInfo("SupabaseFamilyService initialized - implementing ISupabaseEntityService");
-    }
-
-    #endregion
-
-    #region ISupabaseEntityService<Family> Implementation
-
-    public async Task<IEnumerable<Family>> GetAllAsync()
-    {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            if (_supabaseService.Client == null)
-                return [];
-
-            var currentUserId = GetCurrentUserId();
-            var response = await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Select("*")
-                .Get();
-
-            if (response?.Models == null)
-                return [];
-
-            // Filter: user families OR system defaults (UserId == null)
-            var filteredFamilies = response.Models.Where(sf =>
-                sf.UserId == currentUserId || sf.UserId == null);
-
-            return filteredFamilies.Select(sf => sf.ToFamily()).OrderBy(f => f.Name).ToList();
-        }, "Families");
-
-        return result.Success && result.Data != null ? result.Data : [];
-    }
-
-    public async Task<Family?> GetByIdAsync(Guid id)
-    {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            if (_supabaseService.Client == null)
-                return null;
-
-            var response = await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Where(f => f.Id == id)
-                .Single();
-
-            return response?.ToFamily();
-        }, "Family");
-
-        return result.Success ? result.Data : null;
-    }
-
-    public async Task<Family?> CreateAsync(Family entity)
-    {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            if (_supabaseService.Client == null)
-                return null;
-
-            entity.Id = Guid.NewGuid();
-            entity.CreatedAt = DateTime.UtcNow;
-            entity.UpdatedAt = DateTime.UtcNow;
-            entity.UserId = GetCurrentUserId();
-
-            var supabaseFamily = SupabaseFamily.FromFamily(entity);
-            var response = await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Insert(supabaseFamily);
-
-            return response?.Models?.FirstOrDefault()?.ToFamily() ?? entity;
-        }, "Family");
-
-        return result.Success ? result.Data : null;
-    }
-
-    public async Task<Family?> UpdateAsync(Family entity)
-    {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            if (_supabaseService.Client == null)
-                return null;
-
-            entity.UpdatedAt = DateTime.UtcNow;
-            var supabaseFamily = SupabaseFamily.FromFamily(entity);
-
-            await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Where(f => f.Id == entity.Id)
-                .Update(supabaseFamily);
-
-            return entity;
-        }, "Family");
-
-        return result.Success ? result.Data : null;
-    }
-
-    public async Task<bool> DeleteAsync(Guid id)
-    {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            if (_supabaseService.Client == null)
-                return false;
-
-            await _supabaseService.Client
-                .From<SupabaseFamily>()
-                .Where(f => f.Id == id)
-                .Delete();
-
-            return true;
-        }, "Family");
-
-        return result.Success && result.Data;
-    }
-
-    public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
-    {
-        var families = await GetAllAsync();
-        return families.Any(f =>
-            string.Equals(f.Name, name, StringComparison.OrdinalIgnoreCase) &&
-            f.Id != excludeId);
-    }
-
-    #endregion
-
-    #region Private Helper Methods
-
-    private Guid? GetCurrentUserId()
-    {
-        var userIdString = _supabaseService.GetCurrentUserId();
-        return Guid.TryParse(userIdString, out var userId) ? userId : null;
-    }
-
-    #endregion
+    protected override SupabaseFamily ConvertFromEntity(Family entity)
+        => SupabaseFamily.FromFamily(entity);
 }

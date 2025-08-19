@@ -81,6 +81,18 @@ PERFORMANCE:
         </Setter>
     </Style>
 
+    <Shadow x:Key="ButtonShadow" 
+            Brush="Black" 
+            Offset="1,1" 
+            Radius="3" 
+            Opacity="0.3" />
+
+    <Shadow x:Key="ButtonShadowDark" 
+            Brush="White" 
+            Offset="1,1" 
+            Radius="3" 
+            Opacity="0.3" />
+
     <!-- CheckBox -->
     <Style TargetType="CheckBox">
         <Setter Property="Color" Value="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource White}}" />

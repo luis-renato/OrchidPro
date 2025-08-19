@@ -1,6 +1,11 @@
-﻿using OrchidPro.Models;
+﻿
+// ==========================================
+// 4. Services/SupabaseSpeciesService.cs (SUBSTITUIR TODO O CONTEÚDO)
+// ==========================================
+using OrchidPro.Models;
 using OrchidPro.Models.Base;
 using OrchidPro.Services.Data;
+using OrchidPro.Services.Base;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
 using OrchidPro.Extensions;
@@ -146,168 +151,17 @@ public class SupabaseSpecies : BaseModel
 }
 
 /// <summary>
-/// MINIMAL Species service implementing ISupabaseEntityService interface. 
-/// Following the exact pattern of SupabaseFamilyService and SupabaseGenusService.
-/// Handles direct database operations for species entities.
+/// REFACTORED: Species service using BaseSupabaseEntityService.
+/// Reduced from ~200 lines to minimal implementation focused on Species-specific logic.
 /// </summary>
-public class SupabaseSpeciesService : ISupabaseEntityService<Species>
+public class SupabaseSpeciesService(SupabaseService supabaseService) : BaseSupabaseEntityService<Species, SupabaseSpecies>(supabaseService)
 {
-    #region Private Fields
+    protected override string EntityTypeName => "Species";
+    protected override string EntityPluralName => "Species";
 
-    private readonly SupabaseService _supabaseService;
+    protected override Species ConvertToEntity(SupabaseSpecies supabaseModel)
+        => supabaseModel.ToSpecies();
 
-    #endregion
-
-    #region Constructor
-
-    /// <summary>
-    /// Initialize species service with Supabase connection
-    /// </summary>
-    public SupabaseSpeciesService(SupabaseService supabaseService)
-    {
-        _supabaseService = supabaseService ?? throw new ArgumentNullException(nameof(supabaseService));
-        this.LogInfo("SupabaseSpeciesService initialized - implementing ISupabaseEntityService");
-    }
-
-    #endregion
-
-    #region ISupabaseEntityService<Species> Implementation
-
-    /// <summary>
-    /// Get all species from database
-    /// </summary>
-    public async Task<IEnumerable<Species>> GetAllAsync()
-    {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            if (_supabaseService.Client == null)
-                return [];
-
-            var currentUserId = GetCurrentUserId();
-            var response = await _supabaseService.Client
-                .From<SupabaseSpecies>()
-                .Select("*")
-                .Get();
-
-            if (response?.Models == null)
-                return [];
-
-            // Filter: user species OR system defaults (UserId == null)
-            var filteredSpecies = response.Models.Where(ss =>
-                ss.UserId == currentUserId || ss.UserId == null);
-
-            return filteredSpecies.Select(ss => ss.ToSpecies()).OrderBy(s => s.Name).ToList();
-        }, "Species");
-
-        return result.Success && result.Data != null ? result.Data : [];
-    }
-
-    public async Task<Species?> GetByIdAsync(Guid id)
-    {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            if (_supabaseService.Client == null)
-                return null;
-
-            var response = await _supabaseService.Client
-                .From<SupabaseSpecies>()
-                .Where(s => s.Id == id)
-                .Single();
-
-            return response?.ToSpecies();
-        }, "Species");
-
-        return result.Success ? result.Data : null;
-    }
-
-    /// <summary>
-    /// Create new species in database
-    /// </summary>
-    public async Task<Species?> CreateAsync(Species entity)
-    {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            if (_supabaseService.Client == null)
-                return null;
-
-            entity.Id = Guid.NewGuid();
-            entity.CreatedAt = DateTime.UtcNow;
-            entity.UpdatedAt = DateTime.UtcNow;
-            entity.UserId = GetCurrentUserId();
-
-            var supabaseSpecies = SupabaseSpecies.FromSpecies(entity);
-            var response = await _supabaseService.Client
-                .From<SupabaseSpecies>()
-                .Insert(supabaseSpecies);
-
-            return response?.Models?.FirstOrDefault()?.ToSpecies() ?? entity;
-        }, "Species");
-
-        return result.Success ? result.Data : null;
-    }
-
-    /// <summary>
-    /// Update existing species in database
-    /// </summary>
-    public async Task<Species?> UpdateAsync(Species entity)
-    {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            if (_supabaseService.Client == null)
-                return null;
-
-            entity.UpdatedAt = DateTime.UtcNow;
-            var supabaseSpecies = SupabaseSpecies.FromSpecies(entity);
-
-            await _supabaseService.Client
-                .From<SupabaseSpecies>()
-                .Where(s => s.Id == entity.Id)
-                .Update(supabaseSpecies);
-
-            return entity;
-        }, "Species");
-
-        return result.Success ? result.Data : null;
-    }
-
-    /// <summary>
-    /// Delete species from database
-    /// </summary>
-    public async Task<bool> DeleteAsync(Guid id)
-    {
-        var result = await this.SafeDataExecuteAsync(async () =>
-        {
-            if (_supabaseService.Client == null)
-                return false;
-
-            await _supabaseService.Client
-                .From<SupabaseSpecies>()
-                .Where(s => s.Id == id)
-                .Delete();
-
-            return true;
-        }, "Species");
-
-        return result.Success && result.Data;
-    }
-
-    public async Task<bool> NameExistsAsync(string name, Guid? excludeId = null)
-    {
-        var species = await GetAllAsync();
-        return species.Any(s =>
-            string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase) &&
-            s.Id != excludeId);
-    }
-
-    #endregion
-
-    #region Private Helper Methods
-
-    private Guid? GetCurrentUserId()
-    {
-        var userIdString = _supabaseService.GetCurrentUserId();
-        return Guid.TryParse(userIdString, out var userId) ? userId : null;
-    }
-
-    #endregion
+    protected override SupabaseSpecies ConvertFromEntity(Species entity)
+        => SupabaseSpecies.FromSpecies(entity);
 }
