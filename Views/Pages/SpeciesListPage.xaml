@@ -359,8 +359,47 @@
         </Grid>
 
         <!-- Loading Overlay -->
-        <ContentView Style="{StaticResource LoadingOverlayStyle}" />        
-        
+        <Grid x:Name="LoadingGrid" 
+             IsVisible="{Binding IsLoading}"
+             BackgroundColor="#90000000"
+             InputTransparent="False">
+
+            <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray900}}"
+                 Stroke="{AppThemeBinding Light={StaticResource Gray100}, Dark={StaticResource Gray600}}"
+                 StrokeThickness="0.5"
+                 Padding="32,24"
+                 HorizontalOptions="Center"
+                 VerticalOptions="Center"
+                 Shadow="{AppThemeBinding Light={StaticResource ButtonShadow}, Dark={StaticResource ButtonShadowDark}}">
+
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="12" />
+                </Border.StrokeShape>
+
+                <StackLayout Spacing="16" HorizontalOptions="Center">
+
+                    <!-- 🌺 Orchid icon + Loading text inline -->
+                    <StackLayout Orientation="Horizontal" Spacing="12" HorizontalOptions="Center">
+                        <Label Text="🌺"
+                     FontSize="20"
+                     VerticalOptions="Center" />
+                        <Label Text="Loading..."
+                     FontSize="16"
+                     TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
+                     VerticalOptions="Center" />
+                    </StackLayout>
+
+                    <!-- 🎯 Compact LinearMaterial progress bar -->
+                    <sfbusy:SfBusyIndicator IsRunning="{Binding IsLoading}"
+                           AnimationType="LinearMaterial"
+                           IndicatorColor="{StaticResource Primary}"
+                           WidthRequest="160"
+                           HeightRequest="4"
+                           HorizontalOptions="Center" />
+
+                </StackLayout>
+            </Border>
+        </Grid>        
         <!-- 3. FAB - Hidden during loading, with animation -->
         <Button x:Name="FabButton"
                 Text="{Binding FabText, FallbackValue='Add Species'}"

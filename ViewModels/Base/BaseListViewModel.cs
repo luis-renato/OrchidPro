@@ -96,9 +96,9 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     #region 🔧 LOADING FLASH FIX: State Tracking
 
     /// <summary>
-    /// Track if initial data has been loaded to prevent unnecessary loading overlays
+    /// 🔧 CRITICAL FIX: Track if this ViewModel has appeared to user before (regardless of cache)
     /// </summary>
-    private bool _hasInitialDataLoaded = false;
+    private bool _hasAppearedToUser = false;
 
     /// <summary>
     /// Track the source of loading operations to determine if overlay should show
@@ -487,7 +487,7 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             // 🔧 LOADING FLASH FIX: Intelligent loading overlay decision
             var shouldShowLoading = ShouldShowLoadingOverlay(source);
 
-            this.LogInfo($"🔧 LOADING FIX: Source={source}, ShowLoading={shouldShowLoading}, HasInitialData={_hasInitialDataLoaded}");
+            this.LogInfo($"🔧 LOADING FIX: Source={source}, ShowLoading={shouldShowLoading}, HasAppearedToUser={_hasAppearedToUser}");
 
             if (shouldShowLoading)
             {
@@ -506,8 +506,8 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
                 if (result.Success && result.Data != null)
                 {
-                    // 🔧 LOADING FLASH FIX: Mark that initial data has been loaded
-                    _hasInitialDataLoaded = true;
+                    // 🔧 LOADING FLASH FIX: Mark that user has now seen this tab with data
+                    _hasAppearedToUser = true;
                     this.LogSuccess($"Loaded {result.Data.Count} {EntityNamePlural}");
                 }
                 else
@@ -535,9 +535,10 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             switch (source)
             {
                 case LoadingSource.InitialLoad:
-                    // Always show for initial load
-                    this.LogInfo($"🔧 LOADING FIX: Showing overlay for initial load");
-                    return true;
+                    // 🔧 CRITICAL FIX: Show overlay if user hasn't seen this tab before, regardless of cache
+                    var shouldShow = !_hasAppearedToUser;
+                    this.LogInfo($"🔧 LOADING FIX: Initial load - HasAppearedToUser={_hasAppearedToUser}, ShowOverlay={shouldShow}");
+                    return shouldShow;
 
                 case LoadingSource.Filter:
                     // 🔧 CRITICAL FIX: NEVER show loading overlay for filter operations
@@ -545,14 +546,14 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
                     return false;
 
                 case LoadingSource.Refresh:
-                    // Show for explicit refresh only if no data exists
-                    var showForRefresh = !_hasInitialDataLoaded || Items.Count == 0;
+                    // Show for explicit refresh only if no data exists in UI
+                    var showForRefresh = Items.Count == 0;
                     this.LogInfo($"🔧 LOADING FIX: Refresh overlay decision: {showForRefresh}");
                     return showForRefresh;
 
                 case LoadingSource.Navigation:
-                    // Don't show overlay when returning to page with existing data
-                    var showForNavigation = !_hasInitialDataLoaded;
+                    // Don't show overlay when returning to tab user has seen before
+                    var showForNavigation = !_hasAppearedToUser;
                     this.LogInfo($"🔧 LOADING FIX: Navigation overlay decision: {showForNavigation}");
                     return showForNavigation;
 
@@ -562,8 +563,8 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
         }
         catch (Exception ex)
         {
-            this.LogError(ex, "Error determining loading overlay state");
-            return false; // Default to no loading on error
+            this.LogError(ex, "Error determining loading overlay visibility");
+            return false;
         }
     }
 

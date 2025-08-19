@@ -9,13 +9,13 @@ using SfSwipeEndedEventArgs = Syncfusion.Maui.ListView.SwipeEndedEventArgs;
 using System.Collections.Specialized;
 using System.Collections.ObjectModel;
 
-namespace OrchidPro.Views.Pages.Base;
+namespace OrchidPro.Views.Base;
 
 /// <summary>
 /// PERFORMANCE OPTIMIZED Logic class with debounced sorting, throttled collection monitoring, and pull-to-refresh bug fixes.
 /// 🔧 LOADING FLASH FIXED: Maintains 100% compatibility while eliminating loading overlay flash during filter operations.
 /// </summary>
-public class BaseListPageLogic<T, TItemViewModel> : IDisposable
+public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
     where T : class, IBaseEntity, new()
     where TItemViewModel : BaseItemViewModel<T>
 {
@@ -36,7 +36,7 @@ public class BaseListPageLogic<T, TItemViewModel> : IDisposable
 
     // PERFORMANCE OPTIMIZATION: Debounce sorting to prevent excessive calls
     private Timer? _sortingDebounceTimer;
-    private readonly object _sortingLock = new object();
+    private readonly Lock _sortingLock = new();
     private volatile bool _isSortingScheduled = false;
 
     // 🔧 BUG FIX: Pull-to-refresh state tracking for navigation bug fix
@@ -682,16 +682,13 @@ public class BaseListPageLogic<T, TItemViewModel> : IDisposable
                 }
 
                 // Force ListView sync
-                if (listView != null)
+                if (item.IsSelected && viewModel.SelectedItems != null && !viewModel.SelectedItems.Contains(item))
                 {
-                    if (item.IsSelected && !listView.SelectedItems.Contains(item))
-                    {
-                        listView.SelectedItems.Add(item);
-                    }
-                    else if (!item.IsSelected && listView.SelectedItems.Contains(item))
-                    {
-                        listView.SelectedItems.Remove(item);
-                    }
+                    viewModel.SelectedItems.Add(item);
+                }
+                else if (!item.IsSelected && viewModel.SelectedItems != null && viewModel.SelectedItems.Contains(item))
+                {
+                    viewModel.SelectedItems.Remove(item);
                 }
 
                 this.LogInfo($"Multi-select tap: {item.Name} = {item.IsSelected}");
@@ -865,7 +862,7 @@ public class BaseListPageLogic<T, TItemViewModel> : IDisposable
                 $"Filter {entityName}",
                 "Cancel",
                 isDefaultFilter ? null : "Clear All Filters",  // Destructive button only if not default
-                options.ToArray());
+                [.. options]);
 
             if (result != null && result != "Cancel")
             {
@@ -935,7 +932,7 @@ public class BaseListPageLogic<T, TItemViewModel> : IDisposable
                 $"Sort {entityName}",
                 "Cancel",
                 isDefaultSort ? null : "Clear All Sorting",  // Destructive button
-                options.Take(5).ToArray()); // Only show main options in body
+                [.. options.Take(5)]); // Only show main options in body
 
             if (result != null && result != "Cancel")
             {
@@ -969,32 +966,30 @@ public class BaseListPageLogic<T, TItemViewModel> : IDisposable
             this.LogInfo("🔄 SFPULLTOREFRESH: Pull-to-refresh started");
 
             // Get the SfPullToRefresh control
-            var pullToRefresh = sender as Syncfusion.Maui.PullToRefresh.SfPullToRefresh;
-
-            try
+            if (sender is Syncfusion.Maui.PullToRefresh.SfPullToRefresh pullToRefreshControl)
             {
-                // Execute refresh command
-                if (viewModel.RefreshCommand.CanExecute(null))
+                try
                 {
-                    await viewModel.RefreshCommand.ExecuteAsync(null);
-                }
+                    // Execute refresh command
+                    if (viewModel.RefreshCommand.CanExecute(null))
+                    {
+                        await viewModel.RefreshCommand.ExecuteAsync(null);
+                    }
 
-                this.LogInfo("✅ SFPULLTOREFRESH: Pull-to-refresh completed");
-            }
-            catch (Exception ex)
-            {
-                this.LogError(ex, "SfPullToRefresh failed");
-            }
-            finally
-            {
-                // 🎯 CRITICAL: Always reset the refresh indicator
-                if (pullToRefresh != null)
+                    this.LogInfo("✅ SFPULLTOREFRESH: Pull-to-refresh completed");
+                }
+                catch (Exception ex)
                 {
-                    pullToRefresh.IsRefreshing = false;
+                    this.LogError(ex, "SfPullToRefresh failed");
                 }
+                finally
+                {
+                    // 🎯 CRITICAL: Always reset the refresh indicator
+                    pullToRefreshControl.IsRefreshing = false;
 
-                // Also ensure ViewModel property is reset
-                viewModel.IsRefreshing = false;
+                    // Also ensure ViewModel property is reset
+                    viewModel.IsRefreshing = false;
+                }
             }
         }, "Pull-to-refresh failed");
     }

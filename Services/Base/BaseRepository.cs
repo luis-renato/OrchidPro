@@ -557,17 +557,39 @@ public abstract class BaseRepository<T> : IBaseRepository<T>
         }
     }
 
+    // BaseRepository.cs - Adicionar campos estáticos
+    private static bool? _globalConnectionState;
+    private static DateTime? _globalConnectionTest;
+    private static readonly TimeSpan _connectionCacheTime = TimeSpan.FromMinutes(2);
+
     public virtual async Task<bool> TestConnectionAsync()
     {
+        // 🚀 PERFORMANCE: Use global connection state se disponível
+        if (_globalConnectionTest.HasValue &&
+            DateTime.UtcNow - _globalConnectionTest.Value < _connectionCacheTime &&
+            _globalConnectionState.HasValue)
+        {
+            this.LogInfo($"Using global cached connection state: {_globalConnectionState.Value}");
+            return _globalConnectionState.Value;
+        }
+
         var result = await this.SafeDataExecuteAsync(async () =>
         {
             try
             {
                 var entities = await GetAllFromServiceAsync();
-                return entities != null;
+                var isConnected = entities != null;
+
+                // 🚀 PERFORMANCE: Cache globalmente para todos os repositórios
+                _globalConnectionState = isConnected;
+                _globalConnectionTest = DateTime.UtcNow;
+
+                return isConnected;
             }
             catch
             {
+                _globalConnectionState = false;
+                _globalConnectionTest = DateTime.UtcNow;
                 return false;
             }
         }, "Connection Test");

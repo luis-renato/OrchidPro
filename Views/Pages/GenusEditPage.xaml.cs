@@ -62,12 +62,12 @@ public partial class GenusEditPage : ContentPage, IQueryAttributable
 
     #region Event Handlers - All Delegated to Base
 
-    // Core form handlers
-    private async void OnSaveButtonTapped(object? sender, EventArgs e) => _base.HandleSaveButtonTapped(sender, e);
-    private async void OnCancelButtonTapped(object? sender, EventArgs e) => _base.HandleCancelButtonTapped(sender, e);
-    private async void OnDeleteButtonTapped(object? sender, EventArgs e) => _base.HandleDeleteButtonTapped(sender, e);
-    private async void OnSaveAndContinueButtonTapped(object? sender, EventArgs e) => _base.HandleSaveAndContinueButtonTapped(sender, e);
-    private async void OnCreateNewFamilyButtonTapped(object? sender, EventArgs e) => _base.HandleCreateNewParentButtonTapped(sender, e);
+    // Core form handlers - FIXED: Removed async since base handlers are already async void
+    private void OnSaveButtonTapped(object? sender, EventArgs e) => _base.HandleSaveButtonTapped(sender, e);
+    private void OnCancelButtonTapped(object? sender, EventArgs e) => _base.HandleCancelButtonTapped(sender, e);
+    private void OnDeleteButtonTapped(object? sender, EventArgs e) => _base.HandleDeleteButtonTapped(sender, e);
+    private void OnSaveAndContinueButtonTapped(object? sender, EventArgs e) => _base.HandleSaveAndContinueButtonTapped(sender, e);
+    private void OnCreateNewFamilyButtonTapped(object? sender, EventArgs e) => _base.HandleCreateNewParentButtonTapped(sender, e);
 
     // Focus handlers
     private void OnEntryFocused(object? sender, FocusEventArgs e) => _base.HandleEntryFocused(sender, e);

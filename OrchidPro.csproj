@@ -31,10 +31,23 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tizen'">6.5</SupportedOSPlatformVersion>
 	</PropertyGroup>
 
+	<!-- CORREÇÃO CA1416: Suprimir warnings para APIs específicas de plataforma em MAUI -->
 	<PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-android'">
-		<NoWarn>$(NoWarn);CA1422</NoWarn>
+		<NoWarn>$(NoWarn);CA1422;CA1416</NoWarn>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
+		<NoWarn>$(NoWarn);CA1416</NoWarn>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-ios'">
+		<NoWarn>$(NoWarn);CA1416</NoWarn>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-maccatalyst'">
+		<NoWarn>$(NoWarn);CA1416</NoWarn>
+	</PropertyGroup>
+	
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" Color="#FFFFFF" />
