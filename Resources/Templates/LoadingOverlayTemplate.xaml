@@ -7,7 +7,7 @@
     <ControlTemplate x:Key="LoadingOverlayTemplate">
         <Grid x:Name="LoadingGrid" 
              IsVisible="{Binding IsLoading}"
-             BackgroundColor="#90000000"
+             BackgroundColor="#50000000"
              InputTransparent="False">
 
             <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray900}}"

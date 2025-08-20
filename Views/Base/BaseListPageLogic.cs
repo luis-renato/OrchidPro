@@ -55,7 +55,7 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
     }
 
     /// <summary>
-    /// ENHANCED: Setup page with fade effect support and pull-to-refresh bug fixes
+    /// ENHANCED: Setup page with template-based loading and pull-to-refresh bug fixes
     /// </summary>
     public void SetupPage(ContentPage pg, SfListView lv, Grid rg, Button fb,
         Syncfusion.Maui.PullToRefresh.SfPullToRefresh pr)
@@ -67,9 +67,11 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
         pullToRefresh = pr;
         page.BindingContext = viewModel;
 
-        // Find the content and loading grids
+        // Find the content grid
         contentGrid = rootGrid?.FindByName<Grid>("ContentGrid");
-        loadingGrid = rootGrid?.FindByName<Grid>("LoadingGrid");
+
+        // 🔧 TEMPLATE NOTE: LoadingGrid is in ControlTemplate, controlled by IsVisible="{Binding IsLoading}"
+        loadingGrid = rootGrid?.FindByName<Grid>("LoadingGrid"); // Will be null, but kept for compatibility
 
         // Setup pull-to-refresh with bug fix support
         SetupPullToRefresh();
@@ -80,7 +82,7 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
         // Monitor IsLoading for fade effects
         SetupFadeEffects();
 
-        this.LogInfo($"🔧 Page setup completed for {typeof(T).Name} with fade effects");
+        this.LogInfo($"🔧 Page setup completed for {typeof(T).Name} with template-based loading");
     }
 
     #endregion
@@ -198,7 +200,7 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
             {
                 // 🔧 LOADING FLASH FIX: Only show loading overlay when ViewModel explicitly sets IsLoading to true
                 // The ViewModel now intelligently decides when to show loading based on operation type
-                this.LogInfo("✨ FADE: Starting loading state (ViewModel-controlled)");
+                this.LogInfo("✨ FADE: Starting loading state (Template-controlled)");
 
                 // Hide FAB immediately
                 if (fabButton != null)
@@ -214,21 +216,16 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
                     contentGrid.Opacity = 0;
                 }
 
-                if (loadingGrid != null)
-                {
-                    loadingGrid.IsVisible = true;
-                    loadingGrid.Opacity = 1;
-                }
+                // 🔧 TEMPLATE FIX: LoadingGrid is handled by template binding IsVisible="{Binding IsLoading}"
+                // No manual manipulation needed - template shows/hides automatically
             }
             else
             {
                 // Finished loading: Hide loading, fade in content + FAB
                 this.LogInfo("✨ FADE: Finishing loading state");
 
-                if (loadingGrid != null)
-                {
-                    loadingGrid.IsVisible = false;
-                }
+                // 🔧 TEMPLATE FIX: LoadingGrid hidden automatically by template binding
+                // No manual manipulation needed
 
                 if (contentGrid != null)
                 {
@@ -412,6 +409,140 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
 
     #endregion
 
+    #region Multi-Select State Management - CRITICAL FIXES
+
+    /// <summary>
+    /// CRITICAL FIX: Force complete multi-select reset with enhanced visual cleanup
+    /// </summary>
+    private void ForceMultiSelectReset()
+    {
+        if (listView == null) return;
+
+        try
+        {
+            this.LogInfo("🔧 MULTISELECT FIX: Starting complete reset");
+
+            // 1. CRITICAL: Clear ListView selections FIRST and COMPLETELY
+            if (listView.SelectedItems != null)
+            {
+                var selectedCount = listView.SelectedItems.Count;
+                listView.SelectedItems.Clear();
+                this.LogInfo($"🔧 Cleared {selectedCount} visual selections from ListView");
+            }
+
+            // 2. Reset all item states
+            foreach (var item in viewModel.Items)
+            {
+                if (item.IsSelected)
+                {
+                    item.IsSelected = false;
+                }
+            }
+
+            // 3. Clear ViewModel selection collection
+            viewModel.SelectedItems.Clear();
+
+            // 4. Exit multi-select mode
+            viewModel.IsMultiSelectMode = false;
+
+            // 5. Force ListView mode sync with delay to ensure visual reset
+            listView.SelectionMode = SfSelectionMode.None;
+
+            // 6. CRITICAL: Force visual refresh
+            Task.Run(async () =>
+            {
+                await Task.Delay(50); // Small delay for visual state reset
+                await MainThread.InvokeOnMainThreadAsync(() =>
+                {
+                    try
+                    {
+                        listView.RefreshView();
+                        this.LogInfo("🔧 Forced ListView visual refresh");
+                    }
+                    catch (Exception ex)
+                    {
+                        this.LogError(ex, "Error in ListView RefreshView");
+                    }
+                });
+            });
+
+            // 7. Update visual state
+            UpdateFabVisual();
+
+            this.LogInfo("🔧 MULTISELECT FIX: Complete reset performed successfully");
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error in ForceMultiSelectReset");
+        }
+    }
+
+    /// <summary>
+    /// Debug method to check and auto-fix multi-select state inconsistencies
+    /// UPDATED: Enhanced sync with visual validation
+    /// </summary>
+    private void DebugAndFixMultiSelectState()
+    {
+        if (listView == null) return;
+
+        try
+        {
+            var vmMode = viewModel.IsMultiSelectMode;
+            var listViewMode = listView.SelectionMode;
+            var vmSelectedCount = viewModel.SelectedItems?.Count ?? 0;
+            var listViewSelectedCount = listView.SelectedItems?.Count ?? 0;
+
+            this.LogInfo($"🔧 MULTISELECT DEBUG: VM.Mode={vmMode}, ListView.Mode={listViewMode}, VM.Count={vmSelectedCount}, ListView.Count={listViewSelectedCount}");
+
+            // Auto-fix mode desync
+            if (vmMode && listViewMode != SfSelectionMode.Multiple)
+            {
+                listView.SelectionMode = SfSelectionMode.Multiple;
+                this.LogInfo("🔧 AUTO-FIX: Corrected ListView to Multiple mode");
+            }
+            else if (!vmMode && listViewMode != SfSelectionMode.None)
+            {
+                listView.SelectionMode = SfSelectionMode.None;
+                listView.SelectedItems?.Clear(); // Ensure visual clear
+                this.LogInfo("🔧 AUTO-FIX: Corrected ListView to None mode and cleared selections");
+            }
+
+            // ENHANCED: Better sync logic with visual validation
+            if (vmMode && vmSelectedCount > 0 && listViewSelectedCount != vmSelectedCount)
+            {
+                // Force complete resync
+                if (listView.SelectedItems != null)
+                {
+                    listView.SelectedItems.Clear();
+
+                    if (viewModel.SelectedItems != null)
+                    {
+                        foreach (var item in viewModel.SelectedItems)
+                        {
+                            if (!listView.SelectedItems.Contains(item))
+                            {
+                                listView.SelectedItems.Add(item);
+                            }
+                        }
+                        this.LogInfo($"🔧 SYNC FIX: Force synced {viewModel.SelectedItems.Count} items to ListView (was {listViewSelectedCount})");
+                    }
+                }
+            }
+            else if (!vmMode && listViewSelectedCount > 0)
+            {
+                // Clear orphaned ListView selections
+                listView.SelectedItems?.Clear();
+                this.LogInfo("🔧 SYNC FIX: Cleared orphaned ListView selections");
+            }
+        }
+        catch (Exception ex)
+        {
+            this.LogError(ex, "Error in DebugAndFixMultiSelectState");
+        }
+    }
+
+    #endregion
+
     #region Selection and Visual Sync
 
     private void SyncSelectionMode()
@@ -537,13 +668,17 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
         try
         {
             _appearanceCount++;
-            this.LogInfo($"🔄 LOADING FLASH FIX: BaseOnAppearing for {typeof(T).Name} (appearance #{_appearanceCount})");
+            this.LogInfo($"🔄 BaseOnAppearing for {typeof(T).Name} (appearance #{_appearanceCount})");
 
             // 🔧 BUG FIX: Reset pull-to-refresh after tab navigation (known Syncfusion bug)
             if (_appearanceCount > 1 || _pullToRefreshNeedsReset)
             {
                 _pullToRefreshNeedsReset = false;
                 await ForceResetPullToRefresh();
+
+                // CRITICAL FIX: Reset multi-select when returning from edit
+                ForceMultiSelectReset();
+                this.LogInfo("🔧 NAVIGATION FIX: Reset multi-select on return from edit");
 
                 // Additional fix: Force a brief delay to ensure Syncfusion internal state resets
                 await Task.Delay(150);
@@ -570,7 +705,6 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
             }
 
             // 🔧 LOADING FLASH FIX: Let ViewModel decide loading overlay based on operation type
-            // No longer force showing/hiding loading here - ViewModel handles it intelligently
             this.LogInfo($"🔧 LOADING FLASH FIX: Delegating loading decisions to ViewModel for {typeof(T).Name}");
 
             // Call ViewModel's OnAppearing - it will handle loading state intelligently
@@ -669,29 +803,31 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
         {
             if (viewModel.IsMultiSelectMode)
             {
-                // Immediate multi-select response
+                // FIXED: Handle multi-select with immediate visual sync
                 item.IsSelected = !item.IsSelected;
 
                 if (item.IsSelected && !viewModel.SelectedItems.Contains(item))
                 {
                     viewModel.SelectedItems.Add(item);
+
+                    // CRITICAL: Force ListView visual selection
+                    if (listView?.SelectedItems != null && !listView.SelectedItems.Contains(item))
+                    {
+                        listView.SelectedItems.Add(item);
+                    }
                 }
-                else if (!item.IsSelected && viewModel.SelectedItems.Contains(item))
+                else if (!item.IsSelected)
                 {
                     viewModel.SelectedItems.Remove(item);
+
+                    // CRITICAL: Force ListView visual deselection
+                    if (listView?.SelectedItems != null && listView.SelectedItems.Contains(item))
+                    {
+                        listView.SelectedItems.Remove(item);
+                    }
                 }
 
-                // Force ListView sync
-                if (item.IsSelected && viewModel.SelectedItems != null && !viewModel.SelectedItems.Contains(item))
-                {
-                    viewModel.SelectedItems.Add(item);
-                }
-                else if (!item.IsSelected && viewModel.SelectedItems != null && viewModel.SelectedItems.Contains(item))
-                {
-                    viewModel.SelectedItems.Remove(item);
-                }
-
-                this.LogInfo($"Multi-select tap: {item.Name} = {item.IsSelected}");
+                this.LogInfo($"Multi-select tap: {item.Name} = {item.IsSelected}, ListView count: {listView?.SelectedItems?.Count ?? 0}");
             }
             else
             {
@@ -717,6 +853,7 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
             }
 
             UpdateFabVisual();
+            // REMOVED: DebugAndFixMultiSelectState() calls to prevent interference
         }
     }
 
@@ -737,14 +874,18 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
                     }
                 }
             }
+
+            UpdateFabVisual();
+            SyncSelectionMode();
+
+            // ADDED: Debug after sync to catch issues
+            DebugAndFixMultiSelectState();
         }
         catch (Exception ex)
         {
-            this.LogError(ex, "Error syncing selections");
+            this.LogError(ex, "Error syncing selections - forcing reset");
+            ForceMultiSelectReset(); // Emergency reset on sync failure
         }
-
-        UpdateFabVisual();
-        SyncSelectionMode();
     }
 
     public async void HandleSwipeEnded(object? sender, SfSwipeEndedEventArgs e)
@@ -755,7 +896,6 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
         {
             if (e.Direction == SwipeDirection.Right)
             {
-                // Favorite toggle - always executes
                 if (viewModel.ToggleFavoriteCommand.CanExecute(item))
                 {
                     await viewModel.ToggleFavoriteCommand.ExecuteAsync(item);
@@ -763,16 +903,19 @@ public partial class BaseListPageLogic<T, TItemViewModel> : IDisposable
             }
             else if (e.Direction == SwipeDirection.Left)
             {
-                // Delete action - might be cancelled
                 if (viewModel.DeleteSingleItemCommand.CanExecute(item))
                 {
                     await viewModel.DeleteSingleItemCommand.ExecuteAsync(item);
+
+                    // CRITICAL FIX: Reset multi-select after delete to prevent state corruption
+                    ForceMultiSelectReset();
+                    this.LogInfo("🔧 DELETE FIX: Reset multi-select after delete operation");
                 }
             }
         }
         catch (Exception ex)
         {
-            this.LogError(ex, $"Error handling swipe action");
+            this.LogError(ex, "Error handling swipe action");
         }
     }
 

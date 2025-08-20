@@ -31,11 +31,26 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
     /// </summary>
     protected override async Task<IEnumerable<Species>> GetAllFromServiceAsync()
     {
-        var rawSpecies = await _speciesService.GetAllAsync();
-        // FIXED IDE0305: Simplified collection initialization
-        var speciesWithGenus = await PopulateParentDataAsync([.. rawSpecies]);
-        this.LogInfo($"✅ IMMEDIATE: Loaded {speciesWithGenus.Count} species WITH genus data (no delay like Genus)");
-        return speciesWithGenus;
+        var rawSpecies = await _speciesService.GetAllWithBatchLoadingAsync(); // ← SÓ MUDA ESTA LINHA
+
+        // 🔍 DEBUG: Verificar se o JOIN trouxe os dados relacionados
+        var speciesList = rawSpecies.ToList();
+        var speciesWithGenus = speciesList.Count(s => s.Genus != null);
+        this.LogInfo($"🔍 DEBUG: JOIN returned {speciesList.Count} species, {speciesWithGenus} with Genus data");
+
+        if (speciesWithGenus > 0)
+        {
+            // ✅ JOIN funcionou! Não precisa do PopulateParentDataAsync
+            this.LogInfo($"✅ OPTIMIZED: JOIN worked! Skipping PopulateParentDataAsync");
+            return speciesList;
+        }
+        else
+        {
+            // ❌ JOIN falhou, usar fallback
+            this.LogInfo($"❌ JOIN failed, using fallback PopulateParentDataAsync");
+            var speciesWithGenusPopulated = await PopulateParentDataAsync([.. rawSpecies]);
+            return speciesWithGenusPopulated;
+        }
     }
 
     protected override async Task<Species?> GetByIdFromServiceAsync(Guid id)

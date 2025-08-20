@@ -468,48 +468,86 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
 
     #endregion
 
-    #region Validation Overrides - Performance Optimized
+    #region Validation Overrides - FIXED: Maintain Parent Relationships
 
     /// <summary>
-    /// Override create validation to ensure parent relationship is valid
+    /// CRITICAL FIX: Override create to ensure parent relationships are populated from the start
     /// </summary>
     public override async Task<TChild> CreateAsync(TChild entity)
     {
-        // Validate parent exists before creating child
-        var parentExists = await ValidateParentAccessAsync(entity.GetParentId());
-        if (!parentExists)
+        using (this.LogPerformance($"Create {EntityTypeName} with {ParentEntityTypeName}"))
         {
-            throw new ArgumentException($"{ParentEntityTypeName} with ID {entity.GetParentId()} not found");
-        }
+            // Validate parent exists before creating child
+            var parentExists = await ValidateParentAccessAsync(entity.GetParentId());
+            if (!parentExists)
+            {
+                throw new ArgumentException($"{ParentEntityTypeName} with ID {entity.GetParentId()} not found");
+            }
 
-        // Validate hierarchy structure
-        if (!entity.ValidateHierarchy())
-        {
-            throw new ArgumentException($"Invalid hierarchical relationship for {EntityTypeName}");
-        }
+            // Validate hierarchy structure
+            if (!entity.ValidateHierarchy())
+            {
+                throw new ArgumentException($"Invalid hierarchical relationship for {EntityTypeName}");
+            }
 
-        return await base.CreateAsync(entity);
+            // Call base create (handles service call and basic cache update)
+            // FIXED CS8603: base.CreateAsync never returns null - it throws on failure
+            var created = await base.CreateAsync(entity);
+
+            // CRITICAL FIX: Populate parent relationship for new entity
+            var entitiesWithParent = await PopulateParentDataAsync([created]);
+            var entityWithParent = entitiesWithParent.FirstOrDefault();
+
+            if (entityWithParent != null)
+            {
+                // Update cache with properly populated entity
+                _entityCache.AddOrUpdate(entityWithParent.Id, entityWithParent, (key, oldValue) => entityWithParent);
+                this.LogInfo($"🔧 RELATIONSHIP FIX: Created {EntityTypeName} with {ParentEntityTypeName} relationship");
+                return entityWithParent;
+            }
+
+            // FIXED CS8603: Always return a valid entity - base.CreateAsync guarantees non-null
+            return created;
+        }
     }
 
-    /// <summary>
-    /// Override update validation to ensure parent relationship remains valid
-    /// </summary>
     public override async Task<TChild> UpdateAsync(TChild entity)
     {
-        // Validate parent exists before updating child
-        var parentExists = await ValidateParentAccessAsync(entity.GetParentId());
-        if (!parentExists)
+        using (this.LogPerformance($"Update {EntityTypeName} with {ParentEntityTypeName}"))
         {
-            throw new ArgumentException($"{ParentEntityTypeName} with ID {entity.GetParentId()} not found");
-        }
+            // Validate parent exists before updating child
+            var parentExists = await ValidateParentAccessAsync(entity.GetParentId());
+            if (!parentExists)
+            {
+                throw new ArgumentException($"{ParentEntityTypeName} with ID {entity.GetParentId()} not found");
+            }
 
-        // Validate hierarchy structure
-        if (!entity.ValidateHierarchy())
-        {
-            throw new ArgumentException($"Invalid hierarchical relationship for {EntityTypeName}");
-        }
+            // Validate hierarchy structure
+            if (!entity.ValidateHierarchy())
+            {
+                throw new ArgumentException($"Invalid hierarchical relationship for {EntityTypeName}");
+            }
 
-        return await base.UpdateAsync(entity);
+            // Call base update (handles service call and basic cache update)
+            // FIXED CS8603: base.UpdateAsync never returns null - it throws on failure
+            var updated = await base.UpdateAsync(entity);
+
+            // CRITICAL FIX: Re-populate parent relationship after update
+            // This prevents "Unknown Genus/Family" by ensuring Parent navigation property is properly set
+            var entitiesWithParent = await PopulateParentDataAsync([updated]);
+            var entityWithParent = entitiesWithParent.FirstOrDefault();
+
+            if (entityWithParent != null)
+            {
+                // Update cache with properly populated entity
+                _entityCache.AddOrUpdate(entityWithParent.Id, entityWithParent, (key, oldValue) => entityWithParent);
+                this.LogInfo($"🔧 RELATIONSHIP FIX: Updated {EntityTypeName} cache with {ParentEntityTypeName} relationship");
+                return entityWithParent;
+            }
+
+            // FIXED CS8603: Always return a valid entity - base.UpdateAsync guarantees non-null
+            return updated;
+        }
     }
 
     #endregion

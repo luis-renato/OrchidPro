@@ -484,7 +484,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
     {
         using (this.LogPerformance($"Load {EntityNamePlural}"))
         {
-            // 🔧 LOADING FLASH FIX: Intelligent loading overlay decision
             var shouldShowLoading = ShouldShowLoadingOverlay(source);
 
             this.LogInfo($"🔧 LOADING FIX: Source={source}, ShowLoading={shouldShowLoading}, HasAppearedToUser={_hasAppearedToUser}");
@@ -492,6 +491,9 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             if (shouldShowLoading)
             {
                 IsLoading = true;
+
+                // 🔧 VISUAL FIX: Minimum delay to ensure loading overlay is visible
+                await Task.Delay(500); // Ensure at least 500ms of loading visibility
             }
 
             try
@@ -506,7 +508,6 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
 
                 if (result.Success && result.Data != null)
                 {
-                    // 🔧 LOADING FLASH FIX: Mark that user has now seen this tab with data
                     _hasAppearedToUser = true;
                     this.LogSuccess($"Loaded {result.Data.Count} {EntityNamePlural}");
                 }
@@ -535,35 +536,36 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             switch (source)
             {
                 case LoadingSource.InitialLoad:
-                    // 🔧 CRITICAL FIX: Show overlay if user hasn't seen this tab before, regardless of cache
                     var shouldShow = !_hasAppearedToUser;
                     this.LogInfo($"🔧 LOADING FIX: Initial load - HasAppearedToUser={_hasAppearedToUser}, ShowOverlay={shouldShow}");
+                    this.LogInfo($"🔧 DEBUG: IsLoading will be set to: {shouldShow}"); // ADD THIS
                     return shouldShow;
 
+                case LoadingSource.Navigation:
+                    var showForNavigation = !_hasAppearedToUser;
+                    this.LogInfo($"🔧 LOADING FIX: Navigation overlay decision: {showForNavigation}");
+                    this.LogInfo($"🔧 DEBUG: IsLoading will be set to: {showForNavigation}"); // ADD THIS
+                    return showForNavigation;
+
                 case LoadingSource.Filter:
-                    // 🔧 CRITICAL FIX: NEVER show loading overlay for filter operations
                     this.LogInfo($"🔧 LOADING FIX: NO overlay for filter operation (prevents flash)");
+                    this.LogInfo($"🔧 DEBUG: IsLoading will be set to: false"); // ADD THIS
                     return false;
 
                 case LoadingSource.Refresh:
-                    // Show for explicit refresh only if no data exists in UI
                     var showForRefresh = Items.Count == 0;
                     this.LogInfo($"🔧 LOADING FIX: Refresh overlay decision: {showForRefresh}");
+                    this.LogInfo($"🔧 DEBUG: IsLoading will be set to: {showForRefresh}"); // ADD THIS
                     return showForRefresh;
 
-                case LoadingSource.Navigation:
-                    // Don't show overlay when returning to tab user has seen before
-                    var showForNavigation = !_hasAppearedToUser;
-                    this.LogInfo($"🔧 LOADING FIX: Navigation overlay decision: {showForNavigation}");
-                    return showForNavigation;
-
                 default:
+                    this.LogInfo($"🔧 DEBUG: Default case - IsLoading will be set to: false"); // ADD THIS
                     return false;
             }
         }
         catch (Exception ex)
         {
-            this.LogError(ex, "Error determining loading overlay visibility");
+            this.LogError(ex, "Error in ShouldShowLoadingOverlay");
             return false;
         }
     }
@@ -1293,6 +1295,42 @@ public abstract partial class BaseListViewModel<T, TItemViewModel> : BaseViewMod
             }
             return null;
         }, fallbackValue: null, "Get Current Page");
+    }
+
+    #endregion
+
+    #region Multi-Select Reset - PUBLIC METHOD FOR UI
+
+    /// <summary>
+    /// CRITICAL FIX: Force complete multi-select reset from ViewModel side
+    /// Can be called from UI when state corruption is detected
+    /// </summary>
+    public void ForceResetMultiSelect()
+    {
+        this.SafeExecute(() =>
+        {
+            this.LogInfo("🔧 VM MULTISELECT FIX: Forcing complete reset");
+
+            // Reset all item states
+            foreach (var item in Items.Where(i => i.IsSelected))
+            {
+                item.IsSelected = false;
+            }
+
+            // Clear selection collection
+            SelectedItems.Clear();
+
+            // Exit multi-select mode
+            if (IsMultiSelectMode)
+            {
+                IsMultiSelectMode = false;
+            }
+
+            // Update UI state
+            UpdateFabForSelection();
+
+            this.LogInfo("🔧 VM MULTISELECT FIX: Reset completed");
+        }, "Force Reset MultiSelect");
     }
 
     #endregion

@@ -163,10 +163,12 @@ public abstract class BaseSupabaseEntityService<TEntity, TSupabaseModel> : ISupa
 
             SetEntityUpdatedAt(entity, DateTime.UtcNow);
             var supabaseModel = ConvertFromEntity(entity);
+            var entityId = GetEntityId(entity);
 
+            // CORRIGIDO: Converter Guid para string
             await _supabaseService.Client
                 .From<TSupabaseModel>()
-                .Where(model => GetModelId(model) == GetEntityId(entity))
+                .Filter("id", Supabase.Postgrest.Constants.Operator.Equals, entityId.ToString())
                 .Update(supabaseModel);
 
             return entity;
@@ -176,7 +178,7 @@ public abstract class BaseSupabaseEntityService<TEntity, TSupabaseModel> : ISupa
     }
 
     /// <summary>
-    /// Deletes entity from database
+    /// Deletes entity from database  
     /// </summary>
     public virtual async Task<bool> DeleteAsync(Guid id)
     {
@@ -185,9 +187,10 @@ public abstract class BaseSupabaseEntityService<TEntity, TSupabaseModel> : ISupa
             if (_supabaseService.Client == null)
                 return false;
 
+            // CORRIGIDO: Converter Guid para string
             await _supabaseService.Client
                 .From<TSupabaseModel>()
-                .Where(model => GetModelId(model) == id)
+                .Filter("id", Supabase.Postgrest.Constants.Operator.Equals, id.ToString())
                 .Delete();
 
             return true;
