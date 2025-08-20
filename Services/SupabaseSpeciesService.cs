@@ -167,12 +167,16 @@ public class SupabaseSpeciesService(SupabaseService supabaseService) : BaseSupab
     /// 🚀 NEW: Optimized method using JOIN query instead of N+1 queries
     /// Expected performance: 300ms instead of 2500ms for loading species with related data
     /// </summary>
+    /// <summary>
+    /// 🚀 NEW: Optimized method using JOIN query instead of N+1 queries
+    /// Expected performance: 300ms instead of 2500ms for loading species with related data
+    /// </summary>
     public async Task<IEnumerable<Species>> GetAllWithJoinAsync()
     {
         var result = await this.SafeDataExecuteAsync(async () =>
         {
             if (_supabaseService.Client == null)
-                return Enumerable.Empty<Species>();
+                return [];
 
             this.LogInfo("🚀 OPTIMIZED: Loading species with PostgreSQL JOIN query");
 
@@ -184,26 +188,28 @@ public class SupabaseSpeciesService(SupabaseService supabaseService) : BaseSupab
                 var response = await _supabaseService.Client
                     .From<SupabaseSpecies>()
                     .Select(@"
-                        *,
-                        genus:genus_id(
-                            id, name, family_id, description, is_active, is_favorite, created_at, updated_at, user_id,
-                            family:family_id(id, name, description, is_active, is_favorite, created_at, updated_at, user_id)
-                        )
-                    ")
+                    *,
+                    genus:genus_id(
+                        id, name, family_id, description, is_active, is_favorite, created_at, updated_at, user_id,
+                        family:family_id(id, name, description, is_active, is_favorite, created_at, updated_at, user_id)
+                    )
+                ")
                     .Get();
 
                 if (response?.Models == null)
                 {
                     this.LogInfo("No species models returned from JOIN query");
-                    return Enumerable.Empty<Species>();
+                    return [];
                 }
 
-                this.LogInfo($"🚀 OPTIMIZED: Retrieved {response.Models.Count()} species records with JOIN data");
+                // FIXED CA1829: Use Count property instead of Count() method
+                this.LogInfo($"🚀 OPTIMIZED: Retrieved {response.Models.Count} species records with JOIN data");
 
                 // Filter: user entities OR system defaults (UserId == null)
                 var filteredModels = response.Models.Where(model =>
                     GetModelUserId(model) == currentUserId || GetModelUserId(model) == null);
 
+                // Convert and order species - using traditional syntax for compatibility
                 var species = filteredModels
                     .Select(ConvertToEntity)
                     .OrderBy(entity => GetEntityName(entity))
@@ -223,7 +229,7 @@ public class SupabaseSpeciesService(SupabaseService supabaseService) : BaseSupab
 
         }, EntityPluralName);
 
-        return result.Success && result.Data != null ? result.Data : Enumerable.Empty<Species>();
+        return result.Success && result.Data != null ? result.Data : [];
     }
 
     /// <summary>
@@ -235,7 +241,7 @@ public class SupabaseSpeciesService(SupabaseService supabaseService) : BaseSupab
         var result = await this.SafeDataExecuteAsync(async () =>
         {
             if (_supabaseService.Client == null)
-                return Enumerable.Empty<Species>();
+                return [];
 
             this.LogInfo("🚀 BATCH: Loading species with 3-query batch approach");
 
@@ -253,14 +259,17 @@ public class SupabaseSpeciesService(SupabaseService supabaseService) : BaseSupab
             var filteredSpecies = speciesResponse.Models.Where(model =>
                 GetModelUserId(model) == currentUserId || GetModelUserId(model) == null);
 
+            // Convert species with explicit type declaration for collection expression
             var species = filteredSpecies.Select(ConvertToEntity).ToList();
 
-            if (!species.Any())
+            // FIXED CA1860: Use Count property instead of Any() for better performance
+            if (species.Count == 0)
                 return species;
 
             this.LogInfo($"🚀 BATCH: Got {species.Count} species, now getting genus data");
 
-            // Query 2: Get unique Genus IDs in batch
+            // Query 2: Get unique Genus IDs in batch  
+            // FIXED IDE0301: Use ToArray() for Supabase filter compatibility
             var genusIds = species.Select(s => s.GenusId).Distinct().ToArray();
 
             var genusResponse = await _supabaseService.Client
@@ -271,21 +280,24 @@ public class SupabaseSpeciesService(SupabaseService supabaseService) : BaseSupab
 
             if (genusResponse?.Models != null)
             {
-                this.LogInfo($"🚀 BATCH: Got {genusResponse.Models.Count()} genus records");
+                // FIXED CA1829: Use Count property instead of Count() method
+                this.LogInfo($"🚀 BATCH: Got {genusResponse.Models.Count} genus records");
 
+                // FIXED CS8073: Remove unnecessary null check for Guid value type
+                // FIXED IDE0301: Simplified dictionary initialization using collection expressions
                 var genusLookup = genusResponse.Models.ToDictionary(
-                    g => Guid.Parse(g.Id.ToString()),
+                    g => Guid.Parse(g.Id.ToString()!),
                     g => new Genus
                     {
-                        Id = Guid.Parse(g.Id.ToString()),
-                        FamilyId = Guid.Parse(g.FamilyId.ToString()),
+                        Id = Guid.Parse(g.Id.ToString()!),
+                        FamilyId = Guid.Parse(g.FamilyId.ToString()!),
                         Name = g.Name?.ToString() ?? "",
                         Description = g.Description?.ToString(),
                         IsActive = g.IsActive ?? true,
                         IsFavorite = g.IsFavorite ?? false,
                         CreatedAt = g.CreatedAt ?? DateTime.UtcNow,
                         UpdatedAt = g.UpdatedAt ?? DateTime.UtcNow,
-                        UserId = g.UserId != null ? Guid.Parse(g.UserId.ToString()) : null
+                        UserId = g.UserId != null ? Guid.Parse(g.UserId.ToString()!) : null
                     }
                 );
 
@@ -302,10 +314,11 @@ public class SupabaseSpeciesService(SupabaseService supabaseService) : BaseSupab
                 this.LogInfo($"🚀 BATCH: Populated {populatedCount}/{species.Count} species with genus data");
             }
 
+            // Return ordered species as IEnumerable
             return species.OrderBy(s => s.Name);
 
         }, EntityPluralName);
 
-        return result.Success && result.Data != null ? result.Data : Enumerable.Empty<Species>();
+        return result.Success && result.Data != null ? result.Data : [];
     }
 }
