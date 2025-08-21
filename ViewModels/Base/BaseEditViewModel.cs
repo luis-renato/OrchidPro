@@ -27,7 +27,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     protected bool _isEditMode;
     private Timer? _validationTimer;
     protected TimeSpan ValidationDebounceTime = TimeSpan.FromMilliseconds(ValidationConstants.NAME_VALIDATION_DEBOUNCE_DELAY);
-    private List<T> _allEntities = [];
+    protected List<T> _allEntities = [];
     private bool _isInitializing = true;
     private bool _isLoadingData = false;
 

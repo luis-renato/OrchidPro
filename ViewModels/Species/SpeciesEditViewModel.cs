@@ -175,7 +175,8 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
     }
 
     /// <summary>
-    /// Override for species-specific duplicate name checking within genus
+    /// PERFORMANCE FIX: Use base cache instead of repository call for validation
+    /// Check for species name uniqueness within the selected genus using cached data
     /// </summary>
     protected override async Task<bool> CheckForDuplicateNameAsync()
     {
@@ -183,12 +184,11 @@ public partial class SpeciesEditViewModel : BaseEditViewModel<Models.Species>
 
         try
         {
-            // Check for species name uniqueness within the selected genus
-            var allSpecies = await _speciesRepository.GetAllAsync();
-            return allSpecies.Any(s =>
+            // Use base cache (_allEntities) - requires BaseEditViewModel._allEntities to be protected
+            return await Task.FromResult(_allEntities.Any(s =>
                 s.Name.Equals(Name.Trim(), StringComparison.OrdinalIgnoreCase) &&
                 s.GenusId == ParentEntityId.Value &&
-                s.Id != EntityId);
+                s.Id != EntityId));
         }
         catch (Exception ex)
         {
