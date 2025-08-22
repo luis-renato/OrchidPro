@@ -4,7 +4,7 @@ using OrchidPro.Extensions;
 using OrchidPro.Models.Base;
 using OrchidPro.ViewModels.Base;
 
-namespace OrchidPro.Views.Pages.Base;
+namespace OrchidPro.Views.Base;
 
 /// <summary>
 /// UNIFIED Logic class containing ALL edit page functionality for composition.

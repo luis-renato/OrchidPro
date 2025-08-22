@@ -66,16 +66,6 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <None Remove="ViewModels\FamiliesListViewModel.cs.backup" />
-	  <None Remove="ViewModels\FamilyEditViewModel.cs.backup" />
-	  <None Remove="ViewModels\FamilyItemViewModel.cs.backup" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <Resource Include="Database\schema_orchidpro.sql" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<!-- ✅ CORE MAUI PACKAGES (mantidos) -->
 		<PackageReference Include="Microsoft.Maui.Controls" Version="9.0.90" />
 		<PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.0.7" />
@@ -101,13 +91,13 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Compile Update="Views\Pages\GenusEditPage.xaml.cs">
+	  <Compile Update="Views\Pages\Botanical\GenusEditPage.xaml.cs">
 	    <DependentUpon>GenusEditPage.xaml</DependentUpon>
 	  </Compile>
-	  <Compile Update="Views\Pages\GeneraListPage.xaml.cs">
+	  <Compile Update="Views\Pages\Botanical\GeneraListPage.xaml.cs">
 	    <DependentUpon>GeneraListPage.xaml</DependentUpon>
 	  </Compile>
-	  <Compile Update="Views\Pages\FamiliesListPage.xaml.cs">
+	  <Compile Update="Views\Pages\Botanical\FamiliesListPage.xaml.cs">
 	    <DependentUpon>FamiliesListPage.xaml</DependentUpon>
 	  </Compile>
 	</ItemGroup>
@@ -131,28 +121,28 @@
 		<MauiXaml Update="Resources\Templates\ButtonStylesTemplate.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\Pages\GenusEditPage.xaml">
+		<MauiXaml Update="Views\Pages\Botanical\GenusEditPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\Pages\GeneraListPage.xaml">
+		<MauiXaml Update="Views\Pages\Botanical\GeneraListPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\Pages\FamiliesListPage.xaml">
+		<MauiXaml Update="Views\Pages\Botanical\FamiliesListPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Views\Pages\LoginPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\Pages\SpeciesEditPage.xaml">
+		<MauiXaml Update="Views\Pages\Botanical\SpeciesEditPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\Pages\SpeciesListPage.xaml">
+		<MauiXaml Update="Views\Pages\Botanical\SpeciesListPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Views\Pages\SplashPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\Pages\FamilyEditPage.xaml">
+		<MauiXaml Update="Views\Pages\Botanical\FamilyEditPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 	</ItemGroup>
