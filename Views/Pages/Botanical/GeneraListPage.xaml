@@ -8,7 +8,7 @@
              xmlns:sfpulltorefresh="clr-namespace:Syncfusion.Maui.PullToRefresh;assembly=Syncfusion.Maui.PullToRefresh"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              xmlns:sfbutton="clr-namespace:Syncfusion.Maui.Buttons;assembly=Syncfusion.Maui.Buttons"
-             x:Class="OrchidPro.Views.Pages.GeneraListPage"
+             x:Class="OrchidPro.Views.Pages.Botanical.GeneraListPage"
              x:DataType="vm:GeneraListViewModel"
              x:Name="ParentPage"
              Title="Genera"

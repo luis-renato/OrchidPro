@@ -1,17 +1,17 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:vm="clr-namespace:OrchidPro.ViewModels.Families"
+             xmlns:vm="clr-namespace:OrchidPro.ViewModels.Species"
              xmlns:mct="clr-namespace:CommunityToolkit.Maui.Behaviors;assembly=CommunityToolkit.Maui"
              xmlns:toolkit="clr-namespace:CommunityToolkit.Maui.Converters;assembly=CommunityToolkit.Maui"
              xmlns:sflistview="clr-namespace:Syncfusion.Maui.ListView;assembly=Syncfusion.Maui.ListView"
              xmlns:sfpulltorefresh="clr-namespace:Syncfusion.Maui.PullToRefresh;assembly=Syncfusion.Maui.PullToRefresh"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              xmlns:sfbutton="clr-namespace:Syncfusion.Maui.Buttons;assembly=Syncfusion.Maui.Buttons"
-             x:Class="OrchidPro.Views.Pages.FamiliesListPage"
-             x:DataType="vm:FamiliesListViewModel"
+             x:Class="OrchidPro.Views.Pages.Botanical.SpeciesListPage"
+             x:DataType="vm:SpeciesListViewModel"
              x:Name="ParentPage"
-             Title="Families"
+             Title="Species"
              BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
              Shell.NavBarIsVisible="True"
              Shell.BackgroundColor="{AppThemeBinding Light={StaticResource Primary}, Dark={StaticResource PrimaryDark}}"
@@ -64,7 +64,7 @@
                                    TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray300}}"
                                    VerticalOptions="Center">
                                 <Label.Text>
-                                    <MultiBinding StringFormat="{}{0} families • {1} active • {2} favorites">
+                                    <MultiBinding StringFormat="{}{0} species • {1} active • {2} favorites">
                                         <Binding Path="TotalCount" />
                                         <Binding Path="ActiveCount" />
                                         <Binding Path="FavoriteCount" FallbackValue="0" />
@@ -138,7 +138,7 @@
                                         RefreshViewHeight="40">
                         <sfpulltorefresh:SfPullToRefresh.PullableContent>
 
-                            <sflistview:SfListView x:Name="FamilyListView"
+                            <sflistview:SfListView x:Name="SpeciesListView"
                                                ItemsSource="{Binding Items}"
                                                SelectionMode="Multiple"
                                                SelectionGesture="LongPress"
@@ -187,7 +187,7 @@
                                 </sflistview:SfListView.EndSwipeTemplate>
 
                                 <sflistview:SfListView.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:FamilyItemViewModel">
+                                    <DataTemplate x:DataType="vm:SpeciesItemViewModel">
                                         <Grid Margin="0" BackgroundColor="Transparent">
                                             <Border BackgroundColor="#F9F9F9"
                                                 Stroke="#E0E0E0"
@@ -201,7 +201,7 @@
 
                                                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" >
                                                         <Label Grid.Column="0"
-                                                               Text="Family"
+                                                               Text="{Binding GenusName}"
                                                                FontSize="14"
                                                                FontAttributes="Italic"
                                                                TextColor="#666666"
@@ -266,12 +266,42 @@
                                                                HorizontalOptions="Center" />
                                                     </Grid>
 
-                                                    <Label Text="{Binding DescriptionPreview}"
-                                                           FontSize="12"
-                                                           TextColor="#666666"
-                                                           LineBreakMode="TailTruncation"
-                                                           MaxLines="1"
-                                                           IsVisible="{Binding DescriptionPreview, Converter={StaticResource StringToBoolConverter}}" />
+                                                    <!-- Species-specific metadata row -->
+                                                    <StackLayout Orientation="Horizontal" Spacing="16" VerticalOptions="Center" HorizontalOptions="Start" Margin="0,4,0,0">
+
+                                                        <StackLayout Orientation="Horizontal" Spacing="4" VerticalOptions="Center"
+                                                                     IsVisible="{Binding SizeCategory, Converter={StaticResource StringToBoolConverter}}">
+                                                            <Label Text="📏" FontSize="14" VerticalOptions="Center" />
+                                                            <Label Text="{Binding SizeCategory}" FontSize="12" 
+                                                                   TextColor="#666666"
+                                                                   VerticalOptions="Center" />
+                                                        </StackLayout>
+
+                                                        <StackLayout Orientation="Horizontal" Spacing="4" VerticalOptions="Center"
+                                                                     IsVisible="{Binding RarityStatus, Converter={StaticResource StringToBoolConverter}}">
+                                                            <Label Text="💎" FontSize="14" VerticalOptions="Center" />
+                                                            <Label Text="{Binding RarityStatus}" FontSize="12"
+                                                                   TextColor="#666666"
+                                                                   VerticalOptions="Center" />
+                                                        </StackLayout>
+
+                                                        <StackLayout Orientation="Horizontal" Spacing="4" VerticalOptions="Center"
+                                                                     IsVisible="{Binding FloweringSeason, Converter={StaticResource StringToBoolConverter}}">
+                                                            <Label Text="🌺" FontSize="14" VerticalOptions="Center" />
+                                                            <Label Text="{Binding FloweringSeason}" FontSize="12"
+                                                                   TextColor="#666666"
+                                                                   VerticalOptions="Center" />
+                                                        </StackLayout>
+
+                                                        <StackLayout Orientation="Horizontal" Spacing="4" VerticalOptions="Center" 
+                                                                     IsVisible="{Binding Fragrance}">
+                                                            <Label Text="🌸" FontSize="14" VerticalOptions="Center" />
+                                                            <Label Text="Fragrant" FontSize="12" FontAttributes="Italic"
+                                                                   TextColor="#A47764"
+                                                                   VerticalOptions="Center" />
+                                                        </StackLayout>
+
+                                                    </StackLayout>
 
                                                 </StackLayout>
                                             </Border>
@@ -305,12 +335,12 @@
 
                                             <!-- Text content -->
                                             <StackLayout Spacing="8" HorizontalOptions="Center">
-                                                <Label Text="No families found"
+                                                <Label Text="No species found"
                                                        FontSize="18"
                                                        FontAttributes="Bold"
                                                        TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
                                                        HorizontalOptions="Center" />
-                                                <Label Text="No families to display"
+                                                <Label Text="No species to display"
                                                        FontSize="14"
                                                        TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
                                                        HorizontalOptions="Center" />
@@ -330,10 +360,10 @@
 
         <!-- Loading Overlay -->
         <ContentView Style="{StaticResource LoadingOverlayStyle}" />
-
+        
         <!-- 3. FAB - Hidden during loading, with animation -->
         <Button x:Name="FabButton"
-                Text="{Binding FabText, FallbackValue='Add Family'}"
+                Text="{Binding FabText, FallbackValue='Add Species'}"
                 Style="{StaticResource FabButtonStyle}"
                 IsVisible="False"
                 Opacity="0"

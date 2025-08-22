@@ -2,7 +2,7 @@
 using OrchidPro.ViewModels.Variants;
 using OrchidPro.Views.Base;
 
-namespace OrchidPro.Views.Pages;
+namespace OrchidPro.Views.Pages.Botanical;
 
 /// <summary>
 /// Variants List Page - ULTRA CLEAN using BaseListPageLogic composition.

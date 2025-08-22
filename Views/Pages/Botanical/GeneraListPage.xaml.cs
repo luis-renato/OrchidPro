@@ -2,7 +2,7 @@
 using OrchidPro.ViewModels.Genera;
 using OrchidPro.Views.Base;
 
-namespace OrchidPro.Views.Pages;
+namespace OrchidPro.Views.Pages.Botanical;
 
 /// <summary>
 /// Genus List Page - ULTRA CLEAN using BaseListPageLogic composition.

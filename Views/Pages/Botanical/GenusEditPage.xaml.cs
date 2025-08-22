@@ -2,7 +2,7 @@
 using OrchidPro.Views.Base;
 using OrchidPro.Extensions;
 
-namespace OrchidPro.Views.Pages;
+namespace OrchidPro.Views.Pages.Botanical;
 
 /// <summary>
 /// REFACTORED Genus Edit Page using BaseEditPageLogic composition.

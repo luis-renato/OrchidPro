@@ -2,7 +2,7 @@
 using OrchidPro.ViewModels.Species;
 using OrchidPro.Views.Base;
 
-namespace OrchidPro.Views.Pages;
+namespace OrchidPro.Views.Pages.Botanical;
 
 /// <summary>
 /// Species List Page - ULTRA CLEAN using BaseListPageLogic composition.
