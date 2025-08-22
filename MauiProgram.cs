@@ -8,6 +8,7 @@ using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Families;
 using OrchidPro.ViewModels.Genera;
 using OrchidPro.ViewModels.Species;
+using OrchidPro.ViewModels.Variants;
 using OrchidPro.Views.Pages;
 using Syncfusion.Maui.Core.Hosting;
 
@@ -135,6 +136,8 @@ public static class MauiProgram
             services.AddSingleton<IGenusRepository, GenusRepository>();
             services.AddSingleton<SupabaseSpeciesService>();
             services.AddSingleton<ISpeciesRepository, SpeciesRepository>();
+            services.AddSingleton<SupabaseVariantService>();
+            services.AddSingleton<IVariantRepository, VariantRepository>();
 
             // TIER 3: Presentation layer - Transient with optimized factory patterns
             RegisterViewModelsOptimized(services);
@@ -148,7 +151,7 @@ public static class MauiProgram
             // Configure navigation routing with optimized patterns
             RegisterRoutesOptimized();
 
-            typeof(MauiProgram).LogSuccess("Successfully configured optimized services with comprehensive module integration");
+            typeof(MauiProgram).LogSuccess("Successfully configured optimized services with comprehensive module integration including Variants");
         }
         catch (Exception ex)
         {
@@ -192,6 +195,11 @@ public static class MauiProgram
         services.AddTransient<SpeciesListViewModel>();
         services.AddTransient<SpeciesEditViewModel>();
         services.AddTransient<SpeciesItemViewModel>();
+
+        // Variants ViewModels - independent entity management with full CRUD functionality
+        services.AddTransient<VariantsListViewModel>();
+        services.AddTransient<VariantEditViewModel>();
+        services.AddTransient<VariantItemViewModel>();
     }
 
     /// <summary>
@@ -217,9 +225,13 @@ public static class MauiProgram
         services.AddTransient<GeneraListPage>();
         services.AddTransient<GenusEditPage>();
 
-        // Future feature pages - minimal resource allocation until needed
+        // Species feature pages - detailed botanical data management
         services.AddTransient<SpeciesListPage>();
         services.AddTransient<SpeciesEditPage>();
+
+        // Variants feature pages - independent variation classification system
+        services.AddTransient<VariantsListPage>();
+        services.AddTransient<VariantEditPage>();
     }
 
     /// <summary>
@@ -306,10 +318,14 @@ public static class MauiProgram
             Routing.RegisterRoute("genusedit", typeof(GenusEditPage));
             Routing.RegisterRoute("speciesedit", typeof(SpeciesEditPage));
 
+            // Variants feature routes - independent entity management
+            Routing.RegisterRoute("variantedit", typeof(VariantEditPage));
+            Routing.RegisterRoute("variants", typeof(VariantsListPage));
+
             // Future feature routes - minimal resource allocation
             RegisterFutureRoutesLazy();
 
-            typeof(MauiProgram).LogSuccess("Successfully registered optimized navigation routes");
+            typeof(MauiProgram).LogSuccess("Successfully registered optimized navigation routes including Variants");
         }
         catch (Exception ex)
         {
@@ -327,8 +343,7 @@ public static class MauiProgram
         // Define future feature routes for extensibility
         var futureRoutes = new[]
         {
-            "species", "orchids", "schedule",
-            "health", "reports", "statistics", "settings", "sync"
+            "orchids", "schedule", "health", "reports", "statistics", "settings", "sync"
         };
 
         // Register with MainPage as placeholder - minimal memory allocation
@@ -360,12 +375,14 @@ public static class MauiProgram
                     var summary = AppSettings.GetConfigurationSummary();
                     typeof(MauiProgram).LogInfo($"Startup Configuration Summary:\n{summary}");
                     typeof(MauiProgram).LogInfo("Genus module services registered and operational");
+                    typeof(MauiProgram).LogInfo("Species module services registered and operational");
+                    typeof(MauiProgram).LogInfo("Variants module services registered and operational");
                     typeof(MauiProgram).LogInfo("FamilyEditViewModel configured with genus count validation");
                     typeof(MauiProgram).LogInfo("Performance optimizations: Lazy loading, cached services, async logging");
                 }
 
                 // Final startup confirmation
-                typeof(MauiProgram).LogSuccess($"OrchidPro {AppSettings.ApplicationVersion} started successfully in {AppSettings.Environment} mode");
+                typeof(MauiProgram).LogSuccess($"OrchidPro {AppSettings.ApplicationVersion} started successfully in {AppSettings.Environment} mode with all botanical modules");
             }
             catch (Exception ex)
             {
@@ -453,26 +470,32 @@ public static class MauiProgram
             var familyRepository = services.GetService<IFamilyRepository>();
             var genusRepository = services.GetService<IGenusRepository>();
             var speciesRepository = services.GetService<ISpeciesRepository>();
+            var variantRepository = services.GetService<IVariantRepository>();
 
             // Validate presentation layer ViewModels
             var familiesListViewModel = services.GetService<FamiliesListViewModel>();
             var familyEditViewModel = services.GetService<FamilyEditViewModel>();
             var generaListViewModel = services.GetService<GeneraListViewModel>();
             var speciesListViewModel = services.GetService<SpeciesListViewModel>();
+            var variantsListViewModel = services.GetService<VariantsListViewModel>();
+            var variantEditViewModel = services.GetService<VariantEditViewModel>();
 
-            // Comprehensive validation check
+            // Comprehensive validation check including Variants
             var allNonCriticalValid = familyRepository != null &&
                                     genusRepository != null &&
                                     speciesRepository != null &&
+                                    variantRepository != null &&
                                     familiesListViewModel != null &&
                                     familyEditViewModel != null &&
                                     generaListViewModel != null &&
-                                    speciesListViewModel != null;
+                                    speciesListViewModel != null &&
+                                    variantsListViewModel != null &&
+                                    variantEditViewModel != null;
 
             // Log validation results
             if (allNonCriticalValid)
             {
-                typeof(MauiProgram).LogSuccess("All non-critical services validated successfully including comprehensive module integration");
+                typeof(MauiProgram).LogSuccess("All non-critical services validated successfully including comprehensive module integration with Variants");
             }
             else
             {

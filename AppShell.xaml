@@ -176,7 +176,7 @@ ENTERPRISE FEATURES:
     BOTANICAL DATA MANAGEMENT SECTION
     Core application functionality organized by taxonomic hierarchy.
     Implements Tab structure for related data entity management.
-    Uses reverse taxonomic order (Species → Genera → Families) for workflow optimization.
+    Uses reverse taxonomic order (Species → Genera → Families → Variants) for workflow optimization.
     -->
     <FlyoutItem Title="Botanical Data" Icon="plant.png">
 
@@ -217,6 +217,19 @@ ENTERPRISE FEATURES:
                          Icon="family.png" 
                          Route="families" 
                          ContentTemplate="{DataTemplate pages:FamiliesListPage}" />
+        </Tab>
+
+        <!-- 
+        VARIANTS MANAGEMENT TAB
+        Independent plant variant classification system.
+        Color patterns, forms, and variations applicable to any plant.
+        Enables flexible variant categorization across all taxonomic levels.
+        -->
+        <Tab Title="Variants">
+            <ShellContent Title="Variants" 
+                         Icon="variant.png" 
+                         Route="variants" 
+                         ContentTemplate="{DataTemplate pages:VariantsListPage}" />
         </Tab>
 
     </FlyoutItem>
