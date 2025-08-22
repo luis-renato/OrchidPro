@@ -1,7 +1,7 @@
 ﻿using OrchidPro.ViewModels.Base;
 using OrchidPro.Extensions;
 
-namespace OrchidPro.ViewModels.Families;
+namespace OrchidPro.ViewModels.Botanical.Families;
 
 /// <summary>
 /// Family item ViewModel - MINIMAL implementation using base class

@@ -3,12 +3,12 @@ using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
 using OrchidPro.Extensions;
 using OrchidPro.Messages;
-using OrchidPro.Services;
+using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
 using System.Collections.ObjectModel;
 
-namespace OrchidPro.ViewModels.Species;
+namespace OrchidPro.ViewModels.Botanical.Species;
 
 /// <summary>
 /// ViewModel for creating and editing species with genus relationship management.

@@ -1,9 +1,9 @@
 ﻿using OrchidPro.Extensions;
-using OrchidPro.Services;
+using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
 
-namespace OrchidPro.ViewModels.Genera;
+namespace OrchidPro.ViewModels.Botanical.Genera;
 
 /// <summary>
 /// Genus list ViewModel - ULTRA CLEAN using BaseListViewModel core

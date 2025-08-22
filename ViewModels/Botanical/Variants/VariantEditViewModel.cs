@@ -1,10 +1,10 @@
 ﻿using CommunityToolkit.Mvvm.Input;
 using OrchidPro.Extensions;
-using OrchidPro.Services;
+using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
 
-namespace OrchidPro.ViewModels.Variants;
+namespace OrchidPro.ViewModels.Botanical.Variants;
 
 /// <summary>
 /// MINIMAL Variant edit ViewModel - follows exact pattern of FamilyEditViewModel.

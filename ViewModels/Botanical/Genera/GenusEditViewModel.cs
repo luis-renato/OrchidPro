@@ -4,12 +4,12 @@ using CommunityToolkit.Mvvm.Messaging;
 using OrchidPro.Extensions;
 using OrchidPro.Messages;
 using OrchidPro.Models;
-using OrchidPro.Services;
+using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
 using System.Collections.ObjectModel;
 
-namespace OrchidPro.ViewModels.Genera;
+namespace OrchidPro.ViewModels.Botanical.Genera;
 
 /// <summary>
 /// MINIMAL Genus edit ViewModel - Copy of Species pattern that works

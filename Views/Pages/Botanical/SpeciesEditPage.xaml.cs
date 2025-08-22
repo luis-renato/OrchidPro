@@ -1,4 +1,4 @@
-﻿using OrchidPro.ViewModels.Species;
+﻿using OrchidPro.ViewModels.Botanical.Species;
 using OrchidPro.Views.Base;
 using OrchidPro.Extensions;
 

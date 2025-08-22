@@ -1,7 +1,7 @@
 ﻿using OrchidPro.Models;
 using OrchidPro.ViewModels;
 
-namespace OrchidPro.ViewModels.Variants;
+namespace OrchidPro.ViewModels.Botanical.Variants;
 
 /// <summary>
 /// Item ViewModel for individual Variant entities in list displays.

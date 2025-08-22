@@ -1,9 +1,9 @@
 ﻿using OrchidPro.Extensions;
-using OrchidPro.Services;
+using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
 
-namespace OrchidPro.ViewModels.Variants;
+namespace OrchidPro.ViewModels.Botanical.Variants;
 
 /// <summary>
 /// Variant list ViewModel - ULTRA CLEAN using BaseListViewModel core.

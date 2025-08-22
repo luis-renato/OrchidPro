@@ -1,6 +1,6 @@
-﻿using OrchidPro.ViewModels.Variants;
+﻿using OrchidPro.Extensions;
+using OrchidPro.ViewModels.Botanical.Variants;
 using OrchidPro.Views.Base;
-using OrchidPro.Extensions;
 
 namespace OrchidPro.Views.Pages.Botanical;
 

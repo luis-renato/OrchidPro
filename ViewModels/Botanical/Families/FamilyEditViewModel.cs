@@ -3,11 +3,11 @@ using CommunityToolkit.Mvvm.Messaging;
 using OrchidPro.Extensions;
 using OrchidPro.Messages;
 using OrchidPro.Models;
-using OrchidPro.Services;
+using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
 
-namespace OrchidPro.ViewModels.Families;
+namespace OrchidPro.ViewModels.Botanical.Families;
 
 /// <summary>
 /// FIXED Family edit ViewModel - Copy of Species pattern that works

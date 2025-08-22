@@ -1,5 +1,5 @@
 ﻿using OrchidPro.Extensions;
-using OrchidPro.ViewModels.Genera;
+using OrchidPro.ViewModels.Botanical.Genera;
 using OrchidPro.Views.Base;
 
 namespace OrchidPro.Views.Pages.Botanical;

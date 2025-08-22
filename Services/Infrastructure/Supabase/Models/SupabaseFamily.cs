@@ -1,17 +1,9 @@
 ﻿using OrchidPro.Models;
-using OrchidPro.Models.Base;
-using OrchidPro.Services.Data;
-using OrchidPro.Services.Base;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
-using OrchidPro.Extensions;
 
-namespace OrchidPro.Services;
+namespace OrchidPro.Services.Infrastructure.Supabase.Models;
 
-/// <summary>
-/// Supabase database model representing families table.
-/// Maps between database schema and application domain models.
-/// </summary>
 [Table("families")]
 public class SupabaseFamily : BaseModel
 {
@@ -39,9 +31,6 @@ public class SupabaseFamily : BaseModel
     [Column("updated_at")]
     public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    /// <summary>
-    /// Convert SupabaseFamily to domain Family model
-    /// </summary>
     public Family ToFamily()
     {
         return new Family
@@ -57,9 +46,6 @@ public class SupabaseFamily : BaseModel
         };
     }
 
-    /// <summary>
-    /// Convert domain Family model to SupabaseFamily
-    /// </summary>
     public static SupabaseFamily FromFamily(Family family)
     {
         return new SupabaseFamily
@@ -74,21 +60,4 @@ public class SupabaseFamily : BaseModel
             UpdatedAt = family.UpdatedAt
         };
     }
-}
-
-/// <summary>
-/// REFACTORED: Family service using BaseSupabaseEntityService.
-/// Reduced from ~150 lines to minimal implementation focused on Family-specific logic.
-/// MODERNIZED: Uses primary constructor for cleaner initialization.
-/// </summary>
-public class SupabaseFamilyService(SupabaseService supabaseService) : BaseSupabaseEntityService<Family, SupabaseFamily>(supabaseService)
-{
-    protected override string EntityTypeName => "Family";
-    protected override string EntityPluralName => "Families";
-
-    protected override Family ConvertToEntity(SupabaseFamily supabaseModel)
-        => supabaseModel.ToFamily();
-
-    protected override SupabaseFamily ConvertFromEntity(Family entity)
-        => SupabaseFamily.FromFamily(entity);
 }

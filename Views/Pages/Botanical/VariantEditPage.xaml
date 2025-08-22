@@ -2,7 +2,7 @@
 <ContentPage x:Class="OrchidPro.Views.Pages.Botanical.VariantEditPage"
              xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:vm="clr-namespace:OrchidPro.ViewModels.Variants"
+             xmlns:vm="clr-namespace:OrchidPro.ViewModels.Botanical.Variants"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              x:DataType="vm:VariantEditViewModel"
              Title="Variant"

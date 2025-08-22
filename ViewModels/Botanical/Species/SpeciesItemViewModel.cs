@@ -1,7 +1,7 @@
 ﻿using OrchidPro.ViewModels.Base;
 using OrchidPro.Extensions;
 
-namespace OrchidPro.ViewModels.Species;
+namespace OrchidPro.ViewModels.Botanical.Species;
 
 /// <summary>
 /// Species item ViewModel - MINIMAL implementation using base class

@@ -1,126 +1,77 @@
-﻿using OrchidPro.Models;
-using OrchidPro.Models.Base;
+﻿using OrchidPro.Extensions;
+using OrchidPro.Models;
 using OrchidPro.Services.Base;
+using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Data;
-using OrchidPro.Extensions;
+using OrchidPro.Services.Infrastructure.Supabase.Models;
+using static Supabase.Postgrest.Constants;
 
-namespace OrchidPro.Services;
+namespace OrchidPro.Services.Infrastructure.Supabase.Repositories;
 
-/// <summary>
-/// CONSISTENT Species repository - follows same pattern as Genus
-/// BaseHierarchicalRepository handles the heavy lifting, this provides service connection and species-specific methods.
-/// Uses background genus hydration for optimal performance without over-engineering.
-/// </summary>
-public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISpeciesRepository
+public class SupabaseSpeciesRepository(SupabaseService supabaseService, IGenusRepository genusRepository)
+    : BaseHierarchicalRepository<Species, Genus>(supabaseService, genusRepository), ISpeciesRepository
 {
-    #region Private Fields
-
-    private readonly SupabaseSpeciesService _speciesService;
-    private readonly IGenusRepository _genusRepository;
-
-    #endregion
-
-    #region Required Base Implementation
+    private readonly InternalSupabaseSpeciesService _supabaseEntityService = new(supabaseService);
+    private readonly IGenusRepository _genusRepository = genusRepository;
 
     protected override string EntityTypeName => "Species";
     protected override string ParentEntityTypeName => "Genus";
 
-    /// <summary>
-    /// FIXED: Load species WITH genus data immediately (like Genus loads with Family)
-    /// Eliminates "Unknown Genus" delays by populating parent data upfront
-    /// </summary>
     protected override async Task<IEnumerable<Species>> GetAllFromServiceAsync()
     {
-        var rawSpecies = await _speciesService.GetAllWithBatchLoadingAsync(); // ← SÓ MUDA ESTA LINHA
-
-        // 🔍 DEBUG: Verificar se o JOIN trouxe os dados relacionados
+        var rawSpecies = await _supabaseEntityService.GetAllWithBatchLoadingAsync();
         var speciesList = rawSpecies.ToList();
         var speciesWithGenus = speciesList.Count(s => s.Genus != null);
-        this.LogInfo($"🔍 DEBUG: JOIN returned {speciesList.Count} species, {speciesWithGenus} with Genus data");
+
+        this.LogInfo($"JOIN returned {speciesList.Count} species, {speciesWithGenus} with Genus data");
 
         if (speciesWithGenus > 0)
         {
-            // ✅ JOIN funcionou! Não precisa do PopulateParentDataAsync
-            this.LogInfo($"✅ OPTIMIZED: JOIN worked! Skipping PopulateParentDataAsync");
+            this.LogInfo("OPTIMIZED: JOIN worked! Skipping PopulateParentDataAsync");
             return speciesList;
         }
         else
         {
-            // ❌ JOIN falhou, usar fallback
-            this.LogInfo($"❌ JOIN failed, using fallback PopulateParentDataAsync");
+            this.LogInfo("JOIN failed, using fallback PopulateParentDataAsync");
             var speciesWithGenusPopulated = await PopulateParentDataAsync([.. rawSpecies]);
             return speciesWithGenusPopulated;
         }
     }
 
     protected override async Task<Species?> GetByIdFromServiceAsync(Guid id)
-        => await _speciesService.GetByIdAsync(id);
+        => await _supabaseEntityService.GetByIdAsync(id);
 
     protected override async Task<Species?> CreateInServiceAsync(Species entity)
-        => await _speciesService.CreateAsync(entity);
+        => await _supabaseEntityService.CreateAsync(entity);
 
     protected override async Task<Species?> UpdateInServiceAsync(Species entity)
-        => await _speciesService.UpdateAsync(entity);
+        => await _supabaseEntityService.UpdateAsync(entity);
 
     protected override async Task<bool> DeleteInServiceAsync(Guid id)
-        => await _speciesService.DeleteAsync(id);
+        => await _supabaseEntityService.DeleteAsync(id);
 
     protected override async Task<bool> NameExistsInServiceAsync(string name, Guid? excludeId)
-        => await _speciesService.NameExistsAsync(name, excludeId);
+        => await _supabaseEntityService.NameExistsAsync(name, excludeId);
 
-    #endregion
-
-    #region Constructor
-
-    public SpeciesRepository(
-        SupabaseService supabaseService,
-        SupabaseSpeciesService speciesService,
-        IGenusRepository genusRepository)
-        : base(supabaseService, genusRepository)
-    {
-        _speciesService = speciesService ?? throw new ArgumentNullException(nameof(speciesService));
-        _genusRepository = genusRepository ?? throw new ArgumentNullException(nameof(genusRepository));
-        this.LogInfo("CONSISTENT SpeciesRepository - background genus hydration enabled!");
-    }
-
-    #endregion
-
-    #region ISpeciesRepository - Required Interface Methods
-
-    /// <summary>
-    /// Get species by genus - uses base GetByParentIdAsync
-    /// </summary>
+    // ISpeciesRepository implementations
     public async Task<List<Species>> GetByGenusAsync(Guid genusId, bool includeInactive = false)
         => await GetByParentIdAsync(genusId, includeInactive);
 
-    /// <summary>
-    /// Check name exists in genus - uses base NameExistsInParentAsync
-    /// </summary>
     public async Task<bool> NameExistsInGenusAsync(string name, Guid genusId, Guid? excludeId = null)
         => await NameExistsInParentAsync(name, genusId, excludeId);
 
-    /// <summary>
-    /// Get count by genus - uses base GetCountByParentAsync
-    /// </summary>
     public async Task<int> GetCountByGenusAsync(Guid genusId, bool includeInactive = false)
         => await GetCountByParentAsync(genusId, includeInactive);
 
-    /// <summary>
-    /// Get species by family - hierarchical query through genus
-    /// </summary>
     public async Task<List<Species>> GetByFamilyAsync(Guid familyId, bool includeInactive = false)
     {
         var genera = await _genusRepository.GetByFamilyIdAsync(familyId, includeInactive);
-        // FIXED IDE0305: Simplified collection initialization
         var genusIds = genera.Select(g => g.Id).ToHashSet();
 
         var allSpecies = await GetAllAsync(includeInactive);
         return [.. allSpecies.Where(s => s.GenusId != Guid.Empty && genusIds.Contains(s.GenusId)).OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// Get species by scientific name
-    /// </summary>
     public async Task<List<Species>> GetByScientificNameAsync(string scientificName, bool exactMatch = true)
     {
         var allSpecies = await GetAllAsync(true);
@@ -131,112 +82,72 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
             .OrderBy(s => s.ScientificName, StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// Get species by rarity status
-    /// </summary>
     public async Task<List<Species>> GetByRarityStatusAsync(string rarityStatus, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        // FIXED IDE0305: Simplified collection initialization
         return [.. allSpecies.Where(s => string.Equals(s.RarityStatus, rarityStatus, StringComparison.OrdinalIgnoreCase))
                         .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// Get species by size category
-    /// </summary>
     public async Task<List<Species>> GetBySizeCategoryAsync(string sizeCategory, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        // FIXED IDE0305: Simplified collection initialization
         return [.. allSpecies.Where(s => string.Equals(s.SizeCategory, sizeCategory, StringComparison.OrdinalIgnoreCase))
                         .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// Get species by flowering season
-    /// </summary>
     public async Task<List<Species>> GetByFloweringSeasonAsync(string season, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        // FIXED IDE0305: Simplified collection initialization
         return [.. allSpecies.Where(s => !string.IsNullOrWhiteSpace(s.FloweringSeason) &&
-                                   s.FloweringSeason.Contains(season, StringComparison.OrdinalIgnoreCase))
+                               s.FloweringSeason.Contains(season, StringComparison.OrdinalIgnoreCase))
                         .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// Get species by temperature preference
-    /// </summary>
     public async Task<List<Species>> GetByTemperaturePreferenceAsync(string temperaturePreference, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        // FIXED IDE0305: Simplified collection initialization
         return [.. allSpecies.Where(s => string.Equals(s.TemperaturePreference, temperaturePreference, StringComparison.OrdinalIgnoreCase))
                         .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// Get species by growth habit
-    /// </summary>
     public async Task<List<Species>> GetByGrowthHabitAsync(string growthHabit, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        // FIXED IDE0305: Simplified collection initialization
         return [.. allSpecies.Where(s => string.Equals(s.GrowthHabit, growthHabit, StringComparison.OrdinalIgnoreCase))
                         .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// Get species by light requirements
-    /// </summary>
     public async Task<List<Species>> GetByLightRequirementsAsync(string lightRequirements, bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        // FIXED IDE0305: Simplified collection initialization
         return [.. allSpecies.Where(s => string.Equals(s.LightRequirements, lightRequirements, StringComparison.OrdinalIgnoreCase))
                         .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// Get fragrant species
-    /// </summary>
     public async Task<List<Species>> GetFragrantSpeciesAsync(bool includeInactive = false)
     {
         var allSpecies = await GetAllAsync(includeInactive);
-        // FIXED IDE0305: Simplified collection initialization
         return [.. allSpecies.Where(s => s.Fragrance == true)
                         .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// Get recently added species
-    /// </summary>
     public async Task<List<Species>> GetRecentlyAddedAsync(int count = 10)
     {
         var allSpecies = await GetAllAsync(false);
-        // FIXED IDE0305: Simplified collection initialization
         return [.. allSpecies.OrderByDescending(s => s.CreatedAt)
                         .Take(count)];
     }
 
-    /// <summary>
-    /// Get species needing cultivation info
-    /// </summary>
     public async Task<List<Species>> GetSpeciesNeedingCultivationInfoAsync()
     {
         var allSpecies = await GetAllAsync(false);
-        // FIXED IDE0305: Simplified collection initialization
         return [.. allSpecies.Where(s => string.IsNullOrWhiteSpace(s.CultivationNotes) ||
-                                   string.IsNullOrWhiteSpace(s.TemperaturePreference) ||
-                                   string.IsNullOrWhiteSpace(s.LightRequirements))
+                               string.IsNullOrWhiteSpace(s.TemperaturePreference) ||
+                               string.IsNullOrWhiteSpace(s.LightRequirements))
                         .OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// Advanced search with multiple criteria
-    /// FIXED CA1862: Using StringComparison.OrdinalIgnoreCase instead of ToLowerInvariant for performance
-    /// </summary>
     public async Task<List<Species>> SearchAdvancedAsync(
         string? searchText = null,
         Guid? genusId = null,
@@ -252,7 +163,6 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
 
         if (!string.IsNullOrWhiteSpace(searchText))
         {
-            // FIXED CA1862: Using StringComparison.OrdinalIgnoreCase instead of ToLowerInvariant
             query = query.Where(s =>
                 s.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase) ||
                 (!string.IsNullOrWhiteSpace(s.ScientificName) && s.ScientificName.Contains(searchText, StringComparison.OrdinalIgnoreCase)) ||
@@ -280,15 +190,10 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
         return [.. query.OrderBy(s => s.Name, StringComparer.OrdinalIgnoreCase)];
     }
 
-    /// <summary>
-    /// Get species statistics for dashboard display
-    /// FIXED CS0114: Renamed from GetStatisticsAsync to GetSpeciesStatisticsAsync to match interface
-    /// </summary>
     public async Task<Dictionary<string, int>> GetSpeciesStatisticsAsync()
     {
         var allSpecies = await GetAllAsync(true);
 
-        // FIXED IDE0305: Simplified collection initialization
         return new Dictionary<string, int>
         {
             ["Total"] = allSpecies.Count,
@@ -301,6 +206,93 @@ public class SpeciesRepository : BaseHierarchicalRepository<Species, Genus>, ISp
             ["WithCultivationNotes"] = allSpecies.Count(s => !string.IsNullOrWhiteSpace(s.CultivationNotes))
         };
     }
+}
 
-    #endregion
+internal class InternalSupabaseSpeciesService(SupabaseService supabaseService)
+    : BaseSupabaseEntityService<Species, SupabaseSpecies>(supabaseService)
+{
+    protected override string EntityTypeName => "Species";
+    protected override string EntityPluralName => "Species";
+
+    protected override Species ConvertToEntity(SupabaseSpecies supabaseModel)
+        => supabaseModel.ToSpecies();
+
+    protected override SupabaseSpecies ConvertFromEntity(Species entity)
+        => SupabaseSpecies.FromSpecies(entity);
+
+    public async Task<IEnumerable<Species>> GetAllWithBatchLoadingAsync()
+    {
+        var result = await this.SafeDataExecuteAsync(async () =>
+        {
+            if (_supabaseService.Client == null)
+                return [];
+
+            this.LogInfo("BATCH: Loading species with 3-query batch approach");
+
+            var currentUserId = GetCurrentUserId();
+
+            var speciesResponse = await _supabaseService.Client
+                .From<SupabaseSpecies>()
+                .Select("*")
+                .Get();
+
+            if (speciesResponse?.Models == null)
+                return Enumerable.Empty<Species>();
+
+            var filteredSpecies = speciesResponse.Models.Where(model =>
+                GetModelUserId(model) == currentUserId || GetModelUserId(model) == null);
+
+            var species = filteredSpecies.Select(ConvertToEntity).ToList();
+
+            if (species.Count == 0)
+                return species;
+
+            this.LogInfo($"BATCH: Got {species.Count} species, now getting genus data");
+
+            var genusIds = species.Select(s => s.GenusId).Distinct().ToArray();
+
+            var genusResponse = await _supabaseService.Client
+                .From<SupabaseGenus>()
+                .Select("*")
+                .Filter("id", Operator.In, genusIds)
+                .Get();
+
+            if (genusResponse?.Models != null)
+            {
+                this.LogInfo($"BATCH: Got {genusResponse.Models.Count} genus records");
+
+                var genusLookup = genusResponse.Models.ToDictionary(
+                    g => Guid.Parse(g.Id.ToString()!),
+                    g => new Genus
+                    {
+                        Id = Guid.Parse(g.Id.ToString()!),
+                        FamilyId = Guid.Parse(g.FamilyId.ToString()!),
+                        Name = g.Name?.ToString() ?? "",
+                        Description = g.Description?.ToString(),
+                        IsActive = g.IsActive ?? true,
+                        IsFavorite = g.IsFavorite ?? false,
+                        CreatedAt = g.CreatedAt ?? DateTime.UtcNow,
+                        UpdatedAt = g.UpdatedAt ?? DateTime.UtcNow,
+                        UserId = g.UserId != null ? Guid.Parse(g.UserId.ToString()!) : null
+                    }
+                );
+
+                foreach (var spec in species)
+                {
+                    if (genusLookup.TryGetValue(spec.GenusId, out var genus))
+                    {
+                        spec.Genus = genus;
+                    }
+                }
+
+                var populatedCount = species.Count(s => s.Genus != null);
+                this.LogInfo($"BATCH: Populated {populatedCount}/{species.Count} species with genus data");
+            }
+
+            return species.OrderBy(s => s.Name);
+
+        }, EntityPluralName);
+
+        return result.Success && result.Data != null ? result.Data : [];
+    }
 }

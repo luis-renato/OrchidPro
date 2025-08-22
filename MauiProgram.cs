@@ -2,13 +2,14 @@
 using Microsoft.Extensions.Logging;
 using OrchidPro.Config;
 using OrchidPro.Extensions;
-using OrchidPro.Services;
+using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Data;
+using OrchidPro.Services.Infrastructure.Supabase.Repositories;
 using OrchidPro.Services.Navigation;
-using OrchidPro.ViewModels.Families;
-using OrchidPro.ViewModels.Genera;
-using OrchidPro.ViewModels.Species;
-using OrchidPro.ViewModels.Variants;
+using OrchidPro.ViewModels.Botanical.Families;
+using OrchidPro.ViewModels.Botanical.Genera;
+using OrchidPro.ViewModels.Botanical.Species;
+using OrchidPro.ViewModels.Botanical.Variants;
 using OrchidPro.Views.Pages;
 using OrchidPro.Views.Pages.Botanical;
 using Syncfusion.Maui.Core.Hosting;
@@ -131,14 +132,10 @@ public static class MauiProgram
             services.AddSingleton<INavigationService, NavigationService>();
 
             // TIER 2: Data access layer - Singleton with lazy initialization for caching benefits
-            services.AddSingleton<SupabaseFamilyService>();
-            services.AddSingleton<IFamilyRepository, FamilyRepository>();
-            services.AddSingleton<SupabaseGenusService>();
-            services.AddSingleton<IGenusRepository, GenusRepository>();
-            services.AddSingleton<SupabaseSpeciesService>();
-            services.AddSingleton<ISpeciesRepository, SpeciesRepository>();
-            services.AddSingleton<SupabaseVariantService>();
-            services.AddSingleton<IVariantRepository, VariantRepository>();
+            services.AddSingleton<IFamilyRepository, SupabaseFamilyRepository>();
+            services.AddSingleton<IGenusRepository, SupabaseGenusRepository>();
+            services.AddSingleton<ISpeciesRepository, SupabaseSpeciesRepository>();
+            services.AddSingleton<IVariantRepository, SupabaseVariantRepository>();
 
             // TIER 3: Presentation layer - Transient with optimized factory patterns
             RegisterViewModelsOptimized(services);

@@ -1,7 +1,7 @@
 ﻿using OrchidPro.ViewModels.Base;
 using OrchidPro.Extensions;
 
-namespace OrchidPro.ViewModels.Genera;
+namespace OrchidPro.ViewModels.Botanical.Genera;
 
 /// <summary>
 /// Genus item ViewModel - MINIMAL implementation using base class

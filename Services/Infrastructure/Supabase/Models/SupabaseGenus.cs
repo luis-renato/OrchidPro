@@ -1,17 +1,9 @@
 ﻿using OrchidPro.Models;
-using OrchidPro.Models.Base;
-using OrchidPro.Services.Data;
-using OrchidPro.Services.Base;
 using Supabase.Postgrest.Attributes;
 using Supabase.Postgrest.Models;
-using OrchidPro.Extensions;
 
-namespace OrchidPro.Services;
+namespace OrchidPro.Services.Infrastructure.Supabase.Models;
 
-/// <summary>
-/// Supabase database model representing genera table with family relationship.
-/// Maps between database schema and application domain models.
-/// </summary>
 [Table("genera")]
 public class SupabaseGenus : BaseModel
 {
@@ -42,9 +34,6 @@ public class SupabaseGenus : BaseModel
     [Column("updated_at")]
     public DateTime? UpdatedAt { get; set; } = DateTime.UtcNow;
 
-    /// <summary>
-    /// Convert SupabaseGenus to domain Genus model
-    /// </summary>
     public Genus ToGenus()
     {
         return new Genus
@@ -61,9 +50,6 @@ public class SupabaseGenus : BaseModel
         };
     }
 
-    /// <summary>
-    /// Convert domain Genus model to SupabaseGenus
-    /// </summary>
     public static SupabaseGenus FromGenus(Genus genus)
     {
         return new SupabaseGenus
@@ -79,20 +65,4 @@ public class SupabaseGenus : BaseModel
             UpdatedAt = genus.UpdatedAt
         };
     }
-}
-
-/// <summary>
-/// REFACTORED: Genus service using BaseSupabaseEntityService.
-/// Reduced from ~150 lines to minimal implementation focused on Genus-specific logic.
-/// </summary>
-public class SupabaseGenusService(SupabaseService supabaseService) : BaseSupabaseEntityService<Genus, SupabaseGenus>(supabaseService)
-{
-    protected override string EntityTypeName => "Genus";
-    protected override string EntityPluralName => "Genera";
-
-    protected override Genus ConvertToEntity(SupabaseGenus supabaseModel)
-        => supabaseModel.ToGenus();
-
-    protected override SupabaseGenus ConvertFromEntity(Genus entity)
-        => SupabaseGenus.FromGenus(entity);
 }

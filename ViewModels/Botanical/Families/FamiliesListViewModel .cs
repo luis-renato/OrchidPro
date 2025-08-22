@@ -1,11 +1,11 @@
 ﻿using CommunityToolkit.Mvvm.Input;
 using OrchidPro.Extensions;
 using OrchidPro.Models;
-using OrchidPro.Services;
+using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
 
-namespace OrchidPro.ViewModels.Families;
+namespace OrchidPro.ViewModels.Botanical.Families;
 
 /// <summary>
 /// Families list ViewModel - ULTRA CLEAN using BaseListViewModel core
