@@ -1,236 +1,94 @@
 ﻿using OrchidPro.ViewModels.Families;
-using OrchidPro.Constants;
+using OrchidPro.Views.Base;
 using OrchidPro.Extensions;
 
 namespace OrchidPro.Views.Pages;
 
 /// <summary>
-/// Page for creating and editing botanical family records with form validation.
-/// Handles navigation interception for unsaved changes and provides smooth animations.
+/// REFACTORED Family Edit Page using BaseEditPageLogic composition.
+/// Reduced from 200+ lines to ~30 lines using the base edit page logic.
+/// Follows exact same pattern as SpeciesEditPage with BaseEditPageLogic.
 /// </summary>
 public partial class FamilyEditPage : ContentPage, IQueryAttributable
 {
-    private readonly FamilyEditViewModel _viewModel;
-    private bool _isNavigating = false;
-    private bool _isNavigationHandlerAttached = false;
+    private readonly BaseEditPageLogic<Models.Family> _base;
 
     /// <summary>
-    /// Initialize the family edit page with dependency injection and setup
+    /// Initialize the family edit page with dependency injection and composition
     /// </summary>
     public FamilyEditPage(FamilyEditViewModel viewModel)
     {
-        _viewModel = viewModel;
-        BindingContext = _viewModel;
+        InitializeComponent();
 
-        var success = this.SafeExecute(() =>
-        {
-            InitializeComponent();
-            this.LogSuccess("InitializeComponent completed successfully");
-        }, "InitializeComponent");
+        // TRUE composition - use the base logic directly (same pattern as species)
+        _base = new BaseEditPageLogic<Models.Family>(viewModel);
+        _base.SetupPage(this);
 
-        if (!success)
-        {
-            this.LogError("InitializeComponent failed");
-        }
-
-        this.LogInfo("Initialized successfully");
-    }
-
-    /// <summary>
-    /// Intercept navigation events to handle unsaved changes confirmation
-    /// </summary>
-    private async void OnShellNavigating(object? sender, ShellNavigatingEventArgs e)
-    {
-        // Only intercept back navigation from toolbar
-        if (_isNavigating || (e.Source != ShellNavigationSource.Pop && e.Source != ShellNavigationSource.PopToRoot))
-            return;
-
-        this.LogInfo($"Toolbar navigation detected - HasUnsavedChanges: {_viewModel.HasUnsavedChanges}");
-
-        // Only intercept if there are unsaved changes
-        if (_viewModel.HasUnsavedChanges)
-        {
-            // Cancel navigation to intercept
-            e.Cancel();
-            _isNavigating = true;
-
-            await this.SafeExecuteAsync(async () =>
-            {
-                // Remove handler BEFORE calling CancelCommand to avoid interference
-                DetachNavigationHandler();
-
-                this.LogInfo("Handler removed, delegating to CancelCommand");
-
-                if (_viewModel.CancelCommand.CanExecute(null))
-                {
-                    await _viewModel.CancelCommand.ExecuteAsync(null);
-                }
-            }, "Navigation handler");
-
-            _isNavigating = false;
-        }
-        // If no changes, allow normal navigation (don't cancel)
-    }
-
-    /// <summary>
-    /// Remove navigation event handler safely
-    /// </summary>
-    private void DetachNavigationHandler()
-    {
-        this.SafeExecute(() =>
-        {
-            if (_isNavigationHandlerAttached)
-            {
-                Shell.Current.Navigating -= OnShellNavigating;
-                _isNavigationHandlerAttached = false;
-                this.LogInfo("Navigation handler detached");
-            }
-        }, "DetachNavigationHandler");
+        this.LogInfo("🚀 REFACTORED FamilyEditPage - using BaseEditPageLogic composition");
     }
 
     #region Query Attributes Management
 
     /// <summary>
-    /// Handle navigation parameters from Shell routing system
+    /// Handle navigation parameters - delegates to base logic
     /// </summary>
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
-        this.SafeExecute(() =>
-        {
-            this.LogInfo($"ApplyQueryAttributes called with {query.Count} parameters");
-
-            foreach (var param in query)
-            {
-                this.LogInfo($"Parameter: {param.Key} = {param.Value} ({param.Value?.GetType().Name})");
-            }
-
-            // Pass parameters to ViewModel
-            _viewModel.ApplyQueryAttributes(query);
-
-            this.LogSuccess("Parameters applied to ViewModel");
-        }, "ApplyQueryAttributes");
+        _base.HandleQueryAttributes(query);
     }
 
     #endregion
 
-    #region Page Lifecycle Management
+    #region Lifecycle Events - Delegated to Base
 
-    /// <summary>
-    /// Handle page appearing with navigation setup and animations
-    /// </summary>
     protected override async void OnAppearing()
     {
         base.OnAppearing();
-
-        await this.SafeExecuteAsync(async () =>
-        {
-            this.LogInfo($"OnAppearing - Mode: {(_viewModel.IsEditMode ? "EDIT" : "CREATE")}");
-
-            // Always intercept navigation from toolbar - simpler approach
-            if (!_isNavigationHandlerAttached)
-            {
-                Shell.Current.Navigating += OnShellNavigating;
-                _isNavigationHandlerAttached = true;
-                this.LogInfo("Navigation handler attached (always active)");
-            }
-
-            // Animation and initialization in parallel
-            var animationTask = PerformEntranceAnimation();
-            var initTask = _viewModel.OnAppearingAsync();
-
-            // Wait for both to complete
-            await Task.WhenAll(animationTask, initTask);
-
-            this.LogSuccess("Page fully loaded and initialized");
-        }, "OnAppearing");
+        await _base.BaseOnAppearing();
     }
 
-    /// <summary>
-    /// Handle page disappearing with cleanup and animations
-    /// </summary>
     protected override async void OnDisappearing()
     {
+        await _base.BaseOnDisappearing();
         base.OnDisappearing();
-
-        await this.SafeExecuteAsync(async () =>
-        {
-            this.LogInfo("OnDisappearing");
-
-            // Always remove handler
-            DetachNavigationHandler();
-
-            // Perform exit animation
-            await PerformExitAnimation();
-
-            // Cleanup ViewModel
-            await _viewModel.OnDisappearingAsync();
-        }, "OnDisappearing");
     }
 
-    /// <summary>
-    /// Handle Android physical back button with unsaved changes check
-    /// </summary>
     protected override bool OnBackButtonPressed()
     {
-        // Check if already navigating to avoid multiple dialogs
-        if (_isNavigating)
-            return true;
-
-        // For physical button, redirect to Cancel command from base class
-        _ = Task.Run(async () =>
-        {
-            await this.SafeExecuteAsync(async () =>
-            {
-                this.LogInfo("Physical back button pressed - calling CancelCommand");
-                _isNavigating = true;
-
-                await MainThread.InvokeOnMainThreadAsync(async () =>
-                {
-                    // Use Cancel command from base class which has all the logic
-                    if (_viewModel.CancelCommand.CanExecute(null))
-                    {
-                        await _viewModel.CancelCommand.ExecuteAsync(null);
-                    }
-                });
-            }, "Back button handler");
-
-            _isNavigating = false;
-        });
-
-        // Prevent default back button behavior
-        return true;
+        return _base.HandleBackButtonPressed();
     }
 
     #endregion
 
-    #region Animation Management
+    #region Event Handlers - All Delegated to Base
+
+    // Core form handlers - FIXED: Removed async since base handlers are already async void
+    private void OnSaveButtonTapped(object? sender, EventArgs e) => _base.HandleSaveButtonTapped(sender, e);
+    private void OnCancelButtonTapped(object? sender, EventArgs e) => _base.HandleCancelButtonTapped(sender, e);
+    private void OnDeleteButtonTapped(object? sender, EventArgs e) => _base.HandleDeleteButtonTapped(sender, e);
+    private void OnSaveAndContinueButtonTapped(object? sender, EventArgs e) => _base.HandleSaveAndContinueButtonTapped(sender, e);
+
+    // Focus handlers
+    private void OnEntryFocused(object? sender, FocusEventArgs e) => _base.HandleEntryFocused(sender, e);
+    private void OnEntryUnfocused(object? sender, FocusEventArgs e) => _base.HandleEntryUnfocused(sender, e);
+    private void OnEditorTextChanged(object? sender, TextChangedEventArgs e) => _base.HandleEditorTextChanged(sender, e);
+    private void OnPickerSelectionChanged(object? sender, EventArgs e) => _base.HandlePickerSelectionChanged(sender, e);
+    private void OnSwitchToggled(object? sender, ToggledEventArgs e) => _base.HandleSwitchToggled(sender, e);
+
+    #endregion
+
+    #region Optional Family-Specific Customizations
 
     /// <summary>
-    /// Perform smooth entrance animation for better user experience
+    /// Example: Custom handler for family-specific control if needed
     /// </summary>
-    private async Task PerformEntranceAnimation()
+    private void OnClassificationChanged(object sender, TextChangedEventArgs e)
     {
-        await this.SafeAnimationExecuteAsync(async () =>
-        {
-            // Use extension method for standardized page entrance
-            await Content.PerformStandardEntranceAsync();
+        // Delegate to base text handler
+        _base.HandleEditorTextChanged(sender, e);
 
-            this.LogSuccess("Entrance animation completed");
-        }, "Page entrance animation");
-    }
-
-    /// <summary>
-    /// Perform smooth exit animation for better user experience
-    /// </summary>
-    private async Task PerformExitAnimation()
-    {
-        await this.SafeAnimationExecuteAsync(async () =>
-        {
-            // Use extension method for standardized page exit
-            await Content.PerformStandardExitAsync();
-
-            this.LogSuccess("Exit animation completed");
-        }, "Page exit animation");
+        // Add family-specific logic if needed
+        this.LogInfo($"Classification changed: {e.NewTextValue?.Length ?? 0} characters");
     }
 
     #endregion

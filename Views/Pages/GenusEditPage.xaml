@@ -3,19 +3,17 @@
              xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:OrchidPro.ViewModels.Genera"
-             xmlns:models="clr-namespace:OrchidPro.Models"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              xmlns:sfcombobox="clr-namespace:Syncfusion.Maui.Inputs;assembly=Syncfusion.Maui.Inputs"
              x:DataType="vm:GenusEditViewModel"
-             Title="{Binding PageTitle}"
+             Title="Genus"
              BackgroundColor="White">
 
     <Grid>
-        <!-- Main Content -->
         <ScrollView>
-            <StackLayout Padding="16" Spacing="20">
+            <StackLayout Padding="16" Spacing="8">
 
-                <!-- Header -->
+                <!-- Header seguindo padrão EXATO do SpeciesEditPage -->
                 <StackLayout Spacing="8">
                     <Label Text="{Binding PageTitle}"
                            FontSize="28"
@@ -35,7 +33,7 @@
                                 Margin="0,8,0,0" />
                 </StackLayout>
 
-                <!-- Family Selection Field -->
+                <!-- Family Selection - CORRIGIDO seguindo SpeciesEditPage -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
@@ -54,7 +52,7 @@
                                     VerticalOptions="Center" />
                         </Grid>
 
-                        <!-- SfComboBox for Family Selection -->
+                        <!-- SfComboBox CORRIGIDO - todas as propriedades do SpeciesEditPage -->
                         <sfcombobox:SfComboBox ItemsSource="{Binding AvailableFamilies}"
                                                DisplayMemberPath="Name"
                                                TextMemberPath="Name"
@@ -69,13 +67,19 @@
                                                SelectedDropDownItemBackground="LightGray"
                                                DropDownBackground="White"
                                                MaxDropDownHeight="200"
+                                               DropDownIconColor="Red"
+                                               Stroke="Red" 
+                                               SelectionTextHighlightColor="Transparent"
                                                FontSize="16"
-                                               BackgroundColor="Transparent" />
+                                               BackgroundColor="Transparent"
+                                               HighlightedTextColor="Red"
+                                               HighlightedTextFontAttributes="Bold"
+                                               NoResultsFoundText="Not Found" />
 
                     </StackLayout>
                 </ContentView>
 
-                <!-- Name Field usando template -->
+                <!-- Name Field EXATO como SpeciesEditPage -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Name *" Style="{StaticResource FormFieldLabelStyle}" />
@@ -93,7 +97,7 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Description Field usando template -->
+                <!-- Description Field EXATO como SpeciesEditPage -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Description" Style="{StaticResource FormFieldLabelStyle}" />
@@ -107,7 +111,14 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Settings usando template melhorado como Family -->
+                <!-- Configuration Section -->
+                <Label Text="Configuration" 
+                       FontSize="18" 
+                       FontAttributes="Bold" 
+                       TextColor="{StaticResource Primary}" 
+                       Margin="0,16,0,8" />
+
+                <!-- Settings CORRIGIDO - seguindo SpeciesEditPage -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormSettingsStackStyle}">
                         <Label Text="Settings" Style="{StaticResource FormFieldLabelStyle}" />
@@ -167,45 +178,43 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Action Buttons -->
+                <!-- Action Buttons EXATO como SpeciesEditPage -->
                 <Grid ColumnDefinitions="*,*" 
                       ColumnSpacing="16"
-                      Margin="0,24,0,0">
+                      Margin="0,10,0,10">
 
                     <Button Grid.Column="0"
                             Text="Cancel"
-                            Style="{StaticResource SecondaryButtonStyle}"
+                            Style="{StaticResource CancelButtonStyle}"
                             Command="{Binding CancelCommand}" />
 
                     <Button Grid.Column="1"
                             Text="{Binding SaveButtonText}"
                             Style="{StaticResource DynamicPrimaryButtonStyle}"
-                            BackgroundColor="{Binding SaveButtonColor}"
-                            Command="{Binding SaveWithFamilyCommand}"
-                            IsEnabled="{Binding IsNameValid}" />
+                            Command="{Binding SaveCommand}"
+                            IsEnabled="{Binding CanSave}" />
 
                 </Grid>
 
-                <!-- 🔧 FIX 2: Save and Add Another Button (only for new genus) -->
+                <!-- Save and Add Another Button (only for new genus) -->
                 <Button Text="Save &amp; Add Another"
                         Command="{Binding SaveAndContinueCommand}"
                         IsVisible="{Binding IsEditMode, Converter={StaticResource InvertedBoolConverter}}"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        Margin="0,8,0,0" />
+                        Style="{StaticResource DynamicPrimaryButtonStyle}"
+                        IsEnabled="{Binding CanSave}"
+                        Margin="0,0,0,0" />
 
-                <!-- 🔧 FIX 2: Delete Button (only for edit mode) -->
+                <!-- Delete Button (only for edit mode) CORRIGIDO -->
                 <Button Text="Delete"
                         Command="{Binding DeleteCommand}"
                         IsVisible="{Binding IsEditMode}"
-                        Style="{StaticResource SecondaryButtonStyle}"
-                        BackgroundColor="{StaticResource ErrorColor}"
-                        TextColor="White"
-                        Margin="0,8,0,0" />
+                        Style="{StaticResource ErrorButtonStyle}"
+                        Margin="0,0,0,0" />
 
             </StackLayout>
         </ScrollView>
 
-        <!-- Loading Overlay -->
+        <!-- Loading Overlay EXATO como SpeciesEditPage -->
         <ContentView Style="{StaticResource SavingOverlayStyle}" />
 
     </Grid>

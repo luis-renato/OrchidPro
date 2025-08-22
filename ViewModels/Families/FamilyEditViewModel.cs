@@ -3,7 +3,6 @@ using CommunityToolkit.Mvvm.Messaging;
 using OrchidPro.Extensions;
 using OrchidPro.Messages;
 using OrchidPro.Models;
-using OrchidPro.Models.Base;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
@@ -11,7 +10,7 @@ using OrchidPro.ViewModels.Base;
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// MINIMAL Family edit ViewModel - uses BaseEditViewModel SaveCommand + only messaging override
+/// FIXED Family edit ViewModel - Copy of Species pattern that works
 /// </summary>
 public partial class FamilyEditViewModel : BaseEditViewModel<Family>
 {
@@ -24,110 +23,162 @@ public partial class FamilyEditViewModel : BaseEditViewModel<Family>
 
     #region Required Base Class Overrides
 
-    public override string EntityName => "Family";
-    public override string EntityNamePlural => "Families";
+    protected override string GetEntityName() => "Family";
+    protected override string GetEntityNamePlural() => "Families";
 
     #endregion
 
-    #region Constructor
+    #region UI Properties - EXACTLY like Species
+
+    /// <summary>
+    /// Controls visibility of Save and Add Another button - only show in CREATE mode
+    /// </summary>
+    public bool ShowSaveAndContinue => !IsEditMode;
+
+    #endregion
+
+    #region Constructor - EXACTLY like Species
 
     public FamilyEditViewModel(IFamilyRepository familyRepository, IGenusRepository genusRepository, INavigationService navigationService)
-        : base(familyRepository, navigationService)
+        : base(familyRepository, navigationService, "Family", "Families") // Enhanced constructor!
     {
         _familyRepository = familyRepository;
         _genusRepository = genusRepository;
 
-        // Only delete command is family-specific
-        DeleteWithValidationCommand = new AsyncRelayCommand(DeleteFamilyAsync, () => CanDelete);
-
-        this.LogInfo("Initialized - using base SaveCommand + delete validation");
+        this.LogInfo("Initialized - using enhanced base functionality");
     }
 
     #endregion
 
-    #region Commands
+    #region Navigation Parameter Handling - EXACTLY like Species
 
-    public IAsyncRelayCommand DeleteWithValidationCommand { get; }
+    /// <summary>
+    /// Enhanced navigation parameter handling for family-specific scenarios - EXACTLY like Species
+    /// </summary>
+    public override void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        this.SafeExecute(() =>
+        {
+            this.LogInfo("Applying query attributes for Family edit");
+
+            if (query.TryGetValue("FamilyId", out var familyIdObj) &&
+                Guid.TryParse(familyIdObj?.ToString(), out var familyId))
+            {
+                // Use family-specific initialization for edit mode - EXACTLY like Species
+                _ = InitializeForEditAsync(familyId);
+            }
+            else
+            {
+                // Use family-specific initialization for create mode
+                _ = InitializeForCreateAsync();
+            }
+        }, "Apply Query Attributes");
+    }
 
     #endregion
 
-    #region Override Save Success for Messaging
+    #region Initialization Methods - EXACTLY like Species
 
     /// <summary>
-    /// ✅ CORRETO: Override OnSaveSuccessAsync para enviar mensagem
+    /// Initialize for creating new family - EXACTLY like Species
+    /// FIXED CS1998: Return completed task instead of async without await
     /// </summary>
-    protected override async Task OnSaveSuccessAsync(Family savedEntity)
+    public Task InitializeForCreateAsync()
     {
-        await base.OnSaveSuccessAsync(savedEntity);
+        return this.SafeExecuteAsync(() =>
+        {
+            this.LogInfo("Initializing for create mode");
 
-        // Send family created message if it was a new family
+            HasUnsavedChanges = false;
+            OnPropertyChanged(nameof(ShowSaveAndContinue)); // Show Save & Add Another in create mode
+            this.LogInfo("Create mode initialization completed - form is clean");
+
+            return Task.CompletedTask;
+        }, "Initialize for Create");
+    }
+
+    /// <summary>
+    /// Initialize for editing existing family - EXACTLY like Species
+    /// </summary>
+    public async Task InitializeForEditAsync(Guid familyId)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            this.LogInfo($"Initializing for edit mode: {familyId}");
+
+            // Set entity ID and edit mode FIRST, then load data via base class
+            EntityId = familyId;
+            _isEditMode = true;
+
+            // Force update of computed properties that depend on IsEditMode
+            OnPropertyChanged(nameof(IsEditMode));
+            OnPropertyChanged(nameof(PageTitle));
+            OnPropertyChanged(nameof(ShowSaveAndContinue)); // Hide Save & Add Another in edit mode
+
+            // Load entity data using base class method
+            await LoadEntityAsync();
+
+            this.LogInfo("Edit mode initialization completed");
+        }, "Initialize for Edit");
+    }
+
+    #endregion
+
+    #region Override Save Success for Messaging - EXACTLY like Species
+
+    /// <summary>
+    /// Override save success to send family-specific messages - EXACTLY like Species
+    /// </summary>
+    protected override async Task OnEntitySavedAsync(Family savedEntity)
+    {
         if (!IsEditMode)
         {
-            SendFamilyCreatedMessage(savedEntity.Name);
+            // Send family created message for genus auto-selection
+            WeakReferenceMessenger.Default.Send(new FamilyCreatedMessage(savedEntity.Id, savedEntity.Name));
+            this.LogInfo($"Sent FamilyCreatedMessage for: {savedEntity.Name}");
         }
+
+        await base.OnEntitySavedAsync(savedEntity);
     }
 
     #endregion
 
-    #region Family-Specific Operations
+    #region Family-Specific Delete with Validation
 
     /// <summary>
-    /// Delete family with genus count validation
+    /// Override the base delete to add genus count validation
+    /// Uses the existing DeleteCommand from base, just overrides the execution
     /// </summary>
-    private async Task DeleteFamilyAsync()
+    [RelayCommand]
+    public async Task DeleteWithValidationAsync()
     {
         if (!EntityId.HasValue) return;
 
         await this.SafeExecuteAsync(async () =>
         {
-            // Use GetCountByFamilyAsync (exists in IGenusRepository)
+            // Check for dependent genera
             var genusCount = await _genusRepository.GetCountByFamilyAsync(EntityId.Value, includeInactive: true);
-
             string message = genusCount > 0
                 ? $"This family has {genusCount} genera. Delete anyway?"
                 : "Are you sure you want to delete this family?";
 
-            // Use ShowConfirmationAsync from BaseEditViewModel
-            var confirmed = await ShowConfirmationAsync("Delete Family", message, "Delete", "Cancel");
+            // Use base method for confirmation
+            var confirmed = await this.ShowConfirmation("Delete Family", message, "Delete", "Cancel");
             if (!confirmed) return;
 
+            // Use base repository for deletion
             var success = await _familyRepository.DeleteAsync(EntityId.Value);
+
             if (success)
             {
-                await ShowSuccessAsync("Success", "Family deleted successfully");
+                await this.ShowSuccessToast("Family deleted successfully");
                 await _navigationService.GoBackAsync();
             }
             else
             {
-                await ShowErrorAsync("Error", "Failed to delete family");
+                await this.ShowErrorToast("Failed to delete family");
             }
         }, "Delete Family");
-    }
-
-    #endregion
-
-    #region Property Overrides
-
-    /// <summary>
-    /// Can delete - only in edit mode with valid entity
-    /// </summary>
-    public bool CanDelete => IsEditMode && !IsBusy && EntityId.HasValue;
-
-    #endregion
-
-    #region Messaging
-
-    /// <summary>
-    /// Send family created message after successful save
-    /// </summary>
-    private void SendFamilyCreatedMessage(string familyName)
-    {
-        if (EntityId.HasValue && !string.IsNullOrEmpty(familyName))
-        {
-            var message = new FamilyCreatedMessage(EntityId.Value, familyName);
-            WeakReferenceMessenger.Default.Send(message);
-            this.LogInfo($"Sent FamilyCreatedMessage for: {familyName}");
-        }
     }
 
     #endregion

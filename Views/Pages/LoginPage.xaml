@@ -23,7 +23,7 @@
                     Background="#CCFFFFFF"
                     StrokeThickness="0"
                     StrokeShape="RoundRectangle 20"
-                    Padding="24"
+                    Padding="20"
                     WidthRequest="320"
                     MinimumHeightRequest="400"
                     HorizontalOptions="Center"
@@ -32,9 +32,9 @@
                 <!-- Shadow effect -->
                 <Border.Shadow>
                     <Shadow Brush="{StaticResource Black}"
-                            Opacity="0.15"
+                            Opacity="0.55"
                             Radius="20"
-                            Offset="0,10" />
+                            Offset="20,20" />
                 </Border.Shadow>
 
                 <VerticalStackLayout Spacing="20">

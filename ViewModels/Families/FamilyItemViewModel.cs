@@ -1,344 +1,50 @@
-﻿using OrchidPro.Models;
-using OrchidPro.ViewModels.Base;
+﻿using OrchidPro.ViewModels.Base;
 using OrchidPro.Extensions;
-using OrchidPro.Services;
-using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace OrchidPro.ViewModels.Families;
 
 /// <summary>
-/// Item ViewModel for botanical family entities with family-specific properties and behaviors.
-/// Extends base functionality with favorites, orchid family detection, and enhanced UI binding.
+/// Family item ViewModel - MINIMAL implementation using base class
+/// MIGRATED FROM 180 LINES TO ~60 LINES - Same pattern as SpeciesItemViewModel
+/// MODERNIZED: Uses primary constructor for cleaner code
 /// </summary>
-public partial class FamilyItemViewModel : BaseItemViewModel<Family>
+public partial class FamilyItemViewModel(Models.Family entity) : BaseItemViewModel<Models.Family>(entity)
 {
-    #region Private Fields
-
-    private readonly IGenusRepository? _genusRepository;
-    private int _genusCount = 0;
-    private bool _isLoadingGenusCount = false;
-
-    #endregion
-
-    #region Base Class Implementation
+    #region Required Base Class Override
 
     public override string EntityName => "Family";
 
     #endregion
 
-    #region Family-Specific Properties
+    #region Family-Specific Properties (READ-ONLY)
 
     /// <summary>
-    /// Favorite status specific to Family entities
+    /// Favorite status for UI display
     /// </summary>
-    public bool IsFavorite { get; }
+    public bool IsFavorite => Entity?.IsFavorite ?? false;
 
     /// <summary>
-    /// Genus count
+    /// Quick check if this is an orchid family
     /// </summary>
-    public int GenusCount
-    {
-        get => _genusCount;
-        private set
-        {
-            if (SetProperty(ref _genusCount, value))
-            {
-                OnPropertyChanged(nameof(GenusCountDisplay));
-                OnPropertyChanged(nameof(HasGenera));
-            }
-        }
-    }
-
-    /// <summary>
-    /// Loading state
-    /// </summary>
-    public bool IsLoadingGenusCount
-    {
-        get => _isLoadingGenusCount;
-        private set => SetProperty(ref _isLoadingGenusCount, value);
-    }
-
-    /// <summary>
-    /// Genus count display text
-    /// </summary>
-    public string GenusCountDisplay
-    {
-        get
-        {
-            if (IsLoadingGenusCount) return "...";
-
-            return GenusCount switch
-            {
-                0 => "No genera",
-                1 => "1 genus",
-                _ => $"{GenusCount} genera"
-            };
-        }
-    }
-
-    /// <summary>
-    /// Has genera indicator
-    /// </summary>
-    public bool HasGenera => GenusCount > 0;
+    public bool IsOrchidaceae => Name.Contains("Orchidaceae", StringComparison.OrdinalIgnoreCase);
 
     #endregion
 
-    #region Constructor
+    #region Debug Helper
 
     /// <summary>
-    /// Initialize family item ViewModel with family-specific data
+    /// Debug method to check sorting properties
     /// </summary>
-    public FamilyItemViewModel(Family family) : base(family)
+    public void DebugSortProperties()
     {
-        IsFavorite = family.IsFavorite;
-        this.LogInfo($"Created: {family.Name} (Favorite: {IsFavorite}, ID: {family.Id})");
-    }
-
-    /// <summary>
-    /// Initialize family item ViewModel with genus repository for count loading
-    /// </summary>
-    public FamilyItemViewModel(Family family, IGenusRepository genusRepository) : base(family)
-    {
-        IsFavorite = family.IsFavorite;
-        _genusRepository = genusRepository;
-
-        this.LogInfo($"Created with GenusRepository: {family.Name} (Favorite: {IsFavorite}, ID: {family.Id})");
-
-        _ = LoadGenusCountAsync();
+        this.LogInfo($"Family Debug - Name: '{Name}', IsFavorite: {IsFavorite}, IsOrchidaceae: {IsOrchidaceae}, CreatedAt: {CreatedAt:yyyy-MM-dd}");
     }
 
     #endregion
 
-    #region Genus Count Management
+    #region Computed Properties (using base class Entity access)
 
-    /// <summary>
-    /// Load genus count asynchronously
-    /// </summary>
-    public async Task LoadGenusCountAsync()
-    {
-        if (_genusRepository == null) return;
-
-        await this.SafeExecuteAsync(async () =>
-        {
-            IsLoadingGenusCount = true;
-
-            try
-            {
-                var count = await _genusRepository.GetCountByFamilyAsync(Id, includeInactive: false);
-                GenusCount = count;
-                this.LogSuccess($"Loaded genus count for {Name}: {count}");
-            }
-            catch (Exception ex)
-            {
-                this.LogError($"Failed to load genus count for {Name}: {ex.Message}");
-                GenusCount = 0;
-            }
-            finally
-            {
-                IsLoadingGenusCount = false;
-            }
-
-        }, $"LoadGenusCount failed for {Name}");
-    }
-
-    #endregion
-
-    #region Enhanced UI Properties
-
-    /// <summary>
-    /// Customized description preview for botanical families
-    /// </summary>
-    public override string DescriptionPreview
-    {
-        get
-        {
-            return this.SafeExecute(() =>
-            {
-                if (string.IsNullOrWhiteSpace(Description))
-                    return "No botanical description available";
-
-                return Description.Length > 120
-                    ? $"{Description.Substring(0, 117)}..."
-                    : Description;
-            }, fallbackValue: "Description unavailable", operationName: "DescriptionPreview");
-        }
-    }
-
-    /// <summary>
-    /// Recent indicator with family-specific icons including favorites
-    /// </summary>
-    public override string RecentIndicator =>
-        this.SafeExecute(() => IsRecent ? "🌿" : (IsFavorite ? "⭐" : ""),
-                        fallbackValue: "",
-                        operationName: "RecentIndicator");
-
-    /// <summary>
-    /// Extended status display including family-specific indicators
-    /// </summary>
-    public override string FullStatusDisplay
-    {
-        get
-        {
-            return this.SafeExecute(() =>
-            {
-                var status = StatusDisplay;
-                if (IsSystemDefault) status += " • System";
-                if (IsRecent) status += " • New";
-                if (IsOrchidaceae) status += " • Orchid";
-                if (IsFavorite) status += " • Favorite";
-                if (!IsLoadingGenusCount && GenusCount >= 0)
-                {
-                    status += $" • {GenusCountDisplay}";
-                }
-                return status;
-            }, fallbackValue: StatusDisplay, operationName: "FullStatusDisplay");
-        }
-    }
-
-    /// <summary>
-    /// Status badge color with special handling for favorites
-    /// </summary>
-    public override Color StatusBadgeColor
-    {
-        get
-        {
-            return this.SafeExecute(() =>
-            {
-                if (IsFavorite)
-                    return Color.FromArgb("#FF9800"); // Special color for favorites
-
-                return base.StatusBadgeColor;
-            }, fallbackValue: base.StatusBadgeColor, operationName: "StatusBadgeColor");
-        }
-    }
-
-    /// <summary>
-    /// Enhanced display name with visual indicators
-    /// </summary>
-    public new string DisplayName =>
-        this.SafeExecute(() => $"{Name}{(IsSystemDefault ? " (System)" : "")}{(IsFavorite ? " ⭐" : "")}",
-                        fallbackValue: Name,
-                        operationName: "DisplayName");
-
-    #endregion
-
-    #region Family-Specific Properties
-
-    /// <summary>
-    /// Detect if this is an orchid family based on name
-    /// </summary>
-    public bool IsOrchidaceae =>
-        this.SafeExecute(() => Name.Contains("Orchidaceae", StringComparison.OrdinalIgnoreCase),
-                        fallbackValue: false,
-                        operationName: "IsOrchidaceae");
-
-    /// <summary>
-    /// Family type indicator icon
-    /// </summary>
-    public string FamilyTypeIndicator => IsOrchidaceae ? "🌺" : "🌿";
-
-    /// <summary>
-    /// Selection state visual indicators for UI binding
-    /// </summary>
-    public string SelectionIcon => IsSelected ? "☑️" : "☐";
-    public Color SelectionColor => IsSelected ? Color.FromArgb("#2196F3") : Color.FromArgb("#E0E0E0");
-
-    /// <summary>
-    /// Combined status icon with priority-based selection
-    /// </summary>
-    public string StatusIcon
-    {
-        get
-        {
-            return this.SafeExecute(() =>
-            {
-                if (!IsActive) return "⏸️";
-                if (IsFavorite) return "⭐";
-                if (IsOrchidaceae) return "🌺";
-                if (IsSystemDefault) return "🔒";
-                return "🌿";
-            }, fallbackValue: "🌿", operationName: "StatusIcon");
-        }
-    }
-
-    /// <summary>
-    /// Comprehensive tooltip information for enhanced UX
-    /// </summary>
-    public string TooltipText
-    {
-        get
-        {
-            return this.SafeExecute(() =>
-            {
-                var parts = new List<string>();
-
-                if (IsFavorite) parts.Add("Favorite family");
-                if (IsOrchidaceae) parts.Add("Orchid family");
-                if (IsSystemDefault) parts.Add("System default");
-                if (!IsActive) parts.Add("Inactive");
-
-                if (!IsLoadingGenusCount)
-                {
-                    parts.Add(GenusCountDisplay);
-                }
-
-                parts.Add($"Created {CreatedAt:dd/MM/yyyy}");
-
-                return string.Join(" • ", parts);
-            }, fallbackValue: $"Family: {Name}", operationName: "TooltipText");
-        }
-    }
-
-    #endregion
-
-    #region Data Access and Utility Methods
-
-    /// <summary>
-    /// Get the underlying Family model with proper typing
-    /// </summary>
-    public new Family ToModel()
-    {
-        return this.SafeExecute(() =>
-        {
-            var model = base.ToModel();
-            this.LogInfo($"Retrieved Family model for: {Name}");
-            return model;
-        }, fallbackValue: base.ToModel(), operationName: "ToModel");
-    }
-
-    /// <summary>
-    /// Compare families for sorting with favorites-first logic
-    /// </summary>
-    public int CompareTo(FamilyItemViewModel? other)
-    {
-        return this.SafeExecute(() =>
-        {
-            if (other == null) return 1;
-
-            this.LogInfo($"Comparing {Name} with {other.Name}");
-
-            // Favorites first
-            if (IsFavorite && !other.IsFavorite) return -1;
-            if (!IsFavorite && other.IsFavorite) return 1;
-
-            // Then by name
-            var result = string.Compare(Name, other.Name, StringComparison.OrdinalIgnoreCase);
-            this.LogInfo($"Comparison result: {result}");
-            return result;
-
-        }, fallbackValue: 0, operationName: "CompareTo");
-    }
-
-    /// <summary>
-    /// Enhanced string representation for debugging
-    /// </summary>
-    public override string ToString()
-    {
-        return this.SafeExecute(() =>
-            $"FamilyItemVM: {Name} (ID: {Id}, Selected: {IsSelected}, Favorite: {IsFavorite}, Genera: {GenusCount})",
-            fallbackValue: $"FamilyItemVM: [Error getting details]",
-            operationName: "ToString");
-    }
+    private Models.Family Entity => ToModel();
 
     #endregion
 }

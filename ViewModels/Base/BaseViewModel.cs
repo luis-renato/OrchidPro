@@ -128,13 +128,20 @@ public abstract partial class BaseViewModel : ObservableObject
 
     /// <summary>
     /// Gets the current active page from the application window hierarchy.
+    /// FIXED CA1826: Direct indexable access instead of LINQ to avoid unnecessary allocations
     /// </summary>
     /// <returns>The current page or null if not available</returns>
     private static Page? GetCurrentPage()
     {
         return new object().SafeExecute(() =>
         {
-            return Application.Current?.Windows?.FirstOrDefault()?.Page;
+            // FIXED CA1826: Use direct indexing instead of FirstOrDefault() to avoid LINQ overhead
+            var windows = Application.Current?.Windows;
+            if (windows != null && windows.Count > 0)
+            {
+                return windows[0].Page;
+            }
+            return null;
         }, fallbackValue: null, "Get Current Page");
     }
 
@@ -146,10 +153,7 @@ public abstract partial class BaseViewModel : ObservableObject
     {
         this.SafeExecute(() =>
         {
-            if (Application.Current != null)
-            {
-                Application.Current.Dispatcher.Dispatch(action);
-            }
+            Application.Current?.Dispatcher.Dispatch(action);
         }, "Dispatch On Main Thread");
     }
 

@@ -2,36 +2,35 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <!-- ✅ TEMPLATE 3: FORM FIELD FRAME TEMPLATE -->
-    <!-- Código EXATO extraído dos frames repetidos do FamilyEditPage.xaml -->
+    <!-- Form Field Border Template - Updated from obsolete Frame to modern Border -->
     <ControlTemplate x:Key="FormFieldFrameTemplate">
-        <Frame HasShadow="False" 
-               BorderColor="LightGray" 
-               CornerRadius="12" 
-               Padding="16"
-               BackgroundColor="WhiteSmoke">
+        <Border Stroke="LightGray" 
+                StrokeThickness="1"
+                StrokeShape="RoundRectangle 12" 
+                Padding="16"
+                BackgroundColor="WhiteSmoke">
             <ContentPresenter />
-        </Frame>
+        </Border>
     </ControlTemplate>
 
-    <!-- ✅ STYLE PARA APLICAR O TEMPLATE -->
+    <!-- Style to apply the template -->
     <Style x:Key="FormFieldFrameStyle" TargetType="ContentView">
         <Setter Property="ControlTemplate" Value="{StaticResource FormFieldFrameTemplate}" />
     </Style>
 
-    <!-- ✅ TEMPLATE PARA LABEL DE TÍTULO DO CAMPO -->
+    <!-- Template for field title labels -->
     <Style x:Key="FormFieldLabelStyle" TargetType="Label">
         <Setter Property="FontSize" Value="12" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextColor" Value="{StaticResource Primary}" />
     </Style>
 
-    <!-- ✅ TEMPLATE PARA STACKLAYOUT DOS CAMPOS -->
+    <!-- Template for field stack layouts -->
     <Style x:Key="FormFieldStackStyle" TargetType="StackLayout">
         <Setter Property="Spacing" Value="8" />
     </Style>
 
-    <!-- ✅ TEMPLATE PARA STACKLAYOUT DE SETTINGS (espaçamento maior) -->
+    <!-- Template for settings stack layouts (larger spacing) -->
     <Style x:Key="FormSettingsStackStyle" TargetType="StackLayout">
         <Setter Property="Spacing" Value="16" />
     </Style>

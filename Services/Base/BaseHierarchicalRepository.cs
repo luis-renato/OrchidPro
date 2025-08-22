@@ -5,8 +5,8 @@ using OrchidPro.Extensions;
 namespace OrchidPro.Services.Base;
 
 /// <summary>
-/// Base implementation for hierarchical repositories managing parent-child relationships.
-/// Provides comprehensive operations for hierarchical data structures with intelligent caching.
+/// Performance optimized base implementation for hierarchical repositories managing parent-child relationships.
+/// Provides comprehensive operations for hierarchical data structures with intelligent caching and parallel processing.
 /// Eliminates massive code duplication across Family→Genus→Species and future hierarchical entities.
 /// </summary>
 /// <typeparam name="TChild">Child entity type</typeparam>
@@ -15,6 +15,15 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
     where TChild : class, IBaseEntity, IHierarchicalEntity<TParent>, new()
     where TParent : class, IBaseEntity
 {
+    #region Performance Optimization Constants
+
+    /// <summary>
+    /// Threshold for using parallel processing - below this use sequential processing
+    /// </summary>
+    private const int PARALLEL_THRESHOLD = 50;
+
+    #endregion
+
     #region Protected Fields
 
     protected readonly IBaseRepository<TParent> _parentRepository;
@@ -41,15 +50,15 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
         : base(supabaseService)
     {
         _parentRepository = parentRepository ?? throw new ArgumentNullException(nameof(parentRepository));
-        this.LogInfo($"{EntityTypeName}Repository initialized with {ParentEntityTypeName} hierarchy support");
+        this.LogInfo($"🚀 OPTIMIZED {EntityTypeName}Repository initialized with {ParentEntityTypeName} hierarchy support and parallel processing");
     }
 
     #endregion
 
-    #region IHierarchicalRepository Implementation
+    #region IHierarchicalRepository Implementation - Performance Optimized
 
     /// <summary>
-    /// Gets all child entities belonging to a specific parent
+    /// Gets all child entities belonging to a specific parent with smart threshold
     /// </summary>
     public virtual async Task<List<TChild>> GetByParentIdAsync(Guid parentId, bool includeInactive = false)
     {
@@ -58,15 +67,27 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
             var result = await this.SafeDataExecuteAsync(async () =>
             {
                 var allChildren = await GetAllAsync(includeInactive);
-                return allChildren.Where(c => c.GetParentId() == parentId).ToList();
+
+                // Smart threshold to prevent unnecessary parallel processing
+                return allChildren.Count > PARALLEL_THRESHOLD
+                    ? await Task.Run(() =>
+                        allChildren.AsParallel()
+                            .WithDegreeOfParallelism(Math.Min(Environment.ProcessorCount, Math.Max(1, allChildren.Count / 20)))
+                            .Where(c => c.GetParentId() == parentId)
+                            .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)
+                            .ToList()
+                    )
+                    : [.. allChildren
+                        .Where(c => c.GetParentId() == parentId)
+                        .OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)];
             }, $"{EntityTypeName} by {ParentEntityTypeName}");
 
-            return result.Success && result.Data != null ? result.Data : new List<TChild>();
+            return result.Success && result.Data != null ? result.Data : [];
         }
     }
 
     /// <summary>
-    /// Gets filtered child entities by parent with search and status filters
+    /// Gets filtered child entities by parent with smart threshold
     /// </summary>
     public virtual async Task<List<TChild>> GetFilteredByParentAsync(Guid parentId, string? searchText = null, bool? statusFilter = null)
     {
@@ -75,24 +96,49 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
             var result = await this.SafeDataExecuteAsync(async () =>
             {
                 var parentChildren = await GetByParentIdAsync(parentId, statusFilter != true);
-                var filtered = parentChildren.AsEnumerable();
 
-                // Apply text search if provided
-                if (!string.IsNullOrEmpty(searchText))
+                // Smart threshold for filtering operations
+                if (parentChildren.Count <= PARALLEL_THRESHOLD)
                 {
-                    filtered = ApplyTextSearch(filtered, searchText);
-                }
+                    // Sequential processing for small datasets
+                    var query = parentChildren.AsEnumerable();
 
-                // Apply status filter if provided
-                if (statusFilter.HasValue)
+                    if (!string.IsNullOrEmpty(searchText))
+                    {
+                        query = query.Where(c => c.Name.Contains(searchText, StringComparison.OrdinalIgnoreCase));
+                    }
+
+                    if (statusFilter.HasValue)
+                    {
+                        query = query.Where(c => c.IsActive == statusFilter.Value);
+                    }
+
+                    return [.. query.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase)];
+                }
+                else
                 {
-                    filtered = filtered.Where(c => c.IsActive == statusFilter.Value);
-                }
+                    // Parallel processing only for large datasets
+                    return await Task.Run(() =>
+                    {
+                        var query = parentChildren.AsParallel()
+                            .WithDegreeOfParallelism(Math.Min(Environment.ProcessorCount, Math.Max(1, parentChildren.Count / 20)));
 
-                return filtered.ToList();
+                        if (!string.IsNullOrEmpty(searchText))
+                        {
+                            query = ApplyTextSearchParallel(query, searchText);
+                        }
+
+                        if (statusFilter.HasValue)
+                        {
+                            query = query.Where(c => c.IsActive == statusFilter.Value);
+                        }
+
+                        return query.OrderBy(c => c.Name, StringComparer.OrdinalIgnoreCase).ToList();
+                    });
+                }
             }, $"Filtered {EntityTypeName} by {ParentEntityTypeName}");
 
-            return result.Success && result.Data != null ? result.Data : new List<TChild>();
+            return result.Success && result.Data != null ? result.Data : [];
         }
     }
 
@@ -110,10 +156,10 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
 
     #endregion
 
-    #region Hierarchical Validation
+    #region Hierarchical Validation - Performance Optimized
 
     /// <summary>
-    /// Checks if child entity name exists within a specific parent scope
+    /// Checks if child entity name exists within a specific parent scope with smart threshold
     /// </summary>
     public virtual async Task<bool> NameExistsInParentAsync(string name, Guid parentId, Guid? excludeId = null)
     {
@@ -122,9 +168,16 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
             var result = await this.SafeDataExecuteAsync(async () =>
             {
                 var parentChildren = await GetByParentIdAsync(parentId, true);
-                var exists = parentChildren.Any(c =>
-                    string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase) &&
-                    c.Id != excludeId);
+
+                // Smart threshold for name checking
+                var exists = parentChildren.Count > PARALLEL_THRESHOLD
+                    ? await Task.Run(() =>
+                        parentChildren.AsParallel()
+                            .WithDegreeOfParallelism(Math.Min(Environment.ProcessorCount, Math.Max(1, parentChildren.Count / 20)))
+                            .Any(c => string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase) && c.Id != excludeId)
+                    )
+                    : parentChildren.Any(c =>
+                        string.Equals(c.Name, name, StringComparison.OrdinalIgnoreCase) && c.Id != excludeId);
 
                 this.LogInfo($"Name '{name}' exists in {ParentEntityTypeName}: {exists}");
                 return exists;
@@ -153,38 +206,48 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
 
     #endregion
 
-    #region Hierarchical Operations
+    #region Hierarchical Operations - Performance Optimized
 
     /// <summary>
-    /// Gets child entities with their parent information populated
+    /// Gets child entities with their parent information populated using parallel processing
     /// </summary>
     public virtual async Task<List<TChild>> PopulateParentDataAsync(List<TChild> children)
     {
-        if (!children.Any()) return children;
+        if (children.Count == 0) return children;
 
         using (this.LogPerformance($"Populate {ParentEntityTypeName} Data"))
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                var parentIds = children.Select(c => c.GetParentId()).Distinct().ToList();
-                var parents = new Dictionary<Guid, TParent>();
+                // Get unique parent IDs and batch load parents
+                var parentIds = children.AsParallel()
+                    .Select(c => c.GetParentId())
+                    .Distinct()
+                    .ToList();
 
-                foreach (var parentId in parentIds)
+                // Parallel parent loading
+                var parentTasks = parentIds.Select(async parentId =>
                 {
                     var parent = await _parentRepository.GetByIdAsync(parentId);
-                    if (parent != null)
-                    {
-                        parents[parentId] = parent;
-                    }
-                }
+                    return new { ParentId = parentId, Parent = parent };
+                });
 
-                foreach (var child in children)
+                var parentResults = await Task.WhenAll(parentTasks);
+                var parents = parentResults
+                    .Where(pr => pr.Parent != null)
+                    .ToDictionary(pr => pr.ParentId, pr => pr.Parent!);
+
+                // Parallel assignment of parent data
+                await Task.Run(() =>
                 {
-                    if (parents.TryGetValue(child.GetParentId(), out var parent))
+                    Parallel.ForEach(children, child =>
                     {
-                        child.Parent = parent;
-                    }
-                }
+                        if (parents.TryGetValue(child.GetParentId(), out var parent))
+                        {
+                            child.Parent = parent;
+                        }
+                    });
+                });
 
                 return children;
             }, $"Populate {ParentEntityTypeName} Data");
@@ -194,38 +257,44 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
     }
 
     /// <summary>
-    /// Gets all child entities with their parent information in a single query
+    /// Gets all child entities with their parent information in a single optimized query
     /// </summary>
     public virtual async Task<List<TChild>> GetAllWithParentAsync(bool includeInactive = false)
     {
-        var children = await GetAllAsync(includeInactive);
-        return await PopulateParentDataAsync(children);
+        using (this.LogPerformance($"Get All {EntityTypeName} with {ParentEntityTypeName}"))
+        {
+            var children = await GetAllAsync(includeInactive);
+            return await PopulateParentDataAsync(children);
+        }
     }
 
     /// <summary>
-    /// Gets filtered child entities with parent information
+    /// Gets filtered child entities with parent information using parallel processing
     /// </summary>
     public virtual async Task<List<TChild>> GetFilteredWithParentAsync(string? searchText = null, bool? statusFilter = null, Guid? parentId = null)
     {
-        List<TChild> children;
-        if (parentId.HasValue)
+        using (this.LogPerformance($"Get Filtered {EntityTypeName} with {ParentEntityTypeName}"))
         {
-            children = await GetFilteredByParentAsync(parentId.Value, searchText, statusFilter);
-        }
-        else
-        {
-            children = await GetFilteredAsync(searchText, statusFilter);
-        }
+            List<TChild> children;
+            if (parentId.HasValue)
+            {
+                children = await GetFilteredByParentAsync(parentId.Value, searchText, statusFilter);
+            }
+            else
+            {
+                children = await GetFilteredAsync(searchText, statusFilter);
+            }
 
-        return await PopulateParentDataAsync(children);
+            return await PopulateParentDataAsync(children);
+        }
     }
 
     #endregion
 
-    #region Bulk Hierarchical Operations
+    #region Bulk Hierarchical Operations - Performance Optimized
 
     /// <summary>
-    /// Deletes all child entities belonging to a parent (cascade operation)
+    /// Deletes all child entities belonging to a parent (cascade operation) with parallel processing
     /// </summary>
     public virtual async Task<int> DeleteByParentAsync(Guid parentId)
     {
@@ -234,10 +303,12 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
             var result = await this.SafeDataExecuteAsync(async () =>
             {
                 var parentChildren = await GetByParentIdAsync(parentId, true);
-                if (parentChildren.Any())
+                if (parentChildren.Count > 0)
                 {
                     var ids = parentChildren.Select(c => c.Id).ToList();
-                    return await DeleteMultipleAsync(ids);
+                    var deletedCount = await DeleteMultipleAsync(ids);
+                    this.LogDataOperation("Cascade deleted", EntityTypeName, $"{deletedCount} items from {ParentEntityTypeName}");
+                    return deletedCount;
                 }
                 return 0;
             }, $"Delete by {ParentEntityTypeName}");
@@ -247,7 +318,7 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
     }
 
     /// <summary>
-    /// Bulk updates parent assignment for multiple child entities
+    /// Bulk updates parent assignment for multiple child entities with parallel processing
     /// </summary>
     public virtual async Task<int> BulkUpdateParentAsync(List<Guid> childIds, Guid newParentId)
     {
@@ -262,17 +333,21 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
                     throw new ArgumentException($"{ParentEntityTypeName} with ID {newParentId} not found");
                 }
 
-                var updatedCount = 0;
-                foreach (var childId in childIds)
+                // Parallel updates
+                var updateTasks = childIds.Select(async childId =>
                 {
                     var child = await GetByIdAsync(childId);
                     if (child != null)
                     {
                         child.SetParentId(newParentId);
                         var updated = await UpdateAsync(child);
-                        if (updated != null) updatedCount++;
+                        return updated != null;
                     }
-                }
+                    return false;
+                });
+
+                var results = await Task.WhenAll(updateTasks);
+                var updatedCount = results.Count(success => success);
 
                 this.LogDataOperation("Bulk updated parent", EntityTypeName, $"{updatedCount} items");
                 return updatedCount;
@@ -284,10 +359,10 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
 
     #endregion
 
-    #region Hierarchical Statistics
+    #region Hierarchical Statistics - Performance Optimized
 
     /// <summary>
-    /// Gets statistics for child entities within a specific parent
+    /// Gets statistics for child entities within a specific parent using parallel aggregation
     /// </summary>
     public virtual async Task<BaseStatistics> GetStatisticsByParentAsync(Guid parentId)
     {
@@ -297,15 +372,20 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
             {
                 var parentChildren = await GetByParentIdAsync(parentId, true);
 
-                return new BaseStatistics
+                // Parallel statistics calculation
+                return await Task.Run(() =>
                 {
-                    TotalCount = parentChildren.Count,
-                    ActiveCount = parentChildren.Count(c => c.IsActive),
-                    InactiveCount = parentChildren.Count(c => !c.IsActive),
-                    SystemDefaultCount = parentChildren.Count(c => c.IsSystemDefault),
-                    UserCreatedCount = parentChildren.Count(c => !c.IsSystemDefault),
-                    LastRefreshTime = DateTime.UtcNow
-                };
+                    var query = parentChildren.AsParallel();
+                    return new BaseStatistics
+                    {
+                        TotalCount = parentChildren.Count,
+                        ActiveCount = query.Count(c => c.IsActive),
+                        InactiveCount = query.Count(c => !c.IsActive),
+                        SystemDefaultCount = query.Count(c => c.IsSystemDefault),
+                        UserCreatedCount = query.Count(c => !c.IsSystemDefault),
+                        LastRefreshTime = DateTime.UtcNow
+                    };
+                });
             }, $"{ParentEntityTypeName} Statistics");
 
             return result.Success && result.Data != null ? result.Data : new BaseStatistics();
@@ -313,7 +393,7 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
     }
 
     /// <summary>
-    /// Gets hierarchical statistics including parent distribution
+    /// Gets hierarchical statistics including parent distribution with parallel processing
     /// </summary>
     public virtual async Task<HierarchicalStatistics> GetHierarchicalStatisticsAsync()
     {
@@ -321,48 +401,65 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
         {
             var result = await this.SafeDataExecuteAsync(async () =>
             {
-                var children = await GetAllAsync(true);
-                var parentGroups = children.GroupBy(c => c.GetParentId()).ToList();
-                var parents = await _parentRepository.GetAllAsync(true);
+                // Parallel loading of children and parents
+                var childrenTask = GetAllAsync(true);
+                var parentsTask = _parentRepository.GetAllAsync(true);
 
-                var mostPopulousGroup = parentGroups
-                    .OrderByDescending(g => g.Count())
-                    .FirstOrDefault();
+                await Task.WhenAll(childrenTask, parentsTask);
 
-                var mostPopulousParent = mostPopulousGroup != null
-                    ? parents.FirstOrDefault(p => p.Id == mostPopulousGroup.Key)
-                    : null;
+                var children = await childrenTask;
+                var parents = await parentsTask;
 
-                var parentDistribution = new Dictionary<string, int>();
-                foreach (var group in parentGroups)
+                // Parallel statistics calculation
+                return await Task.Run(() =>
                 {
-                    var parent = parents.FirstOrDefault(p => p.Id == group.Key);
-                    if (parent != null)
+                    var childrenQuery = children.AsParallel();
+                    var parentsQuery = parents.AsParallel();
+
+                    var parentGroups = childrenQuery
+                        .GroupBy(c => c.GetParentId())
+                        .ToList();
+
+                    var mostPopulousGroup = parentGroups
+                        .AsParallel()
+                        .OrderByDescending(g => g.Count())
+                        .FirstOrDefault();
+
+                    var mostPopulousParent = mostPopulousGroup != null
+                        ? parentsQuery.FirstOrDefault(p => p.Id == mostPopulousGroup.Key)
+                        : null;
+
+                    var parentDistribution = parentGroups
+                        .AsParallel()
+                        .Select(group =>
+                        {
+                            var parent = parentsQuery.FirstOrDefault(p => p.Id == group.Key);
+                            return parent != null ? new { parent.Name, Count = group.Count() } : null;
+                        })
+                        .Where(x => x != null)
+                        .ToDictionary(x => x!.Name, x => x!.Count);
+
+                    var emptyParentsCount = parentsQuery.Count(p =>
+                        !parentGroups.Any(g => g.Key == p.Id));
+
+                    return new HierarchicalStatistics
                     {
-                        parentDistribution[parent.Name] = group.Count();
-                    }
-                }
-
-                var emptyParentsCount = parents.Count(p =>
-                    !parentGroups.Any(g => g.Key == p.Id));
-
-                return new HierarchicalStatistics
-                {
-                    TotalCount = children.Count,
-                    ActiveCount = children.Count(c => c.IsActive),
-                    InactiveCount = children.Count(c => !c.IsActive),
-                    SystemDefaultCount = children.Count(c => c.IsSystemDefault),
-                    UserCreatedCount = children.Count(c => !c.IsSystemDefault),
-                    LastRefreshTime = DateTime.UtcNow,
-                    UniqueParentsCount = parentGroups.Count,
-                    AverageChildrenPerParent = parentGroups.Count > 0 ? (double)children.Count / parentGroups.Count : 0,
-                    MostPopulousParent = mostPopulousParent?.Name,
-                    MostPopulousParentCount = mostPopulousGroup?.Count() ?? 0,
-                    OrphanedChildrenCount = 0, // Would need additional logic to detect orphaned children
-                    ParentDistribution = parentDistribution,
-                    EmptyParentsCount = emptyParentsCount,
-                    MaxHierarchyDepth = 2 // Can be calculated based on hierarchy depth
-                };
+                        TotalCount = children.Count,
+                        ActiveCount = childrenQuery.Count(c => c.IsActive),
+                        InactiveCount = childrenQuery.Count(c => !c.IsActive),
+                        SystemDefaultCount = childrenQuery.Count(c => c.IsSystemDefault),
+                        UserCreatedCount = childrenQuery.Count(c => !c.IsSystemDefault),
+                        LastRefreshTime = DateTime.UtcNow,
+                        UniqueParentsCount = parentGroups.Count,
+                        AverageChildrenPerParent = parentGroups.Count > 0 ? (double)children.Count / parentGroups.Count : 0,
+                        MostPopulousParent = mostPopulousParent?.Name ?? string.Empty,
+                        MostPopulousParentCount = mostPopulousGroup?.Count() ?? 0,
+                        OrphanedChildrenCount = 0, // Would need additional logic to detect orphaned children
+                        ParentDistribution = parentDistribution,
+                        EmptyParentsCount = emptyParentsCount,
+                        MaxHierarchyDepth = 2 // Can be calculated based on hierarchy depth
+                    };
+                });
             }, "Hierarchical Statistics");
 
             return result.Success && result.Data != null ? result.Data : new HierarchicalStatistics();
@@ -371,48 +468,86 @@ public abstract class BaseHierarchicalRepository<TChild, TParent> : BaseReposito
 
     #endregion
 
-    #region Validation Overrides
+    #region Validation Overrides - FIXED: Maintain Parent Relationships
 
     /// <summary>
-    /// Override create validation to ensure parent relationship is valid
+    /// CRITICAL FIX: Override create to ensure parent relationships are populated from the start
     /// </summary>
-    public override async Task<TChild?> CreateAsync(TChild entity)
+    public override async Task<TChild> CreateAsync(TChild entity)
     {
-        // Validate parent exists before creating child
-        var parentExists = await ValidateParentAccessAsync(entity.GetParentId());
-        if (!parentExists)
+        using (this.LogPerformance($"Create {EntityTypeName} with {ParentEntityTypeName}"))
         {
-            throw new ArgumentException($"{ParentEntityTypeName} with ID {entity.GetParentId()} not found");
-        }
+            // Validate parent exists before creating child
+            var parentExists = await ValidateParentAccessAsync(entity.GetParentId());
+            if (!parentExists)
+            {
+                throw new ArgumentException($"{ParentEntityTypeName} with ID {entity.GetParentId()} not found");
+            }
 
-        // Validate hierarchy structure
-        if (!entity.ValidateHierarchy())
-        {
-            throw new ArgumentException($"Invalid hierarchical relationship for {EntityTypeName}");
-        }
+            // Validate hierarchy structure
+            if (!entity.ValidateHierarchy())
+            {
+                throw new ArgumentException($"Invalid hierarchical relationship for {EntityTypeName}");
+            }
 
-        return await base.CreateAsync(entity);
+            // Call base create (handles service call and basic cache update)
+            // FIXED CS8603: base.CreateAsync never returns null - it throws on failure
+            var created = await base.CreateAsync(entity);
+
+            // CRITICAL FIX: Populate parent relationship for new entity
+            var entitiesWithParent = await PopulateParentDataAsync([created]);
+            var entityWithParent = entitiesWithParent.FirstOrDefault();
+
+            if (entityWithParent != null)
+            {
+                // Update cache with properly populated entity
+                _entityCache.AddOrUpdate(entityWithParent.Id, entityWithParent, (key, oldValue) => entityWithParent);
+                this.LogInfo($"🔧 RELATIONSHIP FIX: Created {EntityTypeName} with {ParentEntityTypeName} relationship");
+                return entityWithParent;
+            }
+
+            // FIXED CS8603: Always return a valid entity - base.CreateAsync guarantees non-null
+            return created;
+        }
     }
 
-    /// <summary>
-    /// Override update validation to ensure parent relationship remains valid
-    /// </summary>
-    public override async Task<TChild?> UpdateAsync(TChild entity)
+    public override async Task<TChild> UpdateAsync(TChild entity)
     {
-        // Validate parent exists before updating child
-        var parentExists = await ValidateParentAccessAsync(entity.GetParentId());
-        if (!parentExists)
+        using (this.LogPerformance($"Update {EntityTypeName} with {ParentEntityTypeName}"))
         {
-            throw new ArgumentException($"{ParentEntityTypeName} with ID {entity.GetParentId()} not found");
-        }
+            // Validate parent exists before updating child
+            var parentExists = await ValidateParentAccessAsync(entity.GetParentId());
+            if (!parentExists)
+            {
+                throw new ArgumentException($"{ParentEntityTypeName} with ID {entity.GetParentId()} not found");
+            }
 
-        // Validate hierarchy structure
-        if (!entity.ValidateHierarchy())
-        {
-            throw new ArgumentException($"Invalid hierarchical relationship for {EntityTypeName}");
-        }
+            // Validate hierarchy structure
+            if (!entity.ValidateHierarchy())
+            {
+                throw new ArgumentException($"Invalid hierarchical relationship for {EntityTypeName}");
+            }
 
-        return await base.UpdateAsync(entity);
+            // Call base update (handles service call and basic cache update)
+            // FIXED CS8603: base.UpdateAsync never returns null - it throws on failure
+            var updated = await base.UpdateAsync(entity);
+
+            // CRITICAL FIX: Re-populate parent relationship after update
+            // This prevents "Unknown Genus/Family" by ensuring Parent navigation property is properly set
+            var entitiesWithParent = await PopulateParentDataAsync([updated]);
+            var entityWithParent = entitiesWithParent.FirstOrDefault();
+
+            if (entityWithParent != null)
+            {
+                // Update cache with properly populated entity
+                _entityCache.AddOrUpdate(entityWithParent.Id, entityWithParent, (key, oldValue) => entityWithParent);
+                this.LogInfo($"🔧 RELATIONSHIP FIX: Updated {EntityTypeName} cache with {ParentEntityTypeName} relationship");
+                return entityWithParent;
+            }
+
+            // FIXED CS8603: Always return a valid entity - base.UpdateAsync guarantees non-null
+            return updated;
+        }
     }
 
     #endregion

@@ -1,4 +1,36 @@
-﻿<?xml version = "1.0" encoding = "UTF-8" ?>
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<!-- 
+OrchidPro Application Root - Enterprise XAML Resource Orchestration
+
+ARCHITECTURE:
+- Centralized resource orchestration without style mixing
+- Clean separation of concerns following enterprise patterns
+- Template-based design system with external resource loading
+- Converter-driven data binding for complex business logic presentation
+
+RESOURCE LOADING HIERARCHY:
+1. MergedDictionaries: External XAML files (Colors, Styles, Templates)
+2. Value Converters: Data transformation for UI binding scenarios
+3. External Files Handle: Global styles, button systems, card designs
+
+DESIGN SYSTEM SEPARATION:
+- Colors.xaml: Color palette and design tokens
+- Styles.xaml: Global styles, anti-branco configuration, page theming
+- ButtonStylesTemplate.xaml: Professional button design system
+- Other Templates: Specialized UI component libraries
+
+PERFORMANCE OPTIMIZATIONS:
+- Lazy template loading through MergedDictionaries
+- Converter caching for repeated data binding operations
+- External style management for better maintainability
+- Clear resource dependency hierarchy
+
+ERROR PREVENTION:
+- MergedDictionaries placed first (XAML property element requirement)
+- Converter availability ensured for template dependencies
+- Consistent naming conventions for resource key management
+- Comprehensive documentation for maintainability
+-->
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:local="clr-namespace:OrchidPro"
@@ -6,98 +38,71 @@
              x:Class="OrchidPro.App">
     <Application.Resources>
         <ResourceDictionary>
+            <!-- 
+            PHASE 1: EXTERNAL RESOURCE LOADING
+            MergedDictionaries must be first per XAML property element requirements.
+            Loads foundational resources that other elements depend on.
+            -->
             <ResourceDictionary.MergedDictionaries>
+                <!-- Core design system foundation -->
                 <ResourceDictionary Source="Resources/Styles/Colors.xaml" />
                 <ResourceDictionary Source="Resources/Styles/Styles.xaml" />
-                <!-- ✅ TEMPLATE 1: Loading Overlay -->
+
+                <!-- Enterprise UI Template Library - 6 Reusable Components -->
                 <ResourceDictionary Source="Resources/Templates/LoadingOverlayTemplate.xaml" />
-                <!-- ✅ TEMPLATE 2: Empty State -->
+                <!-- Async operation feedback -->
                 <ResourceDictionary Source="Resources/Templates/EmptyStateTemplate.xaml" />
-                <!-- ✅ TEMPLATE 3: Form Field Frame -->
+                <!-- No-data user guidance -->
                 <ResourceDictionary Source="Resources/Templates/FormFieldTemplate.xaml" />
-                <!-- ✅ TEMPLATE 4: Button Styles -->
+                <!-- Consistent input styling -->
                 <ResourceDictionary Source="Resources/Templates/ButtonStylesTemplate.xaml" />
-                <!-- ✅ TEMPLATE 5: Search Bar -->
+                <!-- Professional button system -->
                 <ResourceDictionary Source="Resources/Templates/SearchBarTemplate.xaml" />
-                <!-- ✅ TEMPLATE 6: Connection Status -->
+                <!-- Search interface patterns -->
                 <ResourceDictionary Source="Resources/Templates/ConnectionStatusTemplate.xaml" />
+                <!-- Network state indication -->
+
+                <!-- Future template placeholder for extensibility -->
+                <!-- <ResourceDictionary Source="Resources/Templates/GenericStyles.xaml" /> -->
             </ResourceDictionary.MergedDictionaries>
 
-            <!-- Value Converters -->
+            <!-- 
+            PHASE 2: VALUE CONVERTER REGISTRATION
+            Data transformation layer for complex UI binding scenarios.
+            Handles type conversion, null safety, and business logic presentation.
+            -->
+
+            <!-- Type Conversion Converters -->
             <converters:StringToBoolConverter x:Key="StringToBoolConverter" />
+            <!-- String → Boolean mapping -->
             <converters:InvertedStringToBoolConverter x:Key="InvertedStringToBoolConverter" />
-            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <!-- String → !Boolean mapping -->
             <converters:IntToBoolConverter x:Key="IntToBoolConverter" />
-            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <!-- Integer → Boolean mapping -->
             <converters:BoolToIntConverter x:Key="BoolToIntConverter" />
+            <!-- Boolean → Integer mapping -->
             <converters:BoolToStringConverter x:Key="BoolToStringConverter" />
+            <!-- Boolean → String mapping -->
+
+            <!-- Boolean Logic Converters -->
+            <converters:InvertedBoolConverter x:Key="InvertedBoolConverter" />
+            <!-- Boolean negation -->
+            <converters:BoolToColorConverter x:Key="BoolToColorConverter" />
+            <!-- Conditional color selection -->
+
+            <!-- Null Safety Converters -->
             <converters:NullToBoolConverter x:Key="NullToBoolConverter" />
+            <!-- Null check → Boolean -->
             <converters:InvertedNullToBoolConverter x:Key="InvertedNullToBoolConverter" />
+            <!-- !Null check → Boolean -->
+
+            <!-- Collection State Converters -->
             <converters:CollectionToBoolConverter x:Key="CollectionToBoolConverter" />
+            <!-- Collection.Any() → Boolean -->
+
+            <!-- Business Logic Converters -->
             <converters:SortDisplayConverter x:Key="SortDisplayConverter" />
-
-
-            <!-- CONFIGURAÇÃO ANTI-BRANCO DEFINITIVA -->
-
-            <!-- FORÇA todas as páginas a ter background Primary -->
-            <Style TargetType="ContentPage" ApplyToDerivedTypes="True">
-                <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
-            </Style>
-
-            <!-- FORÇA NavigationPage com background Primary -->
-            <Style TargetType="NavigationPage" ApplyToDerivedTypes="True">
-                <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
-                <Setter Property="BarBackgroundColor" Value="{StaticResource Primary}" />
-                <Setter Property="BarTextColor" Value="{StaticResource OnPrimary}" />
-            </Style>
-
-            <!-- FORÇA Shell com background Primary -->
-            <Style TargetType="Shell" ApplyToDerivedTypes="True">
-                <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
-                <Setter Property="Shell.BackgroundColor" Value="{StaticResource Primary}" />
-                <Setter Property="Shell.ForegroundColor" Value="{StaticResource OnPrimary}" />
-                <Setter Property="Shell.TitleColor" Value="{StaticResource OnPrimary}" />
-                <Setter Property="Shell.TabBarBackgroundColor" Value="{StaticResource Primary}" />
-                <Setter Property="Shell.TabBarForegroundColor" Value="{StaticResource OnPrimary}" />
-                <Setter Property="Shell.TabBarTitleColor" Value="{StaticResource OnPrimary}" />
-            </Style>
-
-            <!-- Professional button styles -->
-            <Style x:Key="PrimaryButtonStyle" TargetType="Button">
-                <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
-                <Setter Property="TextColor" Value="{StaticResource OnPrimary}" />
-                <Setter Property="FontAttributes" Value="Bold" />
-                <Setter Property="CornerRadius" Value="25" />
-                <Setter Property="HeightRequest" Value="50" />
-            </Style>
-
-            <Style x:Key="SecondaryButtonStyle" TargetType="Button">
-                <Setter Property="BackgroundColor" Value="{StaticResource Secondary}" />
-                <Setter Property="TextColor" Value="{StaticResource OnSecondary}" />
-                <Setter Property="BorderColor" Value="{StaticResource BorderColor}" />
-                <Setter Property="BorderWidth" Value="1" />
-                <Setter Property="CornerRadius" Value="25" />
-                <Setter Property="HeightRequest" Value="50" />
-            </Style>
-
-            <!-- Professional card style -->
-            <Style x:Key="CardStyle" TargetType="Border">
-                <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource Surface}, Dark={StaticResource SurfaceDark}}" />
-                <Setter Property="Stroke" Value="{StaticResource BorderColor}" />
-                <Setter Property="StrokeThickness" Value="1" />
-                <Setter Property="Padding" Value="20" />
-                <Setter Property="StrokeShape" Value="RoundRectangle 12" />
-            </Style>
-
-            <!-- FAB (Floating Action Button) style -->
-            <Style x:Key="FabStyle" TargetType="Button">
-                <Setter Property="BackgroundColor" Value="{StaticResource Primary}" />
-                <Setter Property="TextColor" Value="{StaticResource OnPrimary}" />
-                <Setter Property="FontAttributes" Value="Bold" />
-                <Setter Property="CornerRadius" Value="28" />
-                <Setter Property="WidthRequest" Value="160" />
-                <Setter Property="HeightRequest" Value="56" />
-            </Style>
+            <!-- Sort enum → Display text -->
 
         </ResourceDictionary>
     </Application.Resources>

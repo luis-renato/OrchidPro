@@ -263,13 +263,20 @@ public static class ToastExtensions
     #region 🔧 Helper Methods
 
     /// <summary>
-    /// ✅ Busca a página atual da aplicação
+    /// ✅ Busca a página atual da aplicação usando a nova API do .NET MAUI
+    /// FIXED: Substituído Application.Current.MainPage (obsoleto) por Application.Current.Windows[0].Page
     /// </summary>
     private static Page? GetCurrentPage()
     {
         try
         {
-            return Application.Current?.MainPage;
+            // FIXED CA1826: Use direct indexing instead of FirstOrDefault() to avoid LINQ overhead
+            var windows = Application.Current?.Windows;
+            if (windows != null && windows.Count > 0)
+            {
+                return windows[0].Page;
+            }
+            return null;
         }
         catch (Exception ex)
         {

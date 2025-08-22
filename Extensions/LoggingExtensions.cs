@@ -5,15 +5,15 @@ using OrchidPro.Constants;
 namespace OrchidPro.Extensions;
 
 /// <summary>
-/// 📝 PADRONIZAÇÃO: Extensions para logging centralizado do OrchidPro
-/// Substitui todos os Debug.WriteLine espalhados pelo código
+/// Extension methods for standardized logging throughout OrchidPro
+/// Replaces scattered Debug.WriteLine calls with consistent logging
 /// </summary>
 public static class LoggingExtensions
 {
-    #region 📝 Logging Methods
+    #region Logging Methods
 
     /// <summary>
-    /// ✅ Log de sucesso padronizado
+    /// Logs success message with standardized format
     /// </summary>
     public static void LogSuccess(this object source, string message, [CallerMemberName] string memberName = "")
     {
@@ -23,7 +23,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// ❌ Log de erro padronizado
+    /// Logs error message with standardized format
     /// </summary>
     public static void LogError(this object source, string message, [CallerMemberName] string memberName = "")
     {
@@ -33,7 +33,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// ❌ Log de erro com exception
+    /// Logs error with exception details
     /// </summary>
     public static void LogError(this object source, Exception ex, string? additionalMessage = null, [CallerMemberName] string memberName = "")
     {
@@ -44,7 +44,7 @@ public static class LoggingExtensions
             : ex.Message;
         Debug.WriteLine(LoggingConstants.LOG_FORMAT_ERROR, $"{category}:{className}:{memberName}", message);
 
-        // Log stack trace apenas em Debug
+        // Log stack trace only in Debug builds
 #if DEBUG
         if (ex.StackTrace != null)
         {
@@ -54,7 +54,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// ℹ️ Log de informação padronizado
+    /// Logs informational message with standardized format
     /// </summary>
     public static void LogInfo(this object source, string message, [CallerMemberName] string memberName = "")
     {
@@ -64,7 +64,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// ⚠️ Log de warning padronizado
+    /// Logs warning message with standardized format
     /// </summary>
     public static void LogWarning(this object source, string message, [CallerMemberName] string memberName = "")
     {
@@ -74,7 +74,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// 🔧 Log de debug padronizado
+    /// Logs debug message with standardized format (Debug builds only)
     /// </summary>
     public static void LogDebug(this object source, string message, [CallerMemberName] string memberName = "")
     {
@@ -87,10 +87,10 @@ public static class LoggingExtensions
 
     #endregion
 
-    #region 🎯 Specialized Logging
+    #region Specialized Logging
 
     /// <summary>
-    /// 🚀 Log de início de operação
+    /// Logs the start of an operation
     /// </summary>
     public static void LogOperationStart(this object source, string operationName, [CallerMemberName] string memberName = "")
     {
@@ -98,7 +98,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// ✅ Log de fim de operação com sucesso
+    /// Logs successful completion of an operation with optional timing
     /// </summary>
     public static void LogOperationSuccess(this object source, string operationName, TimeSpan? duration = null, [CallerMemberName] string memberName = "")
     {
@@ -109,7 +109,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// ❌ Log de falha de operação
+    /// Logs operation failure with exception details
     /// </summary>
     public static void LogOperationFailure(this object source, string operationName, Exception ex, [CallerMemberName] string memberName = "")
     {
@@ -117,7 +117,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// 🔄 Log de entrada em método
+    /// Logs method entry with optional parameters
     /// </summary>
     public static void LogMethodEntry(this object source, object? parameters = null, [CallerMemberName] string memberName = "")
     {
@@ -128,7 +128,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// 🏁 Log de saída de método
+    /// Logs method exit with optional result
     /// </summary>
     public static void LogMethodExit(this object source, object? result = null, [CallerMemberName] string memberName = "")
     {
@@ -139,7 +139,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// 🔗 Log de navegação
+    /// Logs navigation operations
     /// </summary>
     public static void LogNavigation(this object source, string destination, string? additionalInfo = null, [CallerMemberName] string memberName = "")
     {
@@ -150,7 +150,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// 💾 Log de operações de dados
+    /// Logs data operations (CRUD operations)
     /// </summary>
     public static void LogDataOperation(this object source, string operation, string entityType, object? identifier = null, [CallerMemberName] string memberName = "")
     {
@@ -161,7 +161,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// 🎨 Log de animações
+    /// Logs animation operations
     /// </summary>
     public static void LogAnimation(this object source, string animationType, string target, TimeSpan duration, [CallerMemberName] string memberName = "")
     {
@@ -170,7 +170,7 @@ public static class LoggingExtensions
     }
 
     /// <summary>
-    /// 🔌 Log de conectividade
+    /// Logs connectivity status changes
     /// </summary>
     public static void LogConnectivity(this object source, string status, string? additionalInfo = null, [CallerMemberName] string memberName = "")
     {
@@ -182,10 +182,10 @@ public static class LoggingExtensions
 
     #endregion
 
-    #region 🔧 Helper Methods
+    #region Helper Methods
 
     /// <summary>
-    /// ✅ Determina categoria baseada no tipo do source
+    /// Determines logging category based on source type
     /// </summary>
     private static string GetCategoryFromSource(object source)
     {
@@ -225,42 +225,45 @@ public static class LoggingExtensions
 
     #endregion
 
-    #region 🎯 Performance Logging
+    #region Performance Logging
 
     /// <summary>
-    /// ⚡ Log de performance com timing
+    /// Logs performance of an operation with automatic timing - returns struct-based disposable
+    /// Usage: using (source.LogPerformance("OperationName")) { ... }
     /// </summary>
-    public static IDisposable LogPerformance(this object source, string operationName, [CallerMemberName] string memberName = "")
+    public static PerformanceScope LogPerformance(this object source, string operationName, [CallerMemberName] string memberName = "")
     {
-        return new PerformanceLogger(source, operationName, memberName);
-    }
-
-    /// <summary>
-    /// 📊 Helper class para medir performance automaticamente
-    /// </summary>
-    private class PerformanceLogger : IDisposable
-    {
-        private readonly object _source;
-        private readonly string _operationName;
-        private readonly string _memberName;
-        private readonly Stopwatch _stopwatch;
-
-        public PerformanceLogger(object source, string operationName, string memberName)
-        {
-            _source = source;
-            _operationName = operationName;
-            _memberName = memberName;
-            _stopwatch = Stopwatch.StartNew();
-
-            _source.LogOperationStart(_operationName, _memberName);
-        }
-
-        public void Dispose()
-        {
-            _stopwatch.Stop();
-            _source.LogOperationSuccess(_operationName, _stopwatch.Elapsed, _memberName);
-        }
+        source.LogOperationStart(operationName, memberName);
+        return new PerformanceScope(source, operationName, memberName);
     }
 
     #endregion
+}
+
+/// <summary>
+/// Struct-based performance scope to avoid WinRT class issues - structs don't trigger WinRT warnings
+/// </summary>
+public readonly struct PerformanceScope : IDisposable
+{
+    private readonly object _source;
+    private readonly string _operationName;
+    private readonly string _memberName;
+    private readonly Stopwatch _stopwatch;
+
+    internal PerformanceScope(object source, string operationName, string memberName)
+    {
+        _source = source;
+        _operationName = operationName;
+        _memberName = memberName;
+        _stopwatch = Stopwatch.StartNew();
+    }
+
+    /// <summary>
+    /// Stops timing and logs performance result
+    /// </summary>
+    public void Dispose()
+    {
+        _stopwatch?.Stop();
+        _source?.LogOperationSuccess(_operationName, _stopwatch?.Elapsed ?? TimeSpan.Zero, _memberName);
+    }
 }

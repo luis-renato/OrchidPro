@@ -31,10 +31,23 @@
 		<SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'tizen'">6.5</SupportedOSPlatformVersion>
 	</PropertyGroup>
 
+	<!-- CORREÇÃO CA1416: Suprimir warnings para APIs específicas de plataforma em MAUI -->
 	<PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-android'">
-		<NoWarn>$(NoWarn);CA1422</NoWarn>
+		<NoWarn>$(NoWarn);CA1422;CA1416</NoWarn>
 	</PropertyGroup>
 
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-windows10.0.19041.0'">
+		<NoWarn>$(NoWarn);CA1416</NoWarn>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-ios'">
+		<NoWarn>$(NoWarn);CA1416</NoWarn>
+	</PropertyGroup>
+
+	<PropertyGroup Condition="'$(TargetFramework)' == 'net9.0-maccatalyst'">
+		<NoWarn>$(NoWarn);CA1416</NoWarn>
+	</PropertyGroup>
+	
 	<ItemGroup>
 		<!-- App Icon -->
 		<MauiIcon Include="Resources\AppIcon\appicon.svg" Color="#FFFFFF" />
@@ -50,16 +63,6 @@
 
 		<!-- Raw Assets (also remove the "Resources\Raw" prefix) -->
 		<MauiAsset Include="Resources\Raw\**" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <None Remove="ViewModels\FamiliesListViewModel.cs.backup" />
-	  <None Remove="ViewModels\FamilyEditViewModel.cs.backup" />
-	  <None Remove="ViewModels\FamilyItemViewModel.cs.backup" />
-	</ItemGroup>
-
-	<ItemGroup>
-	  <Resource Include="Database\schema_orchidpro.sql" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -88,19 +91,22 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Compile Update="Views\Pages\GenusEditPage.xaml.cs">
+	  <Compile Update="Views\Pages\Botanical\GenusEditPage.xaml.cs">
 	    <DependentUpon>GenusEditPage.xaml</DependentUpon>
 	  </Compile>
-	  <Compile Update="Views\Pages\GeneraListPage.xaml.cs">
+	  <Compile Update="Views\Pages\Botanical\GeneraListPage.xaml.cs">
 	    <DependentUpon>GeneraListPage.xaml</DependentUpon>
 	  </Compile>
-	  <Compile Update="Views\Pages\FamiliesListPage.xaml.cs">
+	  <Compile Update="Views\Pages\Botanical\FamiliesListPage.xaml.cs">
 	    <DependentUpon>FamiliesListPage.xaml</DependentUpon>
 	  </Compile>
 	</ItemGroup>
 
 	<ItemGroup>
 		<MauiXaml Update="Resources\Templates\ConnectionStatusTemplate.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Resources\Templates\GenericStyles.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Resources\Templates\SearchBarTemplate.xaml">
@@ -115,22 +121,28 @@
 		<MauiXaml Update="Resources\Templates\ButtonStylesTemplate.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\Pages\GenusEditPage.xaml">
+		<MauiXaml Update="Views\Pages\Botanical\GenusEditPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\Pages\GeneraListPage.xaml">
+		<MauiXaml Update="Views\Pages\Botanical\GeneraListPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\Pages\FamiliesListPage.xaml">
+		<MauiXaml Update="Views\Pages\Botanical\FamiliesListPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 		<MauiXaml Update="Views\Pages\LoginPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
+		<MauiXaml Update="Views\Pages\Botanical\SpeciesEditPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\Pages\Botanical\SpeciesListPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
 		<MauiXaml Update="Views\Pages\SplashPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
-		<MauiXaml Update="Views\Pages\FamilyEditPage.xaml">
+		<MauiXaml Update="Views\Pages\Botanical\FamilyEditPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 	</ItemGroup>

@@ -1,21 +1,20 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using CommunityToolkit.Mvvm.Messaging;
+using OrchidPro.Extensions;
+using OrchidPro.Messages;
 using OrchidPro.Models;
 using OrchidPro.Services;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels.Base;
-using OrchidPro.Extensions;
-using OrchidPro.Messages;
+using System.Collections.ObjectModel;
 
 namespace OrchidPro.ViewModels.Genera;
 
 /// <summary>
-/// ViewModel for editing and creating botanical genus records.
-/// Provides genus-specific functionality while leveraging enhanced base edit operations.
-/// Includes family relationship management and hierarchical validation.
+/// MINIMAL Genus edit ViewModel - Copy of Species pattern that works
 /// </summary>
-public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttributable
+public partial class GenusEditViewModel : BaseEditViewModel<Genus>
 {
     #region Private Fields
 
@@ -24,664 +23,257 @@ public partial class GenusEditViewModel : BaseEditViewModel<Genus>, IQueryAttrib
 
     #endregion
 
-    #region Observable Properties
+    #region Required Base Class Overrides
 
-    [ObservableProperty]
-    private Guid? selectedFamilyId;
+    protected override string GetEntityName() => "Genus";
+    protected override string GetEntityNamePlural() => "Genera";
 
-    [ObservableProperty]
-    private string selectedFamilyName = string.Empty;
+    #endregion
 
-    [ObservableProperty]
-    private bool isFamilySelectionVisible = true;
-
-    [ObservableProperty]
-    private List<Family> availableFamilies = new();
-
-    [ObservableProperty]
-    private bool isLoadingFamilies;
-
-    [ObservableProperty]
-    private string saveAndContinueButtonText = "Save & Add Another";
-
-    [ObservableProperty]
-    private bool showSaveAndContinue = true;
+    #region 🔗 RELATIONSHIP MANAGEMENT - EXACTLY like Species
 
     /// <summary>
-    /// Currently selected family object for ComboBox binding
+    /// Available families collection - EXACTLY like AvailableGenera in Species
     /// </summary>
-    public Family? SelectedFamily
+    [ObservableProperty]
+    private ObservableCollection<Family> availableFamilies = [];
+
+    /// <summary>
+    /// Currently selected family - EXACTLY like SelectedGenus in Species
+    /// </summary>
+    [ObservableProperty]
+    private Family? selectedFamily;
+
+    // Override virtual properties from base for relationship management - EXACTLY like Species
+    public override Guid? ParentEntityId => SelectedFamily?.Id;
+    public override string ParentDisplayName => SelectedFamily?.Name ?? string.Empty;
+
+    /// <summary>
+    /// Handle family selection changes - EXACTLY like Species
+    /// </summary>
+    partial void OnSelectedFamilyChanged(Family? value)
     {
-        get => AvailableFamilies?.FirstOrDefault(f => f.Id == SelectedFamilyId);
-        set
-        {
-            if (value != null)
-            {
-                SetSelectedFamily(value);
-            }
-        }
+        OnParentSelectionChanged(); // Call base method
     }
 
     #endregion
 
-    #region Required Base Class Overrides
+    // ADICIONAR ESTE MÉTODO AO GenusEditViewModel EXISTENTE:
 
-    public override string EntityName => "Genus";
-    public override string EntityNamePlural => "Genera";
+    #region Navigation Parameter Handling - EXACTLY like Species
+
+    /// <summary>
+    /// Enhanced navigation parameter handling for genus-specific scenarios - EXACTLY like Species
+    /// </summary>
+    public override void ApplyQueryAttributes(IDictionary<string, object> query)
+    {
+        this.SafeExecute(() =>
+        {
+            this.LogInfo("Applying query attributes for Genus edit");
+
+            if (query.TryGetValue("GenusId", out var genusIdObj) &&
+                Guid.TryParse(genusIdObj?.ToString(), out var genusId))
+            {
+                // Use genus-specific initialization for edit mode - EXACTLY like Species
+                _ = InitializeForEditAsync(genusId);
+            }
+            else if (query.TryGetValue("FamilyId", out var familyIdObj) &&
+                     Guid.TryParse(familyIdObj?.ToString(), out var familyId))
+            {
+                // Use genus-specific initialization for create mode with family preselection
+                _ = InitializeForCreateAsync(familyId);
+            }
+            else
+            {
+                // Use genus-specific initialization for create mode
+                _ = InitializeForCreateAsync();
+            }
+        }, "Apply Query Attributes");
+    }
 
     #endregion
 
-    #region Page Title Management
+    #region Initialization Methods - EXACTLY like Species
 
     /// <summary>
-    /// Dynamic page title based on edit mode state and family context
+    /// Initialize for creating new genus with optional family preselection - EXACTLY like Species
     /// </summary>
-    public new string PageTitle => IsEditMode ? "Edit Genus" : "New Genus";
+    public async Task InitializeForCreateAsync(Guid? familyId = null)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            this.LogInfo($"Initializing for create mode with family preselection: {familyId}");
+
+            // Ensure families are loaded
+            if (!AvailableFamilies.Any())
+            {
+                await LoadAvailableFamiliesAsync();
+            }
+
+            // Preselect family if provided using base method
+            if (familyId.HasValue)
+            {
+                SelectParentById(AvailableFamilies, familyId.Value, family => SelectedFamily = family, "Family");
+                this.LogInfo($"Preselected family: {ParentDisplayName}");
+            }
+
+            HasUnsavedChanges = false;
+            this.LogInfo("Create mode initialization completed - form is clean");
+        }, "Initialize for Create");
+    }
 
     /// <summary>
-    /// Current edit mode state for UI binding
+    /// Initialize for editing existing genus - EXACTLY like Species
     /// </summary>
-    public bool IsEditMode => _isEditMode;
+    public async Task InitializeForEditAsync(Guid genusId)
+    {
+        await this.SafeExecuteAsync(async () =>
+        {
+            this.LogInfo($"Initializing for edit mode: {genusId}");
 
-    /// <summary>
-    /// Family context for display
-    /// </summary>
-    public string FamilyContext =>
-        !string.IsNullOrEmpty(SelectedFamilyName) ? $"in {SelectedFamilyName}" : "";
+            // Ensure families are loaded first
+            if (!AvailableFamilies.Any())
+            {
+                await LoadAvailableFamiliesAsync();
+            }
+
+            // Set entity ID and edit mode FIRST, then load data via base class
+            EntityId = genusId;
+            _isEditMode = true;
+
+            // Force update of computed properties that depend on IsEditMode
+            OnPropertyChanged(nameof(IsEditMode));
+            OnPropertyChanged(nameof(PageTitle));
+
+            // Load entity data using base class method
+            await LoadEntityAsync();
+
+            this.LogInfo("Edit mode initialization completed");
+        }, "Initialize for Edit");
+    }
 
     #endregion
 
-    #region Constructor
+    #region 🔧 UI Properties - EXACTLY like Species
 
     /// <summary>
-    /// Initialize genus edit ViewModel with enhanced base functionality and family management
+    /// Override page title - EXACTLY like Species
     /// </summary>
+    public override string PageTitle => IsEditMode ? "Edit Genus" :
+        !string.IsNullOrEmpty(ParentDisplayName) ? $"New Genus in {ParentDisplayName}" : "New Genus";
+
+    #endregion
+
+    #region Constructor - EXACTLY like Species
+
     public GenusEditViewModel(IGenusRepository genusRepository, IFamilyRepository familyRepository, INavigationService navigationService)
-        : base(genusRepository, navigationService)
+        : base(genusRepository, navigationService, "Genus", "Genera", "Family") // Enhanced constructor!
     {
         _genusRepository = genusRepository;
         _familyRepository = familyRepository;
 
-        SaveAndContinueCommand = new AsyncRelayCommand(SaveAndCreateAnotherAsync, () => CanCreateAnother);
-        DeleteCommand = new AsyncRelayCommand(DeleteGenusAsync, () => CanDelete);
+        // Subscribe to family creation messages - EXACTLY like Species with Genus
+        SubscribeToParentCreatedMessages<FamilyCreatedMessage>(
+            m => m.FamilyId,
+            m => m.FamilyName,
+            async (id, name) => await HandleFamilyCreatedAsync(id, name));
 
-        // Subscribe to family created message
-        WeakReferenceMessenger.Default.Register<FamilyCreatedMessage>(this, OnFamilyCreated);
+        this.LogInfo("Initialized - using enhanced base functionality with family relationship management");
 
-        this.LogInfo("Initialized - using base functionality with family relationship management");
-
-        // Load available families for selection
-        _ = Task.Run(LoadAvailableFamiliesAsync);
+        // Background load of available families - EXACTLY like Species
+        _ = Task.Run(async () => await LoadAvailableFamiliesAsync());
     }
 
     #endregion
 
-    #region Commands
+    #region Base Class Overrides - EXACTLY like Species (minimal needed)
 
-    public IAsyncRelayCommand SaveAndContinueCommand { get; }
-    public IAsyncRelayCommand DeleteCommand { get; }
+    /// <summary>
+    /// Override to include genus-specific properties - EXACTLY like Species
+    /// </summary>
+    protected override bool IsTrackedProperty(string? propertyName) =>
+        base.IsTrackedProperty(propertyName) || propertyName is nameof(SelectedFamily);
+
+    /// <summary>
+    /// Override entity preparation - EXACTLY like Species
+    /// </summary>
+    protected override void PrepareEntitySpecificFields(Genus entity)
+    {
+        entity.FamilyId = ParentEntityId!.Value;
+    }
+
+    /// <summary>
+    /// Override entity population - EXACTLY like Species
+    /// </summary>
+    protected override async Task PopulateEntitySpecificFieldsAsync(Genus entity)
+    {
+        await ExecuteWithAllSuppressionsEnabledAsync(async () =>
+        {
+            // Ensure families are loaded before setting selection
+            if (!AvailableFamilies.Any())
+            {
+                await LoadAvailableFamiliesAsync();
+            }
+
+            // Select the family using base method - EXACTLY like Species
+            SelectParentById(AvailableFamilies, entity.FamilyId, family => SelectedFamily = family, "Family");
+
+            this.LogInfo($"Loaded genus data: {entity.Name} in family {ParentDisplayName}");
+        });
+    }
+
+    /// <summary>
+    /// Override save success - EXACTLY like Species
+    /// </summary>
+    protected override async Task OnEntitySavedAsync(Genus savedEntity)
+    {
+        if (!IsEditMode)
+        {
+            // Send genus created message for species auto-selection
+            WeakReferenceMessenger.Default.Send(new GenusCreatedMessage(savedEntity.Id, savedEntity.Name));
+            this.LogSuccess($"Genus created and message sent: {savedEntity.Name}");
+        }
+
+        // Always send updated message for list refresh
+        WeakReferenceMessenger.Default.Send(new GenusUpdatedMessage());
+
+        await base.OnEntitySavedAsync(savedEntity);
+    }
 
     #endregion
 
-    #region Family Management
+    #region Family-Specific Operations - EXACTLY like Species with Genus
 
     /// <summary>
-    /// Load available families for selection dropdown
+    /// Load available families - EXACTLY like Species LoadAvailableGeneraAsync
     /// </summary>
     private async Task LoadAvailableFamiliesAsync()
     {
-        await this.SafeExecuteAsync(async () =>
-        {
-            IsLoadingFamilies = true;
-            this.LogInfo("Loading available families for genus selection");
-
-            var families = await _familyRepository.GetAllAsync(false); // Only active families
-            AvailableFamilies = families.OrderBy(f => f.Name).ToList();
-
-            this.LogSuccess($"Loaded {AvailableFamilies.Count} families for selection");
-
-            // 🔧 FIX 1: Notify SelectedFamily after families are loaded
-            OnPropertyChanged(nameof(SelectedFamily));
-
-        }, "Failed to load available families");
-
-        IsLoadingFamilies = false;
+        await LoadParentCollectionAsync(_familyRepository, AvailableFamilies, "Available Families");
     }
 
     /// <summary>
-    /// Set selected family for genus
+    /// Handle family creation - EXACTLY like Species HandleGenusCreatedAsync
     /// </summary>
-    [RelayCommand]
-    private void SetSelectedFamily(Family? family)
+    private async Task HandleFamilyCreatedAsync(Guid familyId, string familyName)
     {
-        this.SafeExecute(() =>
-        {
-            if (family != null)
-            {
-                SelectedFamilyId = family.Id;
-                SelectedFamilyName = family.Name;
-                this.LogInfo($"Selected family: {family.Name}");
-
-                SaveAndContinueCommand.NotifyCanExecuteChanged();
-                OnPropertyChanged(nameof(SelectedFamily));
-            }
-            else
-            {
-                SelectedFamilyId = null;
-                SelectedFamilyName = string.Empty;
-                this.LogInfo("Cleared family selection");
-            }
-
-            // Update family context display
-            OnPropertyChanged(nameof(FamilyContext));
-            OnPropertyChanged(nameof(CanCreateAnother));
-
-        }, "Set Selected Family");
-    }
-
-    /// <summary>
-    /// Open family selection dialog or picker
-    /// </summary>
-    [RelayCommand]
-    private async Task SelectFamilyAsync()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            this.LogInfo("Opening family selection");
-
-            if (!AvailableFamilies.Any())
-            {
-                await LoadAvailableFamiliesAsync();
-            }
-
-            if (!AvailableFamilies.Any())
-            {
-                await ShowErrorAsync("No families available", "Please create a family first.");
-                return;
-            }
-
-            // For now, we'll navigate to family selection or show in UI
-            // This could be enhanced with a popup selector
-            IsFamilySelectionVisible = true;
-
-        }, "Failed to open family selection");
-    }
-
-    /// <summary>
-    /// Navigate to create new family
-    /// </summary>
-    [RelayCommand]
-    private async Task CreateNewFamilyAsync()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            this.LogInfo("Navigating to create new family");
-
-            await _navigationService.NavigateToAsync("familyedit");
-
-        }, "Failed to navigate to create family");
+        await HandleParentCreatedAsync(
+            familyId,
+            familyName,
+            _familyRepository,
+            AvailableFamilies,
+            family => SelectedFamily = family,
+            "Family");
     }
 
     #endregion
 
-    #region Validation
+    #region Commands - EXACTLY like Species
 
     /// <summary>
-    /// Validate family selection
+    /// Create new family command - EXACTLY like Species CreateNewGenusCommand
     /// </summary>
-    private bool ValidateFamilySelection()
-    {
-        return this.SafeExecute(() =>
-        {
-            if (!SelectedFamilyId.HasValue)
-            {
-                this.LogWarning("Validation failed: No family selected");
-                return false;
-            }
-
-            return true;
-
-        }, fallbackValue: false, operationName: "ValidateFamilySelection");
-    }
-
-    /// <summary>
-    /// Enhanced pre-save validation
-    /// </summary>
-    private bool ValidateForSave()
-    {
-        return this.SafeExecute(() =>
-        {
-            var isValid = true;
-
-            // Validate family selection
-            if (!ValidateFamilySelection())
-            {
-                isValid = false;
-            }
-
-            // Validate name is not empty (base validation should handle this)
-            if (string.IsNullOrWhiteSpace(Name))
-            {
-                isValid = false;
-                this.LogWarning("Validation failed: Name is required");
-            }
-
-            this.LogInfo($"Genus validation complete: {isValid}");
-            return isValid;
-
-        }, fallbackValue: false, operationName: "ValidateForSave");
-    }
+    public IAsyncRelayCommand CreateNewFamilyCommand => NavigateToCreateParentCommand;
 
     #endregion
-
-    #region Save Operations
-
-    /// <summary>
-    /// Override save to include family relationship
-    /// </summary>
-    [RelayCommand]
-    private async Task SaveWithFamilyAsync()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            if (!ValidateForSave())
-            {
-                await ShowErrorAsync("Validation Error", "Please correct the validation errors before saving.");
-                return;
-            }
-
-            this.LogInfo($"Saving genus: {Name} in family {SelectedFamilyName}");
-
-            // Create or update the genus
-            var genus = new Genus
-            {
-                Id = EntityId ?? Guid.NewGuid(),
-                FamilyId = SelectedFamilyId!.Value,
-                Name = Name.Trim(),
-                Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
-                IsActive = IsActive,
-                IsFavorite = IsFavorite,
-                CreatedAt = IsEditMode ? CreatedAt : DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            Genus savedGenus;
-            if (IsEditMode)
-            {
-                savedGenus = await _genusRepository.UpdateAsync(genus);
-                this.LogSuccess($"Updated genus: {savedGenus.Name}");
-            }
-            else
-            {
-                savedGenus = await _genusRepository.CreateAsync(genus);
-                this.LogSuccess($"Created genus: {savedGenus.Name}");
-            }
-
-            // Update local data
-            EntityId = savedGenus.Id;
-            UpdatedAt = savedGenus.UpdatedAt;
-
-            // Clear unsaved changes state
-            HasUnsavedChanges = false;
-
-            // Show toast instead of alert
-            this.ShowSuccessToast($"Genus '{savedGenus.Name}' saved successfully!");
-
-            // Navigate back
-            await _navigationService.GoBackAsync();
-
-        }, "Failed to save genus");
-    }
-
-    /// <summary>
-    /// Save and create another genus in same family
-    /// </summary>
-    [RelayCommand]
-    private async Task SaveAndCreateAnotherAsync()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            if (!ValidateForSave())
-            {
-                await ShowErrorAsync("Validation Error", "Please correct the validation errors before saving.");
-                return;
-            }
-
-            // Save current genus
-            var genus = new Genus
-            {
-                Id = Guid.NewGuid(),
-                FamilyId = SelectedFamilyId!.Value,
-                Name = Name.Trim(),
-                Description = string.IsNullOrWhiteSpace(Description) ? null : Description.Trim(),
-                IsActive = IsActive,
-                IsFavorite = IsFavorite,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
-            };
-
-            var savedGenus = await _genusRepository.CreateAsync(genus);
-            this.LogSuccess($"Created genus: {savedGenus.Name}");
-
-            // Show toast instead of alert
-            this.ShowSuccessToast($"Genus '{savedGenus.Name}' saved successfully!");
-
-            // Keep the current family selection and reset form
-            var currentFamilyId = SelectedFamilyId;
-            var currentFamilyName = SelectedFamilyName;
-
-            // Save current genus name for success message
-            var savedName = Name;
-
-            // CRITICAL: Clear validation state completely before resetting
-            try
-            {
-                // Disable all validation temporarily
-                var canSaveProperty = this.GetType().GetProperty("CanSave");
-                canSaveProperty?.SetValue(this, true);
-
-                // Reset all validation properties
-                IsNameValid = true;
-                NameValidationMessage = string.Empty;
-                NameError = string.Empty;
-
-                // Force property change notifications for validation
-                OnPropertyChanged(nameof(IsNameValid));
-                OnPropertyChanged(nameof(NameValidationMessage));
-                OnPropertyChanged(nameof(NameError));
-
-                // Reset form fields
-                EntityId = null;
-                _isEditMode = false;
-                HasUnsavedChanges = false;
-                IsActive = true;
-                IsFavorite = false;
-                Description = string.Empty;
-
-                // Set name to empty WITHOUT triggering validation
-                var nameField = this.GetType().GetField("name", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
-                if (nameField != null)
-                {
-                    nameField.SetValue(this, string.Empty);
-                }
-                else
-                {
-                    Name = string.Empty;
-                }
-
-                // Force validation to stay valid
-                IsNameValid = true;
-                NameValidationMessage = string.Empty;
-            }
-            catch (Exception ex)
-            {
-                this.LogError($"Error during form reset: {ex.Message}");
-                // Fallback to simple reset
-                Name = string.Empty;
-                Description = string.Empty;
-                IsActive = true;
-                IsFavorite = false;
-                EntityId = null;
-                _isEditMode = false;
-                HasUnsavedChanges = false;
-            }
-
-            // Restore family selection
-            SelectedFamilyId = currentFamilyId;
-            SelectedFamilyName = currentFamilyName;
-
-            OnPropertyChanged(nameof(FamilyContext));
-            OnPropertyChanged(nameof(PageTitle));
-            OnPropertyChanged(nameof(IsEditMode));
-            OnPropertyChanged(nameof(SelectedFamily));
-
-            this.LogSuccess($"Ready to create another genus in {currentFamilyName}");
-
-        }, "Failed to save and create another");
-    }
-
-    /// <summary>
-    /// 🔧 FIX 2: Delete genus with confirmation
-    /// </summary>
-    [RelayCommand]
-    private async Task DeleteGenusAsync()
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            if (!EntityId.HasValue) return;
-
-            var confirmed = await ShowConfirmationAsync("Delete Genus", $"Are you sure you want to delete '{Name}'?", "Delete", "Cancel");
-
-            if (confirmed)
-            {
-                await _genusRepository.DeleteAsync(EntityId.Value);
-                this.LogSuccess($"Genus deleted: {Name}");
-                await _navigationService.GoBackAsync();
-            }
-
-        }, "Failed to delete genus");
-    }
-
-    #endregion
-
-    #region Data Loading
-
-    /// <summary>
-    /// Load genus data for editing
-    /// </summary>
-    private async Task LoadGenusDataAsync(Guid genusId)
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            this.LogInfo($"Loading genus data: {genusId}");
-
-            var genus = await _genusRepository.GetByIdAsync(genusId);
-            if (genus != null)
-            {
-                // Populate basic fields
-                EntityId = genus.Id;
-                Name = genus.Name;
-                Description = genus.Description ?? string.Empty;
-                IsActive = genus.IsActive;
-                IsFavorite = genus.IsFavorite;
-                CreatedAt = genus.CreatedAt;
-                UpdatedAt = genus.UpdatedAt;
-
-                // Set family information
-                SelectedFamilyId = genus.FamilyId;
-
-                // Load family name
-                var family = await _familyRepository.GetByIdAsync(genus.FamilyId);
-                if (family != null)
-                {
-                    SelectedFamilyName = family.Name;
-                    this.LogInfo($"Loaded genus {genus.Name} in family {family.Name}");
-                }
-                else
-                {
-                    this.LogWarning($"Family not found for genus: {genus.FamilyId}");
-                    SelectedFamilyName = "Unknown Family";
-                }
-
-                _isEditMode = true;
-                OnPropertyChanged(nameof(FamilyContext));
-                OnPropertyChanged(nameof(PageTitle));
-                OnPropertyChanged(nameof(IsEditMode));
-                OnPropertyChanged(nameof(CanDelete));
-                OnPropertyChanged(nameof(SelectedFamily));
-            }
-
-        }, "Failed to load genus entity data");
-    }
-
-    #endregion
-
-    #region Query Attributes Handling
-
-    /// <summary>
-    /// Handle navigation parameters including family pre-selection
-    /// </summary>
-    public new void ApplyQueryAttributes(IDictionary<string, object> query)
-    {
-        this.SafeExecute(() =>
-        {
-            this.LogInfo($"ApplyQueryAttributes called with {query.Count} parameters");
-
-            // Log all parameters for debugging
-            foreach (var param in query)
-            {
-                this.LogInfo($"Parameter: {param.Key} = {param.Value} ({param.Value?.GetType().Name})");
-            }
-
-            // 🔧 FIX 3: Clear family selection for new genus (fresh start)
-            bool isEditMode = query.ContainsKey("GenusId");
-            if (!isEditMode)
-            {
-                // Clear any previous family selection for new genus
-                SelectedFamilyId = null;
-                SelectedFamilyName = string.Empty;
-                this.LogInfo("Cleared family selection for new genus");
-            }
-
-            // Handle family pre-selection (only if explicitly provided)
-            if (query.TryGetValue("FamilyId", out var familyIdObj) && familyIdObj != null)
-            {
-                if (Guid.TryParse(familyIdObj.ToString(), out var familyId))
-                {
-                    SelectedFamilyId = familyId;
-
-                    if (query.TryGetValue("FamilyName", out var familyNameObj) && familyNameObj != null)
-                    {
-                        SelectedFamilyName = familyNameObj.ToString() ?? "";
-                    }
-
-                    this.LogInfo($"Pre-selected family from navigation: {SelectedFamilyName} ({familyId})");
-                }
-            }
-
-            // Handle genus editing
-            if (query.TryGetValue("GenusId", out var genusIdObj) && genusIdObj != null)
-            {
-                if (Guid.TryParse(genusIdObj.ToString(), out var genusId))
-                {
-                    this.LogInfo($"Loading genus for editing: {genusId}");
-                    _ = Task.Run(() => LoadGenusDataAsync(genusId));
-                }
-            }
-
-            // Call base implementation for other parameters
-            base.ApplyQueryAttributes(query);
-
-            // Notify UI of changes
-            OnPropertyChanged(nameof(PageTitle));
-            OnPropertyChanged(nameof(IsEditMode));
-            OnPropertyChanged(nameof(FamilyContext));
-            OnPropertyChanged(nameof(SelectedFamily));
-
-            this.LogSuccess($"Query attributes applied - IsEditMode: {IsEditMode}, PageTitle: {PageTitle}, Family: {SelectedFamilyName}");
-
-        }, "ApplyQueryAttributes");
-    }
-
-    #endregion
-
-    #region Property Change Notifications
-
-    /// <summary>
-    /// Handle family selection changes
-    /// </summary>
-    partial void OnSelectedFamilyIdChanged(Guid? value)
-    {
-        this.SafeExecute(() =>
-        {
-            this.LogInfo($"Selected family ID changed: {value}");
-            OnPropertyChanged(nameof(FamilyContext));
-            OnPropertyChanged(nameof(CanCreateAnother));
-            OnPropertyChanged(nameof(SelectedFamily));
-        }, "OnSelectedFamilyIdChanged");
-    }
-
-    #endregion
-
-    #region Public Properties for UI Binding
-
-    /// <summary>
-    /// Whether family selection is required (always true for genus)
-    /// </summary>
-    public bool IsFamilyRequired => true;
-
-    /// <summary>
-    /// Help text for family selection
-    /// </summary>
-    public string FamilySelectionHelpText => "Select the botanical family this genus belongs to. This is required for proper taxonomic classification.";
-
-    /// <summary>
-    /// Whether we can create another genus (useful for bulk entry)
-    /// </summary>
-    public bool CanCreateAnother => !IsEditMode && SelectedFamilyId.HasValue;
-
-    /// <summary>
-    /// 🔧 FIX 2: Can delete genus (edit mode only)
-    /// </summary>
-    public bool CanDelete => IsEditMode && EntityId.HasValue;
-
-    #endregion
-
-    #region Messaging
-
-    /// <summary>
-    /// Handle family created message
-    /// </summary>
-    private async void OnFamilyCreated(object recipient, FamilyCreatedMessage message)
-    {
-        await this.SafeExecuteAsync(async () =>
-        {
-            this.LogInfo($"Received family created message: {message.FamilyName}");
-
-            // Reload families
-            await LoadAvailableFamiliesAsync();
-
-            // Auto-select the newly created family
-            var newFamily = AvailableFamilies.FirstOrDefault(f => f.Id == message.FamilyId);
-            if (newFamily != null)
-            {
-                SetSelectedFamily(newFamily);
-                this.LogSuccess($"Auto-selected newly created family: {newFamily.Name}");
-            }
-
-        }, "OnFamilyCreated");
-    }
-
-    #endregion
-
-    #region Lifecycle
-
-    /// <summary>
-    /// Initialize when appearing
-    /// </summary>
-    public override async Task OnAppearingAsync()
-    {
-        await base.OnAppearingAsync();
-
-        await this.SafeExecuteAsync(async () =>
-        {
-            // Only load families if not already loaded
-            if (!AvailableFamilies.Any() && !IsLoadingFamilies)
-            {
-                await LoadAvailableFamiliesAsync();
-            }
-
-            // Auto-select family if only one available and none selected
-            if (!SelectedFamilyId.HasValue && AvailableFamilies.Count == 1)
-            {
-                var onlyFamily = AvailableFamilies.First();
-                SetSelectedFamily(onlyFamily);
-                this.LogInfo($"Auto-selected single available family: {onlyFamily.Name}");
-            }
-
-        }, "OnAppearingAsync failed");
-    }
-
-    #endregion
-
 }

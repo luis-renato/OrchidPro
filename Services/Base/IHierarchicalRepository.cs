@@ -159,7 +159,7 @@ public class HierarchicalStatistics : BaseStatistics
     /// <summary>
     /// Distribution of children across parents
     /// </summary>
-    public Dictionary<string, int> ParentDistribution { get; set; } = new();
+    public Dictionary<string, int> ParentDistribution { get; set; } = [];
 
     /// <summary>
     /// Parents with no children

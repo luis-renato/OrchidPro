@@ -1,4 +1,5 @@
 ﻿using OrchidPro.Models.Base;
+using OrchidPro.Services.Base;
 using System.ComponentModel.DataAnnotations;
 
 namespace OrchidPro.Models;
@@ -85,7 +86,7 @@ public class Genus : IBaseEntity, IHierarchicalEntity<Family>
     /// </summary>
     public bool IsValid(out List<string> errors)
     {
-        errors = new List<string>();
+        errors = [];
 
         if (string.IsNullOrWhiteSpace(Name))
             errors.Add("Genus name is required");

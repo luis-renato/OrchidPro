@@ -1,0 +1,45 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<?xaml-comp compile="true" ?>
+<ResourceDictionary 
+    xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+    xmlns:viewModels="clr-namespace:OrchidPro.ViewModels.Base">
+
+    <!-- Generic Empty State Style - Fixed obsolete StackLayout expansion options -->
+    <Style x:Key="GenericEmptyStateStyle" TargetType="ContentView">
+        <Setter Property="IsVisible" Value="{Binding HasData, Converter={StaticResource InvertedBoolConverter}}" />
+        <Setter Property="VerticalOptions" Value="Center" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+        <Setter Property="Padding" Value="40,20" />
+        <Setter Property="Content">
+            <Setter.Value>
+                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="16">
+                    <!-- Empty Icon -->
+                    <Label Grid.Row="0"
+                           Text="🌿"
+                           FontSize="64"
+                           HorizontalOptions="Center"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray400}, Dark={StaticResource Gray600}}" />
+
+                    <!-- Corrected binding path from ViewModel -->
+                    <Label Grid.Row="1"
+                           Text="{Binding EmptyStateMessage}"
+                           FontSize="16"
+                           FontAttributes="Bold"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
+                           HorizontalOptions="Center"
+                           HorizontalTextAlignment="Center" />
+
+                    <!-- Subtitle -->
+                    <Label Grid.Row="2"
+                           Text="Pull down to refresh or tap + to add"
+                           FontSize="14"
+                           TextColor="{AppThemeBinding Light={StaticResource Gray500}, Dark={StaticResource Gray500}}"
+                           HorizontalOptions="Center"
+                           HorizontalTextAlignment="Center" />
+                </Grid>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

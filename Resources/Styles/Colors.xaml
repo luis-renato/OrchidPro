@@ -18,6 +18,7 @@
     <Color x:Key="OnPrimary">#FFFFFF</Color>
     <Color x:Key="OnSecondary">#2B1F1B</Color>
     <Color x:Key="OnSurface">#1F1F1F</Color>
+    <Color x:Key="OnSurfaceDark">#BBBBBB</Color>
     <Color x:Key="OnBackground">#1F1F1F</Color>
 
     <!-- Neutrals -->
@@ -54,6 +55,42 @@
 
     <!-- Shadow -->
     <Color x:Key="ShadowColor">#444444</Color>
+
+    <!-- ✅ BUTTON GRADIENT COLORS - Centralized -->
+    <!-- Primary Gradient (Mocha Mousse variants) -->
+    <Color x:Key="PrimaryGradientStart">#B8876F</Color>
+    <Color x:Key="PrimaryGradientMiddle">#A47764</Color>
+    <Color x:Key="PrimaryGradientEnd">#8B5A47</Color>
+
+    <!-- Secondary Gradient (Light Gray variants) - ENHANCED FOR VISIBILITY -->
+    <Color x:Key="SecondaryGradientStart">#F8F8F8</Color>
+    <Color x:Key="SecondaryGradientMiddle">#E8E8E8</Color>
+    <Color x:Key="SecondaryGradientEnd">#D8D8D8</Color>
+
+    <!-- Success Gradient (Green variants) -->
+    <Color x:Key="SuccessGradientStart">#4CAF50</Color>
+    <Color x:Key="SuccessGradientMiddle">#388E3C</Color>
+    <Color x:Key="SuccessGradientEnd">#2E7D32</Color>
+
+    <!-- Error Gradient (Red variants) -->
+    <Color x:Key="ErrorGradientStart">#F44336</Color>
+    <Color x:Key="ErrorGradientMiddle">#D32F2F</Color>
+    <Color x:Key="ErrorGradientEnd">#C62828</Color>
+
+    <!-- Warning Gradient (Orange/Yellow variants) -->
+    <Color x:Key="WarningGradientStart">#FFD54F</Color>
+    <Color x:Key="WarningGradientMiddle">#FBC02D</Color>
+    <Color x:Key="WarningGradientEnd">#F9A825</Color>
+
+    <!-- Cancel Gradient (Gray variants) -->
+    <Color x:Key="CancelGradientStart">#E0E0E0</Color>
+    <Color x:Key="CancelGradientMiddle">#CCCCCC</Color>
+    <Color x:Key="CancelGradientEnd">#BDBDBD</Color>
+
+    <!-- Disabled Gradient (Gray variants) -->
+    <Color x:Key="DisabledGradientStart">#BDBDBD</Color>
+    <Color x:Key="DisabledGradientMiddle">#CCCCCC</Color>
+    <Color x:Key="DisabledGradientEnd">#E0E0E0</Color>
 
     <!-- Brushes: Primary palette -->
     <SolidColorBrush x:Key="PrimaryBrush" Color="{StaticResource Primary}" />
@@ -97,5 +134,56 @@
     <SolidColorBrush x:Key="BorderBrush" Color="{StaticResource BorderColor}" />
     <SolidColorBrush x:Key="DividerBrush" Color="{StaticResource DividerColor}" />
     <SolidColorBrush x:Key="ShadowBrush" Color="{StaticResource ShadowColor}" />
+
+    <!-- ✅ GRADIENT BRUSHES - Centralized for Buttons -->
+
+    <!-- Primary Gradient Brush (for main action buttons) -->
+    <LinearGradientBrush x:Key="PrimaryGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource PrimaryGradientStart}" Offset="0.0" />
+        <GradientStop Color="{StaticResource PrimaryGradientMiddle}" Offset="0.5" />
+        <GradientStop Color="{StaticResource PrimaryGradientEnd}" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <!-- Secondary Gradient Brush (for cancel/alternative buttons) -->
+    <LinearGradientBrush x:Key="SecondaryGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource SecondaryGradientStart}" Offset="0.0" />
+        <GradientStop Color="{StaticResource SecondaryGradientMiddle}" Offset="0.5" />
+        <GradientStop Color="{StaticResource SecondaryGradientEnd}" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <!-- Success Gradient Brush (for positive actions like save) -->
+    <LinearGradientBrush x:Key="SuccessGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource SuccessGradientStart}" Offset="0.0" />
+        <GradientStop Color="{StaticResource SuccessGradientMiddle}" Offset="0.5" />
+        <GradientStop Color="{StaticResource SuccessGradientEnd}" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <!-- Error Gradient Brush (for destructive actions like delete) -->
+    <LinearGradientBrush x:Key="ErrorGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource ErrorGradientStart}" Offset="0.0" />
+        <GradientStop Color="{StaticResource ErrorGradientMiddle}" Offset="0.5" />
+        <GradientStop Color="{StaticResource ErrorGradientEnd}" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <!-- Warning Gradient Brush (for warning actions) -->
+    <LinearGradientBrush x:Key="WarningGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource WarningGradientStart}" Offset="0.0" />
+        <GradientStop Color="{StaticResource WarningGradientMiddle}" Offset="0.5" />
+        <GradientStop Color="{StaticResource WarningGradientEnd}" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <!-- Disabled Gradient Brush (for disabled buttons) -->
+    <LinearGradientBrush x:Key="DisabledGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource DisabledGradientStart}" Offset="0.0" />
+        <GradientStop Color="{StaticResource DisabledGradientMiddle}" Offset="0.5" />
+        <GradientStop Color="{StaticResource DisabledGradientEnd}" Offset="1.0" />
+    </LinearGradientBrush>
+
+    <!-- Disabled Gradient Brush (for disabled buttons) -->
+    <LinearGradientBrush x:Key="CancelGradientBrush" StartPoint="0,0" EndPoint="0,1">
+        <GradientStop Color="{StaticResource CancelGradientStart}" Offset="0.0" />
+        <GradientStop Color="{StaticResource CancelGradientMiddle}" Offset="0.5" />
+        <GradientStop Color="{StaticResource CancelGradientEnd}" Offset="1.0" />
+    </LinearGradientBrush>
 
 </ResourceDictionary>
