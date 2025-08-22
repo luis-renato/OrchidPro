@@ -3,6 +3,7 @@ using OrchidPro.Extensions;
 using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
 using OrchidPro.Views.Pages;
+using OrchidPro.Views.Pages.Botanical;
 
 namespace OrchidPro;
 
@@ -215,6 +216,9 @@ public partial class AppShell : Shell
         // These routes enable forward compatibility with minimal overhead
         Routing.RegisterRoute("speciesedit", typeof(SpeciesEditPage));
         Routing.RegisterRoute("specieslist", typeof(SpeciesListPage));
+
+        Routing.RegisterRoute("variantedit", typeof(VariantEditPage));
+        Routing.RegisterRoute("variants", typeof(VariantsListPage));
     }
 
     #endregion

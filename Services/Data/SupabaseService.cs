@@ -2,10 +2,11 @@
 using Supabase.Gotrue;
 using OrchidPro.Config;
 using OrchidPro.Extensions;
-using OrchidPro.Services;
+using OrchidPro.Services.Contracts;
 using System.Diagnostics;
 using System.Text.Json;
 using SupabaseClient = Supabase.Client;
+using OrchidPro.Services.Infrastructure.Supabase.Models;
 
 namespace OrchidPro.Services.Data;
 

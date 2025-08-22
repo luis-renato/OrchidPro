@@ -1,6 +1,6 @@
 ﻿using OrchidPro.Config;
 using OrchidPro.Extensions;
-using OrchidPro.Services;
+using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Data;
 using OrchidPro.Views.Pages;
 
@@ -214,12 +214,12 @@ public partial class App : Application
         {
             try
             {
-                // Initialize remaining services through DI container
+                // Initialize repositories through DI container
                 // These calls warm up the service dependency graph
-                var familyService = services.GetService<SupabaseFamilyService>();
                 var familyRepo = services.GetService<IFamilyRepository>();
-                var genusService = services.GetService<SupabaseGenusService>();
                 var genusRepo = services.GetService<IGenusRepository>();
+                var speciesRepo = services.GetService<ISpeciesRepository>();
+                var variantRepo = services.GetService<IVariantRepository>();
 
                 // Small delay to prevent resource contention during startup
                 await Task.Delay(50);

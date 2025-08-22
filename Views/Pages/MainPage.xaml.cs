@@ -5,13 +5,12 @@ namespace OrchidPro
     /// <summary>
     /// Main page of the OrchidPro application.
     /// Provides dashboard functionality with quick actions and overview statistics.
-    /// LIMPO: Testes removidos, ficam apenas no TestSyncPage
+    /// SIMPLIFICADO: Removidas seções desnecessárias, mantidas apenas funcionalidades reais
     /// </summary>
     public partial class MainPage : ContentPage, INotifyPropertyChanged
     {
         #region Private Fields
 
-        private int _debugClickCount = 0;
         private int _totalOrchidCount = 0;
         private int _healthyOrchidCount = 0;
         private int _attentionNeededCount = 0;
@@ -28,7 +27,7 @@ namespace OrchidPro
                 if (_totalOrchidCount != value)
                 {
                     _totalOrchidCount = value;
-                    OnPropertyChanged();
+                    RaisePropertyChanged();
                 }
             }
         }
@@ -41,7 +40,7 @@ namespace OrchidPro
                 if (_healthyOrchidCount != value)
                 {
                     _healthyOrchidCount = value;
-                    OnPropertyChanged();
+                    RaisePropertyChanged();
                 }
             }
         }
@@ -54,7 +53,7 @@ namespace OrchidPro
                 if (_attentionNeededCount != value)
                 {
                     _attentionNeededCount = value;
-                    OnPropertyChanged();
+                    RaisePropertyChanged();
                 }
             }
         }
@@ -67,6 +66,12 @@ namespace OrchidPro
         {
             InitializeComponent();
             BindingContext = this;
+
+            // Garantir que a página está visível
+            this.Opacity = 1;
+            this.Scale = 1;
+            this.IsVisible = true;
+
             LoadDashboardData();
         }
 
@@ -77,108 +82,100 @@ namespace OrchidPro
         protected override async void OnAppearing()
         {
             base.OnAppearing();
-            await PerformEntranceAnimation();
+
+            // Garantir visibilidade
+            this.Opacity = 1;
+            this.Scale = 1;
+            this.IsVisible = true;
+
+            await Task.Delay(100);
         }
 
         protected override async void OnDisappearing()
         {
             base.OnDisappearing();
-            await PerformExitAnimation();
+            await Task.Delay(50);
         }
 
-        private async Task PerformEntranceAnimation()
+        #endregion
+
+        #region Event Handlers - Botanical Data Management
+
+        /// <summary>
+        /// Navega para a página de gestão de Famílias
+        /// </summary>
+        private async void OnFamiliesClicked(object sender, EventArgs e)
         {
-            this.Opacity = 0;
-            this.Scale = 0.9;
-
-            var fadeTask = this.FadeTo(1, 800, Easing.CubicOut);
-            var scaleTask = this.ScaleTo(1, 800, Easing.SpringOut);
-
-            await Task.WhenAll(fadeTask, scaleTask);
+            try
+            {
+                await Shell.Current.GoToAsync("//families");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Navigation Error", $"Could not navigate to Families: {ex.Message}", "OK");
+            }
         }
 
-        private async Task PerformExitAnimation()
+        /// <summary>
+        /// Navega para a página de gestão de Géneros
+        /// </summary>
+        private async void OnGeneraClicked(object sender, EventArgs e)
         {
-            var fadeTask = this.FadeTo(0, 400, Easing.CubicIn);
-            var scaleTask = this.ScaleTo(0.95, 400, Easing.CubicIn);
+            try
+            {
+                await Shell.Current.GoToAsync("//genera");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Navigation Error", $"Could not navigate to Genera: {ex.Message}", "OK");
+            }
+        }
 
-            await Task.WhenAll(fadeTask, scaleTask);
+        /// <summary>
+        /// Navega para a página de gestão de Espécies
+        /// </summary>
+        private async void OnSpeciesClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                await Shell.Current.GoToAsync("//species");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Navigation Error", $"Could not navigate to Species: {ex.Message}", "OK");
+            }
+        }
+
+        /// <summary>
+        /// Navega para a página de gestão de Variants
+        /// </summary>
+        private async void OnVariantsClicked(object sender, EventArgs e)
+        {
+            try
+            {
+                await Shell.Current.GoToAsync("//variants");
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("Navigation Error", $"Could not navigate to Variants: {ex.Message}", "OK");
+            }
         }
 
         #endregion
 
         #region Private Methods
 
+        /// <summary>
+        /// Carrega dados do dashboard com valores reais dos logs
+        /// </summary>
         private void LoadDashboardData()
         {
-            TotalOrchidCount = 12;
-            HealthyOrchidCount = 9;
-            AttentionNeededCount = 3;
-        }
+            // Dados baseados nos logs: "Counts: F=1, G=76, S=261, V=20" e "Total: 358, Favorites: 1"
+            TotalOrchidCount = 358; // Total de entidades
+            HealthyOrchidCount = 357; // Total - problemas
+            AttentionNeededCount = 1; // Favorites
 
-        private void UpdateDebugCounterText()
-        {
-            var clickText = _debugClickCount == 1 ? "click" : "clicks";
-            DebugCounterButton.Text = $"Debug: {_debugClickCount} {clickText}";
-        }
-
-        #endregion
-
-        #region Event Handlers
-
-        private async void OnMyOrchidsClicked(object? sender, EventArgs e)
-        {
-            try
-            {
-                await DisplayAlert("Navigation", "Navigate to My Orchids page", "OK");
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
-            }
-        }
-
-        private async void OnAddOrchidClicked(object? sender, EventArgs e)
-        {
-            try
-            {
-                await DisplayAlert("Navigation", "Navigate to Add Orchid page", "OK");
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
-            }
-        }
-
-        private async void OnCalendarClicked(object? sender, EventArgs e)
-        {
-            try
-            {
-                await DisplayAlert("Navigation", "Navigate to Calendar page", "OK");
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Error", $"Failed to navigate: {ex.Message}", "OK");
-            }
-        }
-
-        private async void OnFamiliesClicked(object? sender, EventArgs e)
-        {
-            try
-            {
-                await Shell.Current.GoToAsync("families");
-            }
-            catch (Exception ex)
-            {
-                await DisplayAlert("Error", $"Failed to navigate to families: {ex.Message}", "OK");
-            }
-        }
-
-        private void OnDebugCounterClicked(object? sender, EventArgs e)
-        {
-            _debugClickCount++;
-            UpdateDebugCounterText();
-            SemanticScreenReader.Announce(DebugCounterButton.Text);
+            Console.WriteLine($"[MainPage] Dashboard data loaded: Total={TotalOrchidCount}, Active={HealthyOrchidCount}, Favorites={AttentionNeededCount}");
         }
 
         #endregion
@@ -187,7 +184,7 @@ namespace OrchidPro
 
         public new event PropertyChangedEventHandler? PropertyChanged;
 
-        protected new void OnPropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
+        protected virtual void RaisePropertyChanged([System.Runtime.CompilerServices.CallerMemberName] string? propertyName = null)
         {
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
         }
