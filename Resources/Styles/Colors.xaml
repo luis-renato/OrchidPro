@@ -28,13 +28,15 @@
     <Color x:Key="Magenta">#D600AA</Color>
     <Color x:Key="MidnightBlue">#190649</Color>
 
-    <!-- Grayscale -->
+    <!-- Grayscale (FIXED: Added missing Gray700 and Gray800) -->
     <Color x:Key="Gray100">#E1E1E1</Color>
     <Color x:Key="Gray200">#C8C8C8</Color>
     <Color x:Key="Gray300">#ACACAC</Color>
     <Color x:Key="Gray400">#919191</Color>
     <Color x:Key="Gray500">#6E6E6E</Color>
     <Color x:Key="Gray600">#404040</Color>
+    <Color x:Key="Gray700">#424242</Color>
+    <Color x:Key="Gray800">#303030</Color>
     <Color x:Key="Gray900">#212121</Color>
     <Color x:Key="Gray950">#141414</Color>
 
@@ -109,13 +111,15 @@
     <SolidColorBrush x:Key="WhiteBrush" Color="{StaticResource White}" />
     <SolidColorBrush x:Key="BlackBrush" Color="{StaticResource Black}" />
 
-    <!-- Brushes: Grayscale -->
+    <!-- Brushes: Grayscale (FIXED: Added missing Gray700Brush and Gray800Brush) -->
     <SolidColorBrush x:Key="Gray100Brush" Color="{StaticResource Gray100}" />
     <SolidColorBrush x:Key="Gray200Brush" Color="{StaticResource Gray200}" />
     <SolidColorBrush x:Key="Gray300Brush" Color="{StaticResource Gray300}" />
     <SolidColorBrush x:Key="Gray400Brush" Color="{StaticResource Gray400}" />
     <SolidColorBrush x:Key="Gray500Brush" Color="{StaticResource Gray500}" />
     <SolidColorBrush x:Key="Gray600Brush" Color="{StaticResource Gray600}" />
+    <SolidColorBrush x:Key="Gray700Brush" Color="{StaticResource Gray700}" />
+    <SolidColorBrush x:Key="Gray800Brush" Color="{StaticResource Gray800}" />
     <SolidColorBrush x:Key="Gray900Brush" Color="{StaticResource Gray900}" />
     <SolidColorBrush x:Key="Gray950Brush" Color="{StaticResource Gray950}" />
 
@@ -179,7 +183,7 @@
         <GradientStop Color="{StaticResource DisabledGradientEnd}" Offset="1.0" />
     </LinearGradientBrush>
 
-    <!-- Disabled Gradient Brush (for disabled buttons) -->
+    <!-- Cancel Gradient Brush (for cancel buttons) -->
     <LinearGradientBrush x:Key="CancelGradientBrush" StartPoint="0,0" EndPoint="0,1">
         <GradientStop Color="{StaticResource CancelGradientStart}" Offset="0.0" />
         <GradientStop Color="{StaticResource CancelGradientMiddle}" Offset="0.5" />
