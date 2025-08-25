@@ -2,18 +2,16 @@
 <!--
 OrchidPro Application Shell - Enterprise Navigation Architecture
 
-ARCHITECTURE:
-- Flyout-based navigation pattern for hierarchical content organization
-- DataTemplate-driven content resolution for optimal memory management
-- Route-based deep linking system for external navigation integration
-- Branded header/footer design with dynamic versioning information
+UPDATED ARCHITECTURE:
+- Reorganized navigation flow: Setup → Botanical Data → Plants
+- Added Sources and Locations as foundational setup items
+- Maintained professional structure with proper hierarchy
+- Removed non-existent PNG icons to prevent runtime errors
 
-NAVIGATION HIERARCHY:
-1. Dashboard: Main application entry point with overview functionality
-2. Botanical Data: Core data management with taxonomic organization (Species → Genera → Families)
+NAVIGATION HIERARCHY (UPDATED):
+1. Setup: Sources and Locations (foundational data)
+2. Botanical Data: Complete taxonomic organization (Families → Genera → Species → Variants)
 3. My Plants: Personal collection management (future feature)
-4. Analytics: Data visualization and reporting (future feature)  
-5. Settings: Application configuration (future feature)
 
 DESIGN PATTERNS:
 - Shell.FlyoutHeader: Branded application identity with logo and description
@@ -24,14 +22,14 @@ DESIGN PATTERNS:
 PERFORMANCE OPTIMIZATIONS:
 - DataTemplate lazy instantiation prevents unnecessary page creation
 - Route-based navigation enables efficient deep linking
-- Disabled items for future features prevent premature resource allocation
 - Hierarchical organization reduces cognitive load and improves UX
+- Only functional items enabled to maintain professional appearance
 
 ENTERPRISE FEATURES:
 - Dynamic version display for deployment tracking
 - Branded logout functionality with security considerations
-- Icon-based navigation for international accessibility
 - Future-ready structure with disabled placeholder items
+- Professional workflow organization
 -->
 <Shell
     x:Class="OrchidPro.AppShell"
@@ -39,6 +37,8 @@ ENTERPRISE FEATURES:
     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
     xmlns:local="clr-namespace:OrchidPro"
     xmlns:botanical="clr-namespace:OrchidPro.Views.Pages.Botanical"
+    xmlns:sources="clr-namespace:OrchidPro.Views.Pages.Sources"
+    xmlns:locations="clr-namespace:OrchidPro.Views.Pages.Locations"
     Title="OrchidPro"
     FlyoutBehavior="Flyout">
 
@@ -52,6 +52,7 @@ ENTERPRISE FEATURES:
         <Grid BackgroundColor="{StaticResource Primary}" HeightRequest="150">
             <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="10">
                 <!-- Application logo with standardized sizing -->
+                <!-- Note: orchid_logo.png must exist in Resources/Images/ -->
                 <Image Source="orchid_logo.png" 
                        HeightRequest="60" 
                        WidthRequest="60" />
@@ -168,43 +169,51 @@ ENTERPRISE FEATURES:
     Application entry point providing overview and quick access functionality.
     Uses DataTemplate for lazy instantiation and optimal memory management.
     -->
-    <FlyoutItem Title="Dashboard" Icon="home.png">
+    <FlyoutItem Title="Dashboard">
         <ShellContent Route="MainPage" ContentTemplate="{DataTemplate local:MainPage}" />
+    </FlyoutItem>
+
+    <!-- 
+    SETUP SECTION - FOUNDATIONAL DATA
+    Essential configuration items required before plant management.
+    Sources and Locations are prerequisites for plant registration.
+    Professional workflow: configure sources and locations first.
+    -->
+    <FlyoutItem Title="Setup">
+
+        <!-- 
+        SOURCES MANAGEMENT
+        Plant acquisition sources and supplier information.
+        Foundational data for tracking plant origins and purchases.
+        Enables comprehensive source management and supplier relationships.
+        -->
+        <Tab Title="Sources">
+            <ShellContent Title="Sources" 
+                         Route="sources" 
+                         ContentTemplate="{DataTemplate sources:SourcesListPage}" />
+        </Tab>
+
+        <!-- 
+        LOCATIONS MANAGEMENT
+        Physical locations and growing environments.
+        Foundational data for plant placement and environmental tracking.
+        Enables location-based organization and care management.
+        -->
+        <Tab Title="Locations">
+            <ShellContent Title="Locations" 
+                         Route="locations" 
+                         ContentTemplate="{DataTemplate locations:LocationsListPage}" />
+        </Tab>
+
     </FlyoutItem>
 
     <!-- 
     BOTANICAL DATA MANAGEMENT SECTION
     Core application functionality organized by taxonomic hierarchy.
     Implements Tab structure for related data entity management.
-    Uses reverse taxonomic order (Species → Genera → Families → Variants) for workflow optimization.
+    Correct taxonomic order: Families → Genera → Species → Variants
     -->
-    <FlyoutItem Title="Botanical Data" Icon="plant.png">
-
-        <!-- 
-        SPECIES MANAGEMENT TAB
-        Detailed plant species data entry and management.
-        Most granular level of taxonomic classification.
-        Primary user interaction point for botanical records.
-        -->
-        <Tab Title="Species">
-            <ShellContent Title="Species" 
-                         Icon="species.png" 
-                         Route="species" 
-                         ContentTemplate="{DataTemplate botanical:SpeciesListPage}" />
-        </Tab>
-
-        <!-- 
-        GENERA MANAGEMENT TAB  
-        Plant genus classification and organizational structure.
-        Intermediate taxonomic level between species and families.
-        Enables hierarchical data relationships and validation.
-        -->
-        <Tab Title="Genera">
-            <ShellContent Title="Genera" 
-                         Icon="genus.png" 
-                         Route="genera" 
-                         ContentTemplate="{DataTemplate botanical:GeneraListPage}" />
-        </Tab>
+    <FlyoutItem Title="Botanical Data" Icon="leaf.svg">
 
         <!-- 
         FAMILIES MANAGEMENT TAB
@@ -214,9 +223,32 @@ ENTERPRISE FEATURES:
         -->
         <Tab Title="Families">
             <ShellContent Title="Families" 
-                         Icon="family.png" 
                          Route="families" 
                          ContentTemplate="{DataTemplate botanical:FamiliesListPage}" />
+        </Tab>
+
+        <!-- 
+        GENERA MANAGEMENT TAB  
+        Plant genus classification and organizational structure.
+        Intermediate taxonomic level between families and species.
+        Enables hierarchical data relationships and validation.
+        -->
+        <Tab Title="Genera">
+            <ShellContent Title="Genera" 
+                         Route="genera" 
+                         ContentTemplate="{DataTemplate botanical:GeneraListPage}" />
+        </Tab>
+
+        <!-- 
+        SPECIES MANAGEMENT TAB
+        Detailed plant species data entry and management.
+        Most granular level of taxonomic classification.
+        Primary user interaction point for botanical records.
+        -->
+        <Tab Title="Species">
+            <ShellContent Title="Species" 
+                         Route="species" 
+                         ContentTemplate="{DataTemplate botanical:SpeciesListPage}" />
         </Tab>
 
         <!-- 
@@ -227,7 +259,6 @@ ENTERPRISE FEATURES:
         -->
         <Tab Title="Variants">
             <ShellContent Title="Variants" 
-                         Icon="variant.png" 
                          Route="variants" 
                          ContentTemplate="{DataTemplate botanical:VariantsListPage}" />
         </Tab>
@@ -236,32 +267,12 @@ ENTERPRISE FEATURES:
 
     <!-- 
     PERSONAL COLLECTION MANAGEMENT
-    Future feature for individual plant tracking and care management.
+    Individual plant tracking and care management.
     Disabled state prevents premature user access while maintaining navigation structure.
-    Placeholder for personal orchid collection functionality.
+    Will be enabled after plants functionality is implemented.
     -->
-    <FlyoutItem Title="My Plants" Icon="plant_collection.png" IsEnabled="False">
+    <FlyoutItem Title="My Plants" IsEnabled="False">
         <ShellContent Route="plants" />
-    </FlyoutItem>
-
-    <!-- 
-    ANALYTICS AND REPORTING SECTION
-    Future feature for data visualization and business intelligence.
-    Disabled state maintains application roadmap visibility.
-    Planned functionality: charts, trends, collection statistics.
-    -->
-    <FlyoutItem Title="Analytics" Icon="analytics.png" IsEnabled="False">
-        <ShellContent Route="analytics" />
-    </FlyoutItem>
-
-    <!-- 
-    APPLICATION CONFIGURATION SECTION
-    Future feature for user preferences and application settings.
-    Disabled state preserves navigation hierarchy for future implementation.
-    Planned functionality: themes, notifications, data sync preferences.
-    -->
-    <FlyoutItem Title="Settings" Icon="settings.png" IsEnabled="False">
-        <ShellContent Route="settings" />
     </FlyoutItem>
 
 </Shell>

@@ -4,6 +4,8 @@ using OrchidPro.Services.Data;
 using OrchidPro.Services.Navigation;
 using OrchidPro.Views.Pages;
 using OrchidPro.Views.Pages.Botanical;
+using OrchidPro.Views.Pages.Locations;
+using OrchidPro.Views.Pages.Sources;
 
 namespace OrchidPro;
 
@@ -219,6 +221,14 @@ public partial class AppShell : Shell
 
         Routing.RegisterRoute("variantedit", typeof(VariantEditPage));
         Routing.RegisterRoute("variants", typeof(VariantsListPage));
+
+        // Sources routes
+        Routing.RegisterRoute("sourceslist", typeof(SourcesListPage));
+        Routing.RegisterRoute("sourceedit", typeof(SourcesEditPage));
+
+        // Locations routes  
+        Routing.RegisterRoute("locationslist", typeof(LocationsListPage));
+        Routing.RegisterRoute("locationedit", typeof(LocationsEditPage));
     }
 
     #endregion

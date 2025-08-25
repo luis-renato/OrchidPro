@@ -11,8 +11,12 @@ using OrchidPro.ViewModels.Botanical.Families;
 using OrchidPro.ViewModels.Botanical.Genera;
 using OrchidPro.ViewModels.Botanical.Species;
 using OrchidPro.ViewModels.Botanical.Variants;
+using OrchidPro.ViewModels.Locations;
+using OrchidPro.ViewModels.Sources;
 using OrchidPro.Views.Pages;
 using OrchidPro.Views.Pages.Botanical;
+using OrchidPro.Views.Pages.Locations;
+using OrchidPro.Views.Pages.Sources;
 using Syncfusion.Maui.Core.Hosting;
 
 namespace OrchidPro;
@@ -51,9 +55,13 @@ public static class MauiProgram
         services.AddSingleton<IGenusRepository, SupabaseGenusRepository>();
         services.AddSingleton<ISpeciesRepository, SupabaseSpeciesRepository>();
         services.AddSingleton<IVariantRepository, SupabaseVariantRepository>();
+        services.AddSingleton<ISourceRepository, SupabaseSourceRepository>();
+        services.AddSingleton<ILocationRepository, SupabaseLocationRepository>();
+
 
         // ViewModels
         services.AddTransient<MainPageViewModel>();
+        // Botanical
         services.AddTransient<FamiliesListViewModel>();
         services.AddTransient<FamilyEditViewModel>();
         services.AddTransient<GeneraListViewModel>();
@@ -65,11 +73,18 @@ public static class MauiProgram
         services.AddTransient<VariantsListViewModel>();
         services.AddTransient<VariantEditViewModel>();
         services.AddTransient<VariantItemViewModel>();
+        // Sources
+        services.AddSingleton<SourcesListViewModel>();
+        services.AddTransient<SourcesEditViewModel>();
+        // Locations  
+        services.AddSingleton<LocationsListViewModel>();
+        services.AddTransient<LocationsEditViewModel>();
 
         // Pages
         services.AddTransient<MainPage>();
         services.AddTransient<SplashPage>();
         services.AddTransient<LoginPage>();
+        // Botanical
         services.AddTransient<FamiliesListPage>();
         services.AddTransient<FamilyEditPage>();
         services.AddTransient<GeneraListPage>();
@@ -78,6 +93,12 @@ public static class MauiProgram
         services.AddTransient<SpeciesEditPage>();
         services.AddTransient<VariantsListPage>();
         services.AddTransient<VariantEditPage>();
+        // Sources
+        services.AddTransient<SourcesListPage>();
+        services.AddTransient<SourcesEditPage>();
+        // Locations
+        services.AddTransient<LocationsListPage>();
+        services.AddTransient<LocationsEditPage>();
 
         // Shell
         services.AddSingleton<AppShell>();

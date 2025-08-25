@@ -1,0 +1,205 @@
+@startuml
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+LAYOUT_WITH_LEGEND()
+
+title System Context Diagram - OrchidPro
+
+Person(user, "Orchid Collector", "Professional or hobbyist orchid grower who needs to manage their collection")
+
+System(orchidpro, "OrchidPro", ".NET MAUI mobile app for comprehensive orchid collection management with taxonomy, plant tracking, and care scheduling")
+
+System_Ext(supabase, "Supabase", "Cloud backend providing PostgreSQL database, authentication, real-time sync, and file storage")
+
+System_Ext(camera, "Device Camera", "Mobile device camera for plant photography")
+
+System_Ext(filesystem, "Device Storage", "Local file system for offline data and image caching")
+
+Rel(user, orchidpro, "Uses", "Mobile app")
+Rel(orchidpro, supabase, "Syncs data", "HTTPS/WebSocket")
+Rel(orchidpro, camera, "Takes photos", "Camera API")
+Rel(orchidpro, filesystem, "Stores cache", "File I/O")
+
+
+
+' ================================================
+
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Container Diagram - OrchidPro System
+
+Person(user, "Orchid Collector")
+
+System_Boundary(orchidpro, "OrchidPro System") {
+    Container(mobile, "OrchidPro Mobile App", ".NET MAUI", "Cross-platform mobile application with offline-first architecture")
+    Container(cache, "Local Cache", "SQLite + File System", "Offline data storage and image cache for seamless UX")
+}
+
+System_Boundary(supabase, "Supabase Platform") {
+    Container(db, "PostgreSQL Database", "Supabase DB", "Stores taxonomy, plants, events, and user data with RLS security")
+    Container(auth, "Authentication", "Supabase Auth", "User management and JWT token-based authentication")
+    Container(storage, "File Storage", "Supabase Storage", "Plant photos and document storage")
+    Container(realtime, "Real-time Engine", "Supabase Realtime", "Live data synchronization via WebSocket")
+}
+
+Container_Ext(camera, "Device Camera", "Mobile Camera API")
+
+Rel(user, mobile, "Uses", "Touch/UI")
+Rel(mobile, cache, "Reads/Writes", "SQLite queries")
+Rel(mobile, db, "Syncs data", "REST API/PostgreSQL")
+Rel(mobile, auth, "Authenticates", "JWT tokens")
+Rel(mobile, storage, "Uploads/Downloads", "Files API")
+Rel(mobile, realtime, "Subscribes", "WebSocket")
+Rel(mobile, camera, "Captures photos", "Camera API")
+
+
+
+' ================================================
+
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Component Diagram - OrchidPro Core Architecture
+
+Container(mobile, "OrchidPro Mobile App")
+
+System_Boundary(mobile, "OrchidPro Mobile Application") {
+    
+    ' Presentation Layer
+    Component(pages, "Pages/Views", "XAML + Code-behind", "UI pages following MVVM pattern with Template Method composition")
+    Component(viewmodels, "ViewModels", "CommunityToolkit.MVVM", "ObservableObject-based VMs using Template Method Pattern (70% code reduction)")
+    
+    ' Business Logic Layer  
+    Component(services, "Business Services", "C# Services", "Domain logic and business rules orchestration")
+    Component(repositories, "Generic Repositories", "BaseRepository<T>", "Template Method pattern eliminating 2400+ lines of boilerplate")
+    
+    ' Data Layer
+    Component(models, "Entity Models", "Supabase.Postgrest", "Database entities implementing IBaseEntity interface")
+    Component(cache, "Caching Layer", "Memory + SQLite", "Smart caching with background refresh and conflict resolution")
+    
+    ' Cross-cutting Concerns
+    Component(sync, "Sync Engine", "Real-time Sync", "Bidirectional sync with conflict resolution and offline queue")
+    Component(auth, "Auth Manager", "Supabase Auth", "JWT-based authentication with automatic token refresh")
+    Component(logging, "Logging System", "Microsoft.Extensions.Logging", "Structured logging with performance metrics")
+}
+
+Container_Ext(supabase_db, "Supabase Database")
+Container_Ext(supabase_auth, "Supabase Auth")
+Container_Ext(supabase_storage, "Supabase Storage")
+
+' Flow relationships
+Rel(pages, viewmodels, "Data binds to", "MVVM pattern")
+Rel(viewmodels, services, "Calls", "Business operations")
+Rel(services, repositories, "Uses", "Data access")
+Rel(repositories, models, "Maps to", "Entity mapping")
+Rel(repositories, cache, "Queries", "Cache-first strategy")
+Rel(cache, supabase_db, "Syncs with", "Background sync")
+Rel(auth, supabase_auth, "Authenticates via", "JWT tokens")
+Rel(sync, supabase_db, "Syncs data", "Real-time updates")
+Rel(logging, services, "Logs from", "Performance tracking")
+
+
+
+' ================================================
+
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Component.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Component Diagram - OrchidPro Domain Model
+
+Container(domain, "Domain Layer")
+
+System_Boundary(domain, "OrchidPro Domain Model") {
+    
+    ' Core Entities (Hierarchical)
+    Component(families, "Families", "IBaseEntity", "Botanical families (root level) - Orchidaceae")
+    Component(genera, "Genera", "IBaseEntity + IHierarchical", "Botanical genera - Cattleya, Phalaenopsis")
+    Component(species, "Species", "IBaseEntity + IHierarchical", "Botanical species with cultivation data")
+    Component(variants, "Variants", "IBaseEntity", "Species variants - alba, coerulea, etc")
+    
+    ' Plant Management (New Implementation)
+    Component(plants, "Plants", "IBaseEntity", "Individual plant instances with unique identifiers")
+    Component(sources, "Sources", "IBaseEntity", "Plant acquisition sources and suppliers")
+    Component(locations, "Locations", "IBaseEntity", "Physical locations within collection")
+    Component(containers, "Containers", "IBaseEntity", "Pot/mount types with specifications")
+    Component(substrates, "Substrates", "IBaseEntity", "Growing media compositions")
+    
+    ' Event System (New Implementation)
+    Component(events, "Events", "IBaseEntity", "Plant care and growth events with timestamps")
+    Component(event_types, "Event Types", "IBaseEntity", "Categorized event types (Care, Health, Growth)")
+    Component(photos, "Photos", "IBaseEntity", "Plant photography linked to events")
+    Component(products, "Products", "IBaseEntity", "Care products and treatments")
+}
+
+' Entity Relationships
+Rel(genera, families, "Belongs to", "Many-to-One")
+Rel(species, genera, "Belongs to", "Many-to-One")
+Rel(plants, species, "Is instance of", "Many-to-One")
+Rel(plants, variants, "Has variant", "Many-to-One")
+Rel(plants, sources, "Acquired from", "Many-to-One")
+Rel(plants, locations, "Located at", "Many-to-One")
+Rel(plants, containers, "Planted in", "Many-to-One")
+Rel(plants, substrates, "Growing in", "Many-to-One")
+Rel(events, plants, "Happens to", "Many-to-One")
+Rel(events, event_types, "Of type", "Many-to-One")
+Rel(photos, plants, "Shows", "Many-to-One")
+Rel(photos, events, "Documents", "Many-to-One")
+
+
+
+' ================================================
+
+
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Deployment.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Deployment Diagram - OrchidPro Production Environment
+
+Deployment_Node(mobile_device, "Mobile Device", "Android/iOS") {
+    Deployment_Node(maui_runtime, ".NET MAUI Runtime", ".NET 8.0") {
+        Container(orchidpro_app, "OrchidPro App", ".NET MAUI", "Cross-platform mobile application")
+        Container(local_cache, "Local Cache", "SQLite + FileSystem", "Offline data and images")
+    }
+}
+
+Deployment_Node(supabase_cloud, "Supabase Cloud", "AWS Infrastructure") {
+    Deployment_Node(postgres_cluster, "PostgreSQL Cluster", "Managed PostgreSQL") {
+        ContainerDb(primary_db, "Primary Database", "PostgreSQL 15", "Main data store with RLS")
+        ContainerDb(replica_db, "Read Replica", "PostgreSQL 15", "Read scaling and backup")
+    }
+    
+    Deployment_Node(auth_service, "Auth Service", "GoTrue") {
+        Container(auth_api, "Authentication API", "JWT + OAuth", "User management and tokens")
+    }
+    
+    Deployment_Node(storage_service, "Storage Service", "S3 Compatible") {
+        Container(file_storage, "File Storage", "S3 Bucket", "Plant photos and documents")
+    }
+    
+    Deployment_Node(realtime_service, "Realtime Service", "Elixir/Phoenix") {
+        Container(realtime_api, "Realtime API", "WebSocket", "Live data synchronization")
+    }
+}
+
+Deployment_Node(cdn, "CDN", "Global Edge Network") {
+    Container(image_cache, "Image Cache", "CDN Edge", "Globally distributed image cache")
+}
+
+' Deployment Relationships
+Rel(orchidpro_app, primary_db, "CRUD Operations", "HTTPS/PostgreSQL")
+Rel(orchidpro_app, auth_api, "Authentication", "HTTPS/JWT")
+Rel(orchidpro_app, file_storage, "File Upload/Download", "HTTPS/S3 API")
+Rel(orchidpro_app, realtime_api, "Live Updates", "WSS/WebSocket")
+Rel(orchidpro_app, local_cache, "Offline Storage", "SQLite I/O")
+Rel(primary_db, replica_db, "Replication", "PostgreSQL Streaming")
+Rel(file_storage, image_cache, "Cache Population", "S3 Sync")
+Rel(orchidpro_app, image_cache, "Fast Image Delivery", "HTTPS/CDN")
+@enduml
