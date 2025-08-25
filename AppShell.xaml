@@ -39,6 +39,8 @@ ENTERPRISE FEATURES:
     xmlns:botanical="clr-namespace:OrchidPro.Views.Pages.Botanical"
     xmlns:sources="clr-namespace:OrchidPro.Views.Pages.Sources"
     xmlns:locations="clr-namespace:OrchidPro.Views.Pages.Locations"
+    xmlns:mounts="clr-namespace:OrchidPro.Views.Pages.Mounts"
+    xmlns:substrates="clr-namespace:OrchidPro.Views.Pages.Substrates"
     Title="OrchidPro"
     FlyoutBehavior="Flyout">
 
@@ -203,6 +205,19 @@ ENTERPRISE FEATURES:
             <ShellContent Title="Locations" 
                          Route="locations" 
                          ContentTemplate="{DataTemplate locations:LocationsListPage}" />
+        </Tab>
+
+
+        <Tab Title="Mounts">
+            <ShellContent Title="Mounts" 
+                         Route="mounts" 
+                         ContentTemplate="{DataTemplate mounts:MountsListPage}" />
+        </Tab>
+
+        <Tab Title="Substrates">
+            <ShellContent Title="Substrates" 
+                         Route="substrates" 
+                         ContentTemplate="{DataTemplate substrates:SubstratesListPage}" />
         </Tab>
 
     </FlyoutItem>

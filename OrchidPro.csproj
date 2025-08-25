@@ -100,6 +100,12 @@
 	  <Compile Update="Views\Pages\Botanical\FamiliesListPage.xaml.cs">
 	    <DependentUpon>FamiliesListPage.xaml</DependentUpon>
 	  </Compile>
+	  <Compile Update="Views\Pages\Mounts\MountsListPage.xaml.cs">
+	    <DependentUpon>MountsListPage.xaml</DependentUpon>
+	  </Compile>
+	  <Compile Update="Views\Pages\Mounts\MountsEditPage.xaml.cs">
+	    <DependentUpon>MountsEditPage.xaml</DependentUpon>
+	  </Compile>
 	</ItemGroup>
 
 	<ItemGroup>
@@ -136,6 +142,12 @@
 		<MauiXaml Update="Views\Pages\Botanical\VariantsListPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
+		<MauiXaml Update="Views\Pages\Mounts\MountsEditPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\Pages\Mounts\MountsListPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
 		<MauiXaml Update="Views\Pages\Locations\LocationsEditPage.xaml">
 		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
@@ -162,6 +174,12 @@
 		</MauiXaml>
 		<MauiXaml Update="Views\Pages\Botanical\FamilyEditPage.xaml">
 			<Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\Pages\Substrates\SubstratesEditPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
+		</MauiXaml>
+		<MauiXaml Update="Views\Pages\Substrates\SubstratesListPage.xaml">
+		  <Generator>MSBuild:Compile</Generator>
 		</MauiXaml>
 	</ItemGroup>
 

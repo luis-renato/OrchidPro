@@ -1,0 +1,226 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="OrchidPro.Views.Pages.Mounts.MountsEditPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:OrchidPro.ViewModels.Mounts"
+             xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
+             x:DataType="vm:MountsEditViewModel"
+             Title="Mount"
+             BackgroundColor="White">
+
+    <Grid>
+        <ScrollView>
+            <StackLayout Padding="16" Spacing="8">
+
+                <!-- Header -->
+                <StackLayout Spacing="8">
+                    <Label Text="{Binding PageTitle}"
+                           FontSize="28"
+                           FontAttributes="Bold"
+                           TextColor="Black"
+                           HorizontalOptions="Start" />
+
+                    <Label Text="Mount Information"
+                           FontSize="14" 
+                           TextColor="Gray"
+                           Opacity="0.8" />
+
+                    <ProgressBar Progress="{Binding FormCompletionProgress}"
+                                ProgressColor="{StaticResource Primary}"
+                                BackgroundColor="{StaticResource Gray200}"
+                                HeightRequest="4"
+                                Margin="0,8,0,0" />
+                </StackLayout>
+
+                <!-- Name Field -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Name *" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Entry Text="{Binding Name}"
+                               Placeholder="Enter Mount name"
+                               FontSize="16"
+                               TextColor="Black"
+                               BackgroundColor="Transparent"
+                               Focused="OnEntryFocused"
+                               Unfocused="OnEntryUnfocused" />
+
+                        <Label Text="{Binding NameValidationMessage}"
+                               FontSize="12"
+                               TextColor="Red"
+                               IsVisible="{Binding IsNameValid, Converter={StaticResource InvertedBoolConverter}}" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Material Field -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Material" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Entry Text="{Binding Material}"
+                               Placeholder="e.g., Plastic, Clay, Wood, Ceramic"
+                               FontSize="16"
+                               TextColor="Black"
+                               BackgroundColor="Transparent"
+                               Focused="OnEntryFocused"
+                               Unfocused="OnEntryUnfocused" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Size Field -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Size" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Entry Text="{Binding Size}"
+                               Placeholder="e.g., 4 inch, 6 inch, Large, Small"
+                               FontSize="16"
+                               TextColor="Black"
+                               BackgroundColor="Transparent"
+                               Focused="OnEntryFocused"
+                               Unfocused="OnEntryUnfocused" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Drainage Type Field -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Drainage Type" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Entry Text="{Binding DrainageType}"
+                               Placeholder="e.g., Multiple holes, Slotted, Basket weave"
+                               FontSize="16"
+                               TextColor="Black"
+                               BackgroundColor="Transparent"
+                               Focused="OnEntryFocused"
+                               Unfocused="OnEntryUnfocused" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Description Field -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormFieldStackStyle}">
+                        <Label Text="Description" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <Editor Text="{Binding Description}"
+                                Placeholder="Optional description..."
+                                FontSize="16"
+                                TextColor="Black"
+                                BackgroundColor="Transparent"
+                                HeightRequest="80"
+                                TextChanged="OnEditorTextChanged" />
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Configuration Section -->
+                <Label Text="Configuration" 
+                       FontSize="18" 
+                       FontAttributes="Bold" 
+                       TextColor="{StaticResource Primary}" 
+                       Margin="0,16,0,8" />
+
+                <!-- Settings -->
+                <ContentView Style="{StaticResource FormFieldFrameStyle}">
+                    <StackLayout Style="{StaticResource FormSettingsStackStyle}">
+                        <Label Text="Settings" Style="{StaticResource FormFieldLabelStyle}" />
+
+                        <!-- Active Toggle -->
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Label Grid.Column="0"
+                                   Text="🟢"
+                                   FontSize="24"
+                                   VerticalOptions="Center" />
+
+                            <StackLayout Grid.Column="1" 
+                                        Margin="12,0,0,0"
+                                        VerticalOptions="Center">
+                                <Label Text="Active"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="Black" />
+                                <Label Text="Mount is available for use"
+                                       FontSize="12"
+                                       TextColor="Gray" />
+                            </StackLayout>
+
+                            <Switch Grid.Column="2"
+                                    IsToggled="{Binding IsActive}"
+                                    OnColor="{StaticResource SuccessColor}"
+                                    ThumbColor="White"
+                                    VerticalOptions="Center"
+                                    Toggled="OnSwitchToggled" />
+                        </Grid>
+
+                        <!-- Favorite Toggle -->
+                        <Grid ColumnDefinitions="Auto,*,Auto">
+                            <Label Grid.Column="0"
+                                   Text="⭐"
+                                   FontSize="24"
+                                   VerticalOptions="Center" />
+
+                            <StackLayout Grid.Column="1" 
+                                        Margin="12,0,0,0"
+                                        VerticalOptions="Center">
+                                <Label Text="Favorite"
+                                       FontSize="16"
+                                       FontAttributes="Bold"
+                                       TextColor="Black" />
+                                <Label Text="Mark as preferred Mount"
+                                       FontSize="12"
+                                       TextColor="Gray" />
+                            </StackLayout>
+
+                            <Switch Grid.Column="2"
+                                    IsToggled="{Binding IsFavorite}"
+                                    OnColor="{StaticResource WarningColor}"
+                                    ThumbColor="White"
+                                    VerticalOptions="Center"
+                                    Toggled="OnSwitchToggled" />
+                        </Grid>
+
+                    </StackLayout>
+                </ContentView>
+
+                <!-- Action Buttons -->
+                <Grid ColumnDefinitions="*,*" 
+                      ColumnSpacing="16"
+                      Margin="0,10,0,10">
+
+                    <Button Grid.Column="0"
+                            Text="Cancel"
+                            Style="{StaticResource CancelButtonStyle}"
+                            Clicked="OnCancelButtonTapped" />
+
+                    <Button Grid.Column="1"
+                            Text="{Binding SaveButtonText}"
+                            Style="{StaticResource DynamicPrimaryButtonStyle}"
+                            IsEnabled="{Binding CanSave}"
+                            Clicked="OnSaveButtonTapped" />
+
+                </Grid>
+
+                <!-- Save and Add Another Button -->
+                <Button Text="Save &amp; Add Another"
+                        IsVisible="{Binding ShowSaveAndContinue}"
+                        Style="{StaticResource DynamicPrimaryButtonStyle}"
+                        IsEnabled="{Binding CanSave}"
+                        Margin="0,0,0,0"
+                        Clicked="OnSaveAndContinueButtonTapped" />
+
+                <!-- Delete Button -->
+                <Button Text="Delete"
+                        IsVisible="{Binding IsEditMode}"
+                        IsEnabled="{Binding CanDelete}"
+                        Style="{StaticResource ErrorButtonStyle}"
+                        Margin="0,0,0,0"
+                        Clicked="OnDeleteButtonTapped" />
+
+            </StackLayout>
+        </ScrollView>
+
+        <!-- Loading Overlay -->
+        <ContentView Style="{StaticResource SavingOverlayStyle}" />
+
+    </Grid>
+
+</ContentPage>

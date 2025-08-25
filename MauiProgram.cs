@@ -12,11 +12,15 @@ using OrchidPro.ViewModels.Botanical.Genera;
 using OrchidPro.ViewModels.Botanical.Species;
 using OrchidPro.ViewModels.Botanical.Variants;
 using OrchidPro.ViewModels.Locations;
+using OrchidPro.ViewModels.Mounts;
 using OrchidPro.ViewModels.Sources;
+using OrchidPro.ViewModels.Substrates;
 using OrchidPro.Views.Pages;
 using OrchidPro.Views.Pages.Botanical;
 using OrchidPro.Views.Pages.Locations;
+using OrchidPro.Views.Pages.Mounts;
 using OrchidPro.Views.Pages.Sources;
+using OrchidPro.Views.Pages.Substrates;
 using Syncfusion.Maui.Core.Hosting;
 
 namespace OrchidPro;
@@ -57,6 +61,8 @@ public static class MauiProgram
         services.AddSingleton<IVariantRepository, SupabaseVariantRepository>();
         services.AddSingleton<ISourceRepository, SupabaseSourceRepository>();
         services.AddSingleton<ILocationRepository, SupabaseLocationRepository>();
+        services.AddSingleton<IMountRepository, SupabaseMountRepository>();
+        services.AddSingleton<ISubstrateRepository, SupabaseSubstrateRepository>();
 
 
         // ViewModels
@@ -79,6 +85,12 @@ public static class MauiProgram
         // Locations  
         services.AddSingleton<LocationsListViewModel>();
         services.AddTransient<LocationsEditViewModel>();
+        // Mounts
+        services.AddSingleton<MountsListViewModel>();
+        services.AddTransient<MountsEditViewModel>();
+        // Substrates
+        services.AddSingleton<SubstratesListViewModel>();
+        services.AddTransient<SubstratesEditViewModel>();
 
         // Pages
         services.AddTransient<MainPage>();
@@ -99,6 +111,12 @@ public static class MauiProgram
         // Locations
         services.AddTransient<LocationsListPage>();
         services.AddTransient<LocationsEditPage>();
+        // Mounts
+        services.AddTransient<MountsListPage>();
+        services.AddTransient<MountsEditPage>();
+        // Substrates
+        services.AddTransient<SubstratesListPage>();
+        services.AddTransient<SubstratesEditPage>();
 
         // Shell
         services.AddSingleton<AppShell>();
