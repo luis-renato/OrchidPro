@@ -5,7 +5,7 @@ using System.ComponentModel;
 
 namespace OrchidPro.Services.Infrastructure.Supabase.Models;
 
-[Table("Mounts")]
+[Table("mounts")]
 public class SupabaseMount : BaseModel
 {
     [PrimaryKey("id", false)]

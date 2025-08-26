@@ -16,10 +16,7 @@ public partial class LocationsListPage : ContentPage
         InitializeComponent();
         _base = new BaseListPageLogic<Models.PlantLocation, LocationItemViewModel>(viewModel);
 
-        // CORRECTED: Usar nomes REAIS dos controles do XAML que criei
         _base.SetupPage(this, LocationListView, RootGrid, FabButton, ListRefresh);
-        //                   ^^^^^^^^^^^^^^^  ^^^^^^^^  ^^^^^^^^^  ^^^^^^^^^^^
-        //                   XAML real        XAML real XAML real  XAML real
 
         this.LogInfo("🚀 REFACTORED LocationsListPage - using BaseListPageLogic composition");
     }

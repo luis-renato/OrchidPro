@@ -36,11 +36,12 @@
 
     <Grid x:Name="RootGrid">
 
-        <!-- MAIN CONTENT GRID -->
+        <!-- 1. MAIN CONTENT GRID - Hidden during loading -->
         <Grid x:Name="ContentGrid" 
               IsVisible="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}"
               Opacity="0">
 
+            <!-- Main content card -->
             <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray950}}"
                     Stroke="Transparent"
                     StrokeThickness="0"
@@ -52,7 +53,7 @@
 
                 <Grid RowDefinitions="Auto,Auto,*">
 
-                    <!-- Header with statistics -->
+                    <!-- Header with statistics and connection status -->
                     <Border Grid.Row="0" 
                             BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SurfaceDark}}"
                             Padding="15,8">
@@ -86,9 +87,10 @@
                         </Grid>
                     </Border>
 
-                    <!-- Search bar -->
-                    <Border Grid.Row="1" Style="{StaticResource SearchBarMountStyle}">
+                    <!-- Search bar - STANDARDIZED to match families -->
+                    <Border Grid.Row="1" Style="{StaticResource SearchBarContainerStyle}">
                         <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="5" Padding="2,0,2,0">
+                            <!-- Search field -->
                             <Border Grid.Column="0" Style="{StaticResource SearchFieldBorderStyle}" >
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="0" Margin="5,0,5,0">
                                     <Entry Grid.Column="1"
@@ -105,12 +107,14 @@
                                             IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}" />
                                 </Grid>
                             </Border>
+                            <!-- Filter button -->
                             <Border Grid.Column="1" Style="{StaticResource SearchActionButtonStyle}">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnFilterTapped" />
                                 </Border.GestureRecognizers>
                                 <Label Text="📊" Style="{StaticResource SearchActionIconStyle}" />
                             </Border>
+                            <!-- Sort button -->
                             <Border Grid.Column="2" Style="{StaticResource SearchActionButtonStyle}">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnSortTapped" />
@@ -120,7 +124,7 @@
                         </Grid>
                     </Border>
 
-                    <!-- ListView Mount -->
+                    <!-- ListView container -->
                     <sfpulltorefresh:SfPullToRefresh x:Name="ListRefresh"
                                         Grid.Row="2" 
                                         IsRefreshing="{Binding IsRefreshing}"
@@ -149,7 +153,7 @@
                                                BackgroundColor="Transparent"
                                                ScrollBarVisibility="Never"
                                                Margin="0,0,0,0"
-                                               ItemSize="120"
+                                               ItemSize="100"
                                                AllowSwiping="True"
                                                SwipeOffset="90"
                                                SwipeThreshold="90">
@@ -223,6 +227,7 @@
                                                                    TextColor="White" />
                                                         </Border>
 
+                                                        <!-- Badge Inactive -->
                                                         <Border Grid.Column="2"
                                                                 BackgroundColor="#F44336"
                                                                 Padding="10,4"
@@ -295,7 +300,7 @@
                                     </DataTemplate>
                                 </sflistview:SfListView.ItemTemplate>
 
-                                <!-- EmptyView -->
+                                <!-- EmptyView - STANDARDIZED to match families pattern -->
                                 <sflistview:SfListView.EmptyView>
                                     <Grid>
                                         <StackLayout Spacing="20" 
@@ -303,6 +308,7 @@
                                                    VerticalOptions="Center"
                                                    Padding="40">
 
+                                            <!-- Mount icon with background -->
                                             <Border BackgroundColor="{AppThemeBinding Light=#F3E5F5, Dark=#4A148C}"
                                                     Stroke="{AppThemeBinding Light=#9C27B0, Dark=#9C27B0}"
                                                     StrokeThickness="2"
@@ -318,13 +324,14 @@
                                                        VerticalOptions="Center" />
                                             </Border>
 
+                                            <!-- Text content -->
                                             <StackLayout Spacing="8" HorizontalOptions="Center">
-                                                <Label Text="No Mounts found"
+                                                <Label Text="No mounts found"
                                                        FontSize="18"
                                                        FontAttributes="Bold"
                                                        TextColor="{AppThemeBinding Light={StaticResource Gray900}, Dark={StaticResource Gray100}}"
                                                        HorizontalOptions="Center" />
-                                                <Label Text="No Mounts to display"
+                                                <Label Text="No mounts to display"
                                                        FontSize="14"
                                                        TextColor="{AppThemeBinding Light={StaticResource Gray600}, Dark={StaticResource Gray400}}"
                                                        HorizontalOptions="Center" />
@@ -345,7 +352,7 @@
         <!-- Loading Overlay -->
         <ContentView Style="{StaticResource LoadingOverlayStyle}" />
 
-        <!-- FAB -->
+        <!-- 3. FAB - Hidden during loading, with animation -->
         <Button x:Name="FabButton"
                 Text="{Binding FabText, FallbackValue='Add Mount'}"
                 Style="{StaticResource FabButtonStyle}"

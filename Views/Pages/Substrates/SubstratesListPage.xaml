@@ -36,11 +36,12 @@
 
     <Grid x:Name="RootGrid">
 
-        <!-- MAIN CONTENT GRID -->
+        <!-- 1. MAIN CONTENT GRID - Hidden during loading -->
         <Grid x:Name="ContentGrid" 
               IsVisible="{Binding IsLoading, Converter={StaticResource InvertedBoolConverter}}"
               Opacity="0">
 
+            <!-- Main content card -->
             <Border BackgroundColor="{AppThemeBinding Light={StaticResource White}, Dark={StaticResource Gray950}}"
                     Stroke="Transparent"
                     StrokeThickness="0"
@@ -52,7 +53,7 @@
 
                 <Grid RowDefinitions="Auto,Auto,*">
 
-                    <!-- Header with statistics -->
+                    <!-- Header with statistics and connection status -->
                     <Border Grid.Row="0" 
                             BackgroundColor="{AppThemeBinding Light={StaticResource Secondary}, Dark={StaticResource SurfaceDark}}"
                             Padding="15,8">
@@ -86,9 +87,10 @@
                         </Grid>
                     </Border>
 
-                    <!-- Search bar -->
+                    <!-- Search bar - STANDARDIZED to match families -->
                     <Border Grid.Row="1" Style="{StaticResource SearchBarContainerStyle}">
                         <Grid ColumnDefinitions="2*,Auto,Auto" ColumnSpacing="5" Padding="2,0,2,0">
+                            <!-- Search field -->
                             <Border Grid.Column="0" Style="{StaticResource SearchFieldBorderStyle}" >
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="0" Margin="5,0,5,0">
                                     <Entry Grid.Column="1"
@@ -105,12 +107,14 @@
                                             IsVisible="{Binding SearchText, Converter={StaticResource StringToBoolConverter}}" />
                                 </Grid>
                             </Border>
+                            <!-- Filter button -->
                             <Border Grid.Column="1" Style="{StaticResource SearchActionButtonStyle}">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnFilterTapped" />
                                 </Border.GestureRecognizers>
                                 <Label Text="📊" Style="{StaticResource SearchActionIconStyle}" />
                             </Border>
+                            <!-- Sort button -->
                             <Border Grid.Column="2" Style="{StaticResource SearchActionButtonStyle}">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Tapped="OnSortTapped" />
@@ -149,7 +153,7 @@
                                                BackgroundColor="Transparent"
                                                ScrollBarVisibility="Never"
                                                Margin="0,0,0,0"
-                                               ItemSize="140"
+                                               ItemSize="100"
                                                AllowSwiping="True"
                                                SwipeOffset="90"
                                                SwipeThreshold="90">
@@ -223,6 +227,7 @@
                                                                    TextColor="White" />
                                                         </Border>
 
+                                                        <!-- Badge Inactive -->
                                                         <Border Grid.Column="2"
                                                                 BackgroundColor="#F44336"
                                                                 Padding="10,4"
@@ -305,7 +310,7 @@
                                     </DataTemplate>
                                 </sflistview:SfListView.ItemTemplate>
 
-                                <!-- EmptyView -->
+                                <!-- EmptyView - STANDARDIZED to match families pattern -->
                                 <sflistview:SfListView.EmptyView>
                                     <Grid>
                                         <StackLayout Spacing="20" 
@@ -313,6 +318,7 @@
                                                    VerticalOptions="Center"
                                                    Padding="40">
 
+                                            <!-- Substrate icon with background -->
                                             <Border BackgroundColor="{AppThemeBinding Light=#EFEBE9, Dark=#3E2723}"
                                                     Stroke="{AppThemeBinding Light=#795548, Dark=#795548}"
                                                     StrokeThickness="2"
@@ -328,6 +334,7 @@
                                                        VerticalOptions="Center" />
                                             </Border>
 
+                                            <!-- Text content -->
                                             <StackLayout Spacing="8" HorizontalOptions="Center">
                                                 <Label Text="No substrates found"
                                                        FontSize="18"
@@ -355,7 +362,7 @@
         <!-- Loading Overlay -->
         <ContentView Style="{StaticResource LoadingOverlayStyle}" />
 
-        <!-- FAB -->
+        <!-- 3. FAB - Hidden during loading, with animation -->
         <Button x:Name="FabButton"
                 Text="{Binding FabText, FallbackValue='Add Substrate'}"
                 Style="{StaticResource FabButtonStyle}"

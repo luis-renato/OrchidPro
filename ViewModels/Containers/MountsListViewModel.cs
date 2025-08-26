@@ -19,7 +19,7 @@ public partial class MountsListViewModel : BaseListViewModel<Mount, MountItemVie
 
     public override string EntityName => "Mount";
     public override string EntityNamePlural => "Mounts";
-    public override string EditRoute => "Mountedit";
+    public override string EditRoute => "mountedit";
 
     #endregion
 

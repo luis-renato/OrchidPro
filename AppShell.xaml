@@ -171,7 +171,7 @@ ENTERPRISE FEATURES:
     Application entry point providing overview and quick access functionality.
     Uses DataTemplate for lazy instantiation and optimal memory management.
     -->
-    <FlyoutItem Title="Dashboard">
+    <FlyoutItem Title="Dashboard" Icon="dashboard.svg">
         <ShellContent Route="MainPage" ContentTemplate="{DataTemplate local:MainPage}" />
     </FlyoutItem>
 
@@ -181,7 +181,7 @@ ENTERPRISE FEATURES:
     Sources and Locations are prerequisites for plant registration.
     Professional workflow: configure sources and locations first.
     -->
-    <FlyoutItem Title="Setup">
+    <FlyoutItem Title="Setup" Icon="cog.svg">
 
         <!-- 
         SOURCES MANAGEMENT
@@ -286,7 +286,7 @@ ENTERPRISE FEATURES:
     Disabled state prevents premature user access while maintaining navigation structure.
     Will be enabled after plants functionality is implemented.
     -->
-    <FlyoutItem Title="My Plants" IsEnabled="False">
+    <FlyoutItem Title="My Plants" IsEnabled="False"  Icon="flower.svg">
         <ShellContent Route="plants" />
     </FlyoutItem>
 
