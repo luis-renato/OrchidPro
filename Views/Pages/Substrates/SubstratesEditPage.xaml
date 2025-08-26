@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!-- UPDATED SubstratesEditPage with SfComboBox -->
 <ContentPage x:Class="OrchidPro.Views.Pages.Substrates.SubstratesEditPage"
              xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:OrchidPro.ViewModels.Substrates"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
+             xmlns:sfcombobox="clr-namespace:Syncfusion.Maui.Inputs;assembly=Syncfusion.Maui.Inputs"
              x:DataType="vm:SubstratesEditViewModel"
              Title="Substrate"
              BackgroundColor="White">
@@ -67,37 +69,49 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- pH Range Field -->
+                <!-- pH Range Field - UPDATED to SfComboBox -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="pH Range" Style="{StaticResource FormFieldLabelStyle}" />
 
-                        <Entry Text="{Binding PhRange}"
-                               Placeholder="e.g., 5.5-6.5, 6.0-7.0"
-                               FontSize="16"
-                               TextColor="Black"
-                               BackgroundColor="Transparent"
-                               Focused="OnEntryFocused"
-                               Unfocused="OnEntryUnfocused" />
+                        <sfcombobox:SfComboBox ItemsSource="{Binding AvailablePhRanges}"
+                                               SelectedItem="{Binding PhRange}"
+                                               Placeholder="Select pH range..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent"
+                                               SelectionChanged="OnPickerSelectionChanged" />
                     </StackLayout>
                 </ContentView>
 
-                <!-- Drainage Level Field -->
+                <!-- Drainage Level Field - UPDATED to SfComboBox -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Drainage Level" Style="{StaticResource FormFieldLabelStyle}" />
 
-                        <Entry Text="{Binding DrainageLevel}"
-                               Placeholder="e.g., High, Medium, Low"
-                               FontSize="16"
-                               TextColor="Black"
-                               BackgroundColor="Transparent"
-                               Focused="OnEntryFocused"
-                               Unfocused="OnEntryUnfocused" />
+                        <sfcombobox:SfComboBox ItemsSource="{Binding AvailableDrainageLevels}"
+                                               SelectedItem="{Binding DrainageLevel}"
+                                               Placeholder="Select drainage level..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent"
+                                               SelectionChanged="OnPickerSelectionChanged" />
                     </StackLayout>
                 </ContentView>
 
-                <!-- Supplier Field -->
+                <!-- Supplier Field - Keeping as Entry for free text -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Supplier" Style="{StaticResource FormFieldLabelStyle}" />

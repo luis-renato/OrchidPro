@@ -5,6 +5,7 @@ using OrchidPro.Extensions;
 using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Data;
 using OrchidPro.Services.Infrastructure.Supabase.Repositories;
+using OrchidPro.Services.Localization;
 using OrchidPro.Services.Navigation;
 using OrchidPro.ViewModels;
 using OrchidPro.ViewModels.Botanical.Families;
@@ -53,6 +54,7 @@ public static class MauiProgram
         // Core Services
         services.AddSingleton<SupabaseService>();
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<IFieldOptionsService, SimpleFieldOptionsService>();
 
         // Repositories
         services.AddSingleton<IFamilyRepository, SupabaseFamilyRepository>();

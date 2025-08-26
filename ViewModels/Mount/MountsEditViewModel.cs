@@ -4,6 +4,7 @@ using OrchidPro.Models;
 using OrchidPro.ViewModels.Base;
 using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Navigation;
+using OrchidPro.Services.Localization;
 using OrchidPro.Extensions;
 
 namespace OrchidPro.ViewModels.Mounts;
@@ -12,7 +13,8 @@ public partial class MountsEditViewModel : BaseEditViewModel<Mount>
 {
     #region Private Fields
 
-    private readonly IMountRepository _MountRepository;
+    private readonly IMountRepository _mountRepository;
+    private readonly IFieldOptionsService _fieldOptionsService;
 
     #endregion
 
@@ -36,6 +38,19 @@ public partial class MountsEditViewModel : BaseEditViewModel<Mount>
 
     #endregion
 
+    #region Field Options Properties
+
+    [ObservableProperty]
+    private List<string> availableMaterials = new();
+
+    [ObservableProperty]
+    private List<string> availableSizes = new();
+
+    [ObservableProperty]
+    private List<string> availableDrainageTypes = new();
+
+    #endregion
+
     #region UI Properties
 
     public bool ShowSaveAndContinue => !IsEditMode;
@@ -44,11 +59,28 @@ public partial class MountsEditViewModel : BaseEditViewModel<Mount>
 
     #region Constructor
 
-    public MountsEditViewModel(IMountRepository MountRepository, INavigationService navigationService)
-        : base(MountRepository, navigationService, "Mount", "Mounts")
+    public MountsEditViewModel(
+        IMountRepository mountRepository,
+        INavigationService navigationService,
+        IFieldOptionsService fieldOptionsService)
+        : base(mountRepository, navigationService, "Mount", "Mounts")
     {
-        _MountRepository = MountRepository;
+        _mountRepository = mountRepository;
+        _fieldOptionsService = fieldOptionsService;
+
+        LoadFieldOptions();
         this.LogInfo("Initialized - using enhanced base functionality");
+    }
+
+    #endregion
+
+    #region Field Options Methods
+
+    private void LoadFieldOptions()
+    {
+        AvailableMaterials = _fieldOptionsService.GetMountMaterialOptions();
+        AvailableSizes = _fieldOptionsService.GetMountSizeOptions();
+        AvailableDrainageTypes = _fieldOptionsService.GetDrainageTypeOptions();
     }
 
     #endregion
@@ -61,10 +93,10 @@ public partial class MountsEditViewModel : BaseEditViewModel<Mount>
         {
             this.LogInfo("Applying query attributes for Mount edit");
 
-            if (query.TryGetValue("MountId", out var MountIdObj) &&
-                Guid.TryParse(MountIdObj?.ToString(), out var MountId))
+            if (query.TryGetValue("MountId", out var mountIdObj) &&
+                Guid.TryParse(mountIdObj?.ToString(), out var mountId))
             {
-                _ = InitializeForEditAsync(MountId);
+                _ = InitializeForEditAsync(mountId);
             }
             else
             {
@@ -89,13 +121,13 @@ public partial class MountsEditViewModel : BaseEditViewModel<Mount>
         }, "Initialize for Create");
     }
 
-    public async Task InitializeForEditAsync(Guid MountId)
+    public async Task InitializeForEditAsync(Guid mountId)
     {
         await this.SafeExecuteAsync(async () =>
         {
-            this.LogInfo($"Initializing for edit mode: {MountId}");
+            this.LogInfo($"Initializing for edit mode: {mountId}");
 
-            EntityId = MountId;
+            EntityId = mountId;
             _isEditMode = true;
 
             OnPropertyChanged(nameof(IsEditMode));
@@ -119,10 +151,10 @@ public partial class MountsEditViewModel : BaseEditViewModel<Mount>
         await this.SafeExecuteAsync(async () =>
         {
             var confirmed = await this.ShowConfirmation("Delete Mount",
-                "Are you sure you want to delete this Mount?", "Delete", "Cancel");
+                "Are you sure you want to delete this mount?", "Delete", "Cancel");
             if (!confirmed) return;
 
-            var success = await _MountRepository.DeleteAsync(EntityId.Value);
+            var success = await _mountRepository.DeleteAsync(EntityId.Value);
 
             if (success)
             {
@@ -131,7 +163,7 @@ public partial class MountsEditViewModel : BaseEditViewModel<Mount>
             }
             else
             {
-                await this.ShowErrorToast("Failed to delete Mount");
+                await this.ShowErrorToast("Failed to delete mount");
             }
         }, "Delete Mount");
     }

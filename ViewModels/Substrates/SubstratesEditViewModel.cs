@@ -4,6 +4,7 @@ using OrchidPro.Models;
 using OrchidPro.ViewModels.Base;
 using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Navigation;
+using OrchidPro.Services.Localization;
 using OrchidPro.Extensions;
 
 namespace OrchidPro.ViewModels.Substrates;
@@ -13,6 +14,7 @@ public partial class SubstratesEditViewModel : BaseEditViewModel<Substrate>
     #region Private Fields
 
     private readonly ISubstrateRepository _substrateRepository;
+    private readonly IFieldOptionsService _fieldOptionsService;
 
     #endregion
 
@@ -39,6 +41,16 @@ public partial class SubstratesEditViewModel : BaseEditViewModel<Substrate>
 
     #endregion
 
+    #region Field Options Properties
+
+    [ObservableProperty]
+    private List<string> availablePhRanges = [];
+
+    [ObservableProperty]
+    private List<string> availableDrainageLevels = [];
+
+    #endregion
+
     #region UI Properties
 
     public bool ShowSaveAndContinue => !IsEditMode;
@@ -47,11 +59,27 @@ public partial class SubstratesEditViewModel : BaseEditViewModel<Substrate>
 
     #region Constructor
 
-    public SubstratesEditViewModel(ISubstrateRepository substrateRepository, INavigationService navigationService)
+    public SubstratesEditViewModel(
+        ISubstrateRepository substrateRepository,
+        INavigationService navigationService,
+        IFieldOptionsService fieldOptionsService)
         : base(substrateRepository, navigationService, "Substrate", "Substrates")
     {
         _substrateRepository = substrateRepository;
+        _fieldOptionsService = fieldOptionsService;
+
+        LoadFieldOptions();
         this.LogInfo("Initialized - using enhanced base functionality");
+    }
+
+    #endregion
+
+    #region Field Options Methods
+
+    private void LoadFieldOptions()
+    {
+        AvailablePhRanges = _fieldOptionsService.GetPhRangeOptions();
+        AvailableDrainageLevels = _fieldOptionsService.GetDrainageLevelOptions();
     }
 
     #endregion

@@ -183,8 +183,4 @@
 		</MauiXaml>
 	</ItemGroup>
 
-	<ItemGroup>
-	  <Folder Include="Models\Enums\" />
-	</ItemGroup>
-
 </Project>

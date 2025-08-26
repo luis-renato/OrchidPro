@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!-- UPDATED MountsEditPage with SfComboBox -->
 <ContentPage x:Class="OrchidPro.Views.Pages.Mounts.MountsEditPage"
              xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:OrchidPro.ViewModels.Mounts"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
+             xmlns:sfcombobox="clr-namespace:Syncfusion.Maui.Inputs;assembly=Syncfusion.Maui.Inputs"
              x:DataType="vm:MountsEditViewModel"
              Title="Mount"
              BackgroundColor="White">
@@ -38,7 +40,7 @@
                         <Label Text="Name *" Style="{StaticResource FormFieldLabelStyle}" />
 
                         <Entry Text="{Binding Name}"
-                               Placeholder="Enter Mount name"
+                               Placeholder="Enter mount name"
                                FontSize="16"
                                TextColor="Black"
                                BackgroundColor="Transparent"
@@ -52,48 +54,66 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Material Field -->
+                <!-- Material Field - UPDATED to SfComboBox -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Material" Style="{StaticResource FormFieldLabelStyle}" />
 
-                        <Entry Text="{Binding Material}"
-                               Placeholder="e.g., Plastic, Clay, Wood, Ceramic"
-                               FontSize="16"
-                               TextColor="Black"
-                               BackgroundColor="Transparent"
-                               Focused="OnEntryFocused"
-                               Unfocused="OnEntryUnfocused" />
+                        <sfcombobox:SfComboBox ItemsSource="{Binding AvailableMaterials}"
+                                               SelectedItem="{Binding Material}"
+                                               Placeholder="Select material..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent"
+                                               SelectionChanged="OnPickerSelectionChanged" />
                     </StackLayout>
                 </ContentView>
 
-                <!-- Size Field -->
+                <!-- Size Field - UPDATED to SfComboBox -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Size" Style="{StaticResource FormFieldLabelStyle}" />
 
-                        <Entry Text="{Binding Size}"
-                               Placeholder="e.g., 4 inch, 6 inch, Large, Small"
-                               FontSize="16"
-                               TextColor="Black"
-                               BackgroundColor="Transparent"
-                               Focused="OnEntryFocused"
-                               Unfocused="OnEntryUnfocused" />
+                        <sfcombobox:SfComboBox ItemsSource="{Binding AvailableSizes}"
+                                               SelectedItem="{Binding Size}"
+                                               Placeholder="Select size..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent"
+                                               SelectionChanged="OnPickerSelectionChanged" />
                     </StackLayout>
                 </ContentView>
 
-                <!-- Drainage Type Field -->
+                <!-- Drainage Type Field - UPDATED to SfComboBox -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Drainage Type" Style="{StaticResource FormFieldLabelStyle}" />
 
-                        <Entry Text="{Binding DrainageType}"
-                               Placeholder="e.g., Multiple holes, Slotted, Basket weave"
-                               FontSize="16"
-                               TextColor="Black"
-                               BackgroundColor="Transparent"
-                               Focused="OnEntryFocused"
-                               Unfocused="OnEntryUnfocused" />
+                        <sfcombobox:SfComboBox ItemsSource="{Binding AvailableDrainageTypes}"
+                                               SelectedItem="{Binding DrainageType}"
+                                               Placeholder="Select drainage type..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent"
+                                               SelectionChanged="OnPickerSelectionChanged" />
                     </StackLayout>
                 </ContentView>
 
@@ -165,7 +185,7 @@
                                        FontSize="16"
                                        FontAttributes="Bold"
                                        TextColor="Black" />
-                                <Label Text="Mark as preferred Mount"
+                                <Label Text="Mark as preferred mount"
                                        FontSize="12"
                                        TextColor="Gray" />
                             </StackLayout>
