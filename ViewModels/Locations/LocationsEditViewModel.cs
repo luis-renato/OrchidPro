@@ -4,18 +4,20 @@ using OrchidPro.Models;
 using OrchidPro.ViewModels.Base;
 using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Navigation;
+using OrchidPro.Services.Localization;
 using OrchidPro.Extensions;
 
 namespace OrchidPro.ViewModels.Locations;
 
 /// <summary>
-/// LocationsEditViewModel - CORRIGIDO seguindo padrão FamilyEditViewModel
+/// LocationsEditViewModel - CORRIGIDO seguindo padrão FamilyEditViewModel com Field Options
 /// </summary>
 public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
 {
     #region Private Fields
 
     private readonly ILocationRepository _locationRepository;
+    private readonly IFieldOptionsService _fieldOptionsService;
 
     #endregion
 
@@ -36,6 +38,13 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
 
     #endregion
 
+    #region Field Options Properties
+
+    [ObservableProperty]
+    private List<string> availableLocationTypes = [];
+
+    #endregion
+
     #region UI Properties - IGUAL ao Family
 
     /// <summary>
@@ -47,11 +56,26 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
 
     #region Constructor - IGUAL ao Family (usando enhanced constructor)
 
-    public LocationsEditViewModel(ILocationRepository locationRepository, INavigationService navigationService)
+    public LocationsEditViewModel(
+        ILocationRepository locationRepository,
+        INavigationService navigationService,
+        IFieldOptionsService fieldOptionsService)
         : base(locationRepository, navigationService, "Location", "Locations") // Enhanced constructor!
     {
         _locationRepository = locationRepository;
+        _fieldOptionsService = fieldOptionsService;
+
+        LoadFieldOptions();
         this.LogInfo("Initialized - using enhanced base functionality");
+    }
+
+    #endregion
+
+    #region Field Options Methods
+
+    private void LoadFieldOptions()
+    {
+        AvailableLocationTypes = _fieldOptionsService.GetLocationTypeOptions();
     }
 
     #endregion
@@ -149,6 +173,44 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
                 await this.ShowErrorToast("Failed to delete location");
             }
         }, "Delete Location");
+    }
+
+    #endregion
+
+    #region Base Class Overrides - Enhanced Tracking
+
+    /// <summary>
+    /// Override to include location-specific properties in unsaved changes tracking
+    /// </summary>
+    protected override bool IsTrackedProperty(string? propertyName)
+    {
+        return base.IsTrackedProperty(propertyName) || propertyName is
+            nameof(LocationType) or nameof(EnvironmentNotes);
+    }
+
+    #endregion
+
+    #region Entity Mapping - Seguindo padrão SpeciesEditViewModel
+
+    /// <summary>
+    /// Override entity preparation to include location-specific fields
+    /// </summary>
+    protected override void PrepareEntitySpecificFields(PlantLocation entity)
+    {
+        entity.LocationType = string.IsNullOrWhiteSpace(LocationType) ? null : LocationType.Trim();
+        entity.EnvironmentNotes = string.IsNullOrWhiteSpace(EnvironmentNotes) ? null : EnvironmentNotes.Trim();
+    }
+
+    /// <summary>
+    /// Override entity population to include location-specific fields
+    /// </summary>
+    protected override async Task PopulateEntitySpecificFieldsAsync(PlantLocation entity)
+    {
+        await ExecuteWithAllSuppressionsEnabledAsync(async () =>
+        {
+            LocationType = entity.LocationType ?? "";
+            EnvironmentNotes = entity.EnvironmentNotes ?? "";
+        });
     }
 
     #endregion

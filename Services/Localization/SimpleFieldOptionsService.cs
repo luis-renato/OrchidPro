@@ -1,6 +1,6 @@
-﻿using System.Globalization;
+﻿using OrchidPro.Extensions;
 using OrchidPro.Models.Enums;
-using OrchidPro.Extensions;
+using System.Globalization;
 
 namespace OrchidPro.Services.Localization;
 
@@ -13,59 +13,30 @@ public class SimpleFieldOptionsService : IFieldOptionsService
         _currentLanguage = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName;
     }
 
-    public List<string> GetPhRangeOptions(string language = "en")
+    private List<string> GetEnumOptions<T>(string? language = null) where T : struct, Enum
     {
         language ??= _currentLanguage;
-        return Enum.GetValues<PhRange>()
-                   .Select(e => e.ToDisplayText(language))
-                   .ToList();
+        return [.. Enum.GetValues<T>().Select(e => e.ToDisplayText(language))];
     }
 
-    public List<string> GetDrainageLevelOptions(string language = "en")
-    {
-        language ??= _currentLanguage;
-        return Enum.GetValues<DrainageLevel>()
-                   .Select(e => e.ToDisplayText(language))
-                   .ToList();
-    }
+    public List<string> GetPhRangeOptions(string? language = null)
+        => GetEnumOptions<PhRange>(language);
 
-    public List<string> GetMountMaterialOptions(string language = "en")
-    {
-        language ??= _currentLanguage;
-        return Enum.GetValues<MountMaterial>()
-                   .Select(e => e.ToDisplayText(language))
-                   .ToList();
-    }
+    public List<string> GetDrainageLevelOptions(string? language = null)
+        => GetEnumOptions<DrainageLevel>(language);
 
-    public List<string> GetMountSizeOptions(string language = "en")
-    {
-        language ??= _currentLanguage;
-        return Enum.GetValues<MountSize>()
-                   .Select(e => e.ToDisplayText(language))
-                   .ToList();
-    }
+    public List<string> GetMountMaterialOptions(string? language = null)
+        => GetEnumOptions<MountMaterial>(language);
 
-    public List<string> GetDrainageTypeOptions(string language = "en")
-    {
-        language ??= _currentLanguage;
-        return Enum.GetValues<DrainageType>()
-                   .Select(e => e.ToDisplayText(language))
-                   .ToList();
-    }
+    public List<string> GetMountSizeOptions(string? language = null)
+        => GetEnumOptions<MountSize>(language);
 
-    public List<string> GetSupplierTypeOptions(string language = "en")
-    {
-        language ??= _currentLanguage;
-        return Enum.GetValues<SupplierType>()
-                   .Select(e => e.ToDisplayText(language))
-                   .ToList();
-    }
+    public List<string> GetDrainageTypeOptions(string? language = null)
+        => GetEnumOptions<DrainageType>(language);
 
-    public List<string> GetLocationTypeOptions(string language = "en")
-    {
-        language ??= _currentLanguage;
-        return Enum.GetValues<LocationType>()
-                   .Select(e => e.ToDisplayText(language))
-                   .ToList();
-    }
+    public List<string> GetSupplierTypeOptions(string? language = null)
+        => GetEnumOptions<SupplierType>(language);
+
+    public List<string> GetLocationTypeOptions(string? language = null)
+        => GetEnumOptions<LocationType>(language);
 }

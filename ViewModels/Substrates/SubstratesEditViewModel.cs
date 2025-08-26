@@ -168,4 +168,46 @@ public partial class SubstratesEditViewModel : BaseEditViewModel<Substrate>
     }
 
     #endregion
+
+    #region Base Class Overrides - Enhanced Tracking
+
+    /// <summary>
+    /// Override to include substrate-specific properties in unsaved changes tracking
+    /// </summary>
+    protected override bool IsTrackedProperty(string? propertyName)
+    {
+        return base.IsTrackedProperty(propertyName) || propertyName is
+            nameof(Components) or nameof(PhRange) or nameof(DrainageLevel) or nameof(Supplier);
+    }
+
+    #endregion
+
+    #region Entity Mapping - Seguindo padrão SpeciesEditViewModel
+
+    /// <summary>
+    /// Override entity preparation to include substrate-specific fields
+    /// </summary>
+    protected override void PrepareEntitySpecificFields(Substrate entity)
+    {
+        entity.Components = string.IsNullOrWhiteSpace(Components) ? null : Components.Trim();
+        entity.PhRange = string.IsNullOrWhiteSpace(PhRange) ? null : PhRange.Trim();
+        entity.DrainageLevel = string.IsNullOrWhiteSpace(DrainageLevel) ? null : DrainageLevel.Trim();
+        entity.Supplier = string.IsNullOrWhiteSpace(Supplier) ? null : Supplier.Trim();
+    }
+
+    /// <summary>
+    /// Override entity population to include substrate-specific fields
+    /// </summary>
+    protected override async Task PopulateEntitySpecificFieldsAsync(Substrate entity)
+    {
+        await ExecuteWithAllSuppressionsEnabledAsync(async () =>
+        {
+            Components = entity.Components ?? "";
+            PhRange = entity.PhRange ?? "";
+            DrainageLevel = entity.DrainageLevel ?? "";
+            Supplier = entity.Supplier ?? "";
+        });
+    }
+
+    #endregion
 }

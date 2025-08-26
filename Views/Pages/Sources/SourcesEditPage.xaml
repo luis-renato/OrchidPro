@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!-- UPDATED SourcesEditPage with SfComboBox -->
 <ContentPage x:Class="OrchidPro.Views.Pages.Sources.SourcesEditPage"
              xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:OrchidPro.ViewModels.Sources"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
+             xmlns:sfcombobox="clr-namespace:Syncfusion.Maui.Inputs;assembly=Syncfusion.Maui.Inputs"
              x:DataType="vm:SourcesEditViewModel"
              Title="Source"
              BackgroundColor="White">
@@ -52,18 +54,24 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Supplier Type Field -->
+                <!-- Supplier Type Field - UPDATED to SfComboBox -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Supplier Type" Style="{StaticResource FormFieldLabelStyle}" />
 
-                        <Entry Text="{Binding SupplierType}"
-                               Placeholder="e.g., Nursery, Private, Exchange"
-                               FontSize="16"
-                               TextColor="Black"
-                               BackgroundColor="Transparent"
-                               Focused="OnEntryFocused"
-                               Unfocused="OnEntryUnfocused" />
+                        <sfcombobox:SfComboBox ItemsSource="{Binding AvailableSupplierTypes}"
+                                               SelectedItem="{Binding SupplierType}"
+                                               Placeholder="Select supplier type..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent"
+                                               SelectionChanged="OnPickerSelectionChanged" />
                     </StackLayout>
                 </ContentView>
 

@@ -2,11 +2,11 @@
 
 public interface IFieldOptionsService
 {
-    List<string> GetPhRangeOptions(string language = "en");
-    List<string> GetDrainageLevelOptions(string language = "en");
-    List<string> GetMountMaterialOptions(string language = "en");
-    List<string> GetMountSizeOptions(string language = "en");
-    List<string> GetDrainageTypeOptions(string language = "en");
-    List<string> GetSupplierTypeOptions(string language = "en");
-    List<string> GetLocationTypeOptions(string language = "en");
+    List<string> GetPhRangeOptions(string? language = null); 
+    List<string> GetDrainageLevelOptions(string? language = null);
+    List<string> GetMountMaterialOptions(string? language = null);
+    List<string> GetMountSizeOptions(string? language = null);
+    List<string> GetDrainageTypeOptions(string? language = null);
+    List<string> GetSupplierTypeOptions(string? language = null);
+    List<string> GetLocationTypeOptions(string? language = null);
 }

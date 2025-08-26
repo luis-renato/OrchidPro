@@ -1,9 +1,11 @@
 <?xml version="1.0" encoding="utf-8" ?>
+<!-- UPDATED LocationsEditPage with SfComboBox -->
 <ContentPage x:Class="OrchidPro.Views.Pages.Locations.LocationsEditPage"
              xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:OrchidPro.ViewModels.Locations"
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
+             xmlns:sfcombobox="clr-namespace:Syncfusion.Maui.Inputs;assembly=Syncfusion.Maui.Inputs"
              x:DataType="vm:LocationsEditViewModel"
              Title="Location"
              BackgroundColor="White">
@@ -52,18 +54,24 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Location Type Field -->
+                <!-- Location Type Field - UPDATED to SfComboBox -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
                         <Label Text="Location Type" Style="{StaticResource FormFieldLabelStyle}" />
 
-                        <Entry Text="{Binding LocationType}"
-                               Placeholder="e.g., Greenhouse, Window, Outdoor"
-                               FontSize="16"
-                               TextColor="Black"
-                               BackgroundColor="Transparent"
-                               Focused="OnEntryFocused"
-                               Unfocused="OnEntryUnfocused" />
+                        <sfcombobox:SfComboBox ItemsSource="{Binding AvailableLocationTypes}"
+                                               SelectedItem="{Binding LocationType}"
+                                               Placeholder="Select location type..."
+                                               PlaceholderColor="Gray"
+                                               IsEditable="False"
+                                               TextColor="Black"
+                                               DropDownItemTextColor="Black"
+                                               SelectedDropDownItemBackground="LightGray"
+                                               DropDownBackground="White"
+                                               MaxDropDownHeight="200"
+                                               FontSize="16"
+                                               BackgroundColor="Transparent"
+                                               SelectionChanged="OnPickerSelectionChanged" />
                     </StackLayout>
                 </ContentView>
 

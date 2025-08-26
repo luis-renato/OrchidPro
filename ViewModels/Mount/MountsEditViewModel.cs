@@ -169,4 +169,45 @@ public partial class MountsEditViewModel : BaseEditViewModel<Mount>
     }
 
     #endregion
+
+    #region Base Class Overrides - Enhanced Tracking
+
+    /// <summary>
+    /// Override to include mount-specific properties in unsaved changes tracking
+    /// </summary>
+    protected override bool IsTrackedProperty(string? propertyName)
+    {
+        return base.IsTrackedProperty(propertyName) || propertyName is
+            nameof(Material) or nameof(Size) or nameof(DrainageType);
+    }
+
+    #endregion
+
+    #region Entity Mapping - Seguindo padrão SpeciesEditViewModel
+
+    /// <summary>
+    /// Override entity preparation to include mount-specific fields
+    /// </summary>
+    protected override void PrepareEntitySpecificFields(Mount entity)
+    {
+        entity.Material = string.IsNullOrWhiteSpace(Material) ? null : Material.Trim();
+        entity.Size = string.IsNullOrWhiteSpace(Size) ? null : Size.Trim();
+        entity.DrainageType = string.IsNullOrWhiteSpace(DrainageType) ? null : DrainageType.Trim();
+    }
+
+    /// <summary>
+    /// Override entity population to include mount-specific fields
+    /// </summary>
+    protected override async Task PopulateEntitySpecificFieldsAsync(Mount entity)
+    {
+        await ExecuteWithAllSuppressionsEnabledAsync(async () =>
+        {
+            Material = entity.Material ?? "";
+            Size = entity.Size ?? "";
+            DrainageType = entity.DrainageType ?? "";
+        });
+    }
+
+    #endregion
+
 }
