@@ -10,7 +10,7 @@ using OrchidPro.Extensions;
 namespace OrchidPro.ViewModels.Locations;
 
 /// <summary>
-/// LocationsEditViewModel - CORRIGIDO seguindo padrão FamilyEditViewModel com Field Options
+/// LocationsEditViewModel - Atualizado com sistema de localização
 /// </summary>
 public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
 {
@@ -18,10 +18,11 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
 
     private readonly ILocationRepository _locationRepository;
     private readonly IFieldOptionsService _fieldOptionsService;
+    private readonly ILocalizationService _localizationService;
 
     #endregion
 
-    #region Required Base Class Overrides - IGUAL ao Family
+    #region Required Base Class Overrides
 
     protected override string GetEntityName() => "Location";
     protected override string GetEntityNamePlural() => "Locations";
@@ -31,42 +32,89 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
     #region Observable Properties (Specific Fields)
 
     [ObservableProperty]
-    private string locationType = "";
+    private string environmentNotes = "";
+
+    #endregion
+
+    #region Key Properties (for database storage)
 
     [ObservableProperty]
-    private string environmentNotes = "";
+    private string locationTypeKey = ""; // Chave para salvar no banco
+
+    #endregion
+
+    #region Compatibility Properties for XAML Binding
+
+    /// <summary>
+    /// Propriedade compatível para XAML - mapeia para LocationTypeKey
+    /// </summary>
+    [ObservableProperty]
+    private string locationType = "";
+
+    // Handler para sincronizar display com key
+    partial void OnLocationTypeChanged(string value)
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            // Converter display para key
+            var newKey = _fieldOptionsService.GetKeyForDisplay(value, _fieldOptionsService.GetLocationTypeKeys());
+            if (LocationTypeKey != newKey)
+            {
+                LocationTypeKey = newKey;
+                this.LogInfo($"[OnLocationTypeChanged] Display: '{value}' -> Key: '{newKey}'");
+            }
+        }
+    }
+
+    // Handler para sincronizar key com display
+    partial void OnLocationTypeKeyChanged(string value)
+    {
+        var display = string.IsNullOrEmpty(value) ? "" : _fieldOptionsService.GetDisplayForKey(value);
+        if (LocationType != display)
+        {
+            LocationType = display;
+        }
+        OnPropertyChanged(nameof(DisplayLocationType));
+    }
+
+    #endregion
+
+    #region Display Properties for UI
+
+    public string DisplayLocationType =>
+        string.IsNullOrEmpty(LocationTypeKey) ? "" :
+        _localizationService.GetString(LocationTypeKey);
 
     #endregion
 
     #region Field Options Properties
 
-    [ObservableProperty]
-    private List<string> availableLocationTypes = [];
+    public List<string> AvailableLocationTypeKeys => _fieldOptionsService.GetLocationTypeKeys();
+    public List<string> AvailableLocationTypes => _fieldOptionsService.GetLocationTypeOptions();
 
     #endregion
 
-    #region UI Properties - IGUAL ao Family
+    #region UI Properties
 
-    /// <summary>
-    /// Controls visibility of Save and Add Another button - only show in CREATE mode
-    /// </summary>
     public bool ShowSaveAndContinue => !IsEditMode;
 
     #endregion
 
-    #region Constructor - IGUAL ao Family (usando enhanced constructor)
+    #region Constructor
 
     public LocationsEditViewModel(
         ILocationRepository locationRepository,
         INavigationService navigationService,
-        IFieldOptionsService fieldOptionsService)
-        : base(locationRepository, navigationService, "Location", "Locations") // Enhanced constructor!
+        IFieldOptionsService fieldOptionsService,
+        ILocalizationService localizationService)
+        : base(locationRepository, navigationService, "Location", "Locations")
     {
         _locationRepository = locationRepository;
         _fieldOptionsService = fieldOptionsService;
+        _localizationService = localizationService;
 
         LoadFieldOptions();
-        this.LogInfo("Initialized - using enhanced base functionality");
+        this.LogInfo("Initialized - using enhanced base functionality with localization");
     }
 
     #endregion
@@ -75,16 +123,14 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
 
     private void LoadFieldOptions()
     {
-        AvailableLocationTypes = _fieldOptionsService.GetLocationTypeOptions();
+        // As propriedades são computed, não precisam ser carregadas
+        this.LogInfo("Field options are computed properties - no loading needed");
     }
 
     #endregion
 
-    #region Navigation Parameter Handling - IGUAL ao Family
+    #region Navigation Parameter Handling
 
-    /// <summary>
-    /// Enhanced navigation parameter handling for location-specific scenarios
-    /// </summary>
     public override void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         this.SafeExecute(() =>
@@ -105,11 +151,8 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
 
     #endregion
 
-    #region Initialization Methods - IGUAL ao Family
+    #region Initialization Methods
 
-    /// <summary>
-    /// Initialize for creating new location
-    /// </summary>
     public Task InitializeForCreateAsync()
     {
         return this.SafeExecuteAsync(() =>
@@ -122,9 +165,6 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
         }, "Initialize for Create");
     }
 
-    /// <summary>
-    /// Initialize for editing existing location
-    /// </summary>
     public async Task InitializeForEditAsync(Guid locationId)
     {
         await this.SafeExecuteAsync(async () =>
@@ -145,11 +185,8 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
 
     #endregion
 
-    #region Location-Specific Delete with Validation - IGUAL ao Family
+    #region Location-Specific Delete
 
-    /// <summary>
-    /// Override the base delete with simple confirmation
-    /// </summary>
     [RelayCommand]
     public async Task DeleteWithValidationAsync()
     {
@@ -157,15 +194,20 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
 
         await this.SafeExecuteAsync(async () =>
         {
-            var confirmed = await this.ShowConfirmation("Delete Location",
-                "Are you sure you want to delete this location?", "Delete", "Cancel");
+            var confirmTitle = _localizationService.GetString("Confirm.DeleteLocation.Title");
+            var confirmMessage = _localizationService.GetString("Confirm.DeleteLocation.Message");
+            var deleteButton = _localizationService.GetString("Button.Delete");
+            var cancelButton = _localizationService.GetString("Button.Cancel");
+
+            var confirmed = await this.ShowConfirmation(confirmTitle, confirmMessage, deleteButton, cancelButton);
             if (!confirmed) return;
 
             var success = await _locationRepository.DeleteAsync(EntityId.Value);
 
             if (success)
             {
-                await this.ShowSuccessToast("Location deleted successfully");
+                var successMessage = _localizationService.GetString("Message.LocationDeleted");
+                await this.ShowSuccessToast(successMessage);
                 await _navigationService.GoBackAsync();
             }
             else
@@ -185,20 +227,23 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
     protected override bool IsTrackedProperty(string? propertyName)
     {
         return base.IsTrackedProperty(propertyName) || propertyName is
-            nameof(LocationType) or nameof(EnvironmentNotes);
+            nameof(LocationType) or nameof(EnvironmentNotes) or nameof(LocationTypeKey);
     }
 
     #endregion
 
-    #region Entity Mapping - Seguindo padrão SpeciesEditViewModel
+    #region Entity Mapping - Usando chaves para campos predefinidos
 
     /// <summary>
     /// Override entity preparation to include location-specific fields
     /// </summary>
     protected override void PrepareEntitySpecificFields(PlantLocation entity)
     {
-        entity.LocationType = string.IsNullOrWhiteSpace(LocationType) ? null : LocationType.Trim();
+        entity.LocationType = LocationTypeKey; // Salva chave no banco
         entity.EnvironmentNotes = string.IsNullOrWhiteSpace(EnvironmentNotes) ? null : EnvironmentNotes.Trim();
+
+        this.LogInfo($"[PrepareEntitySpecificFields] LocationTypeKey: '{LocationTypeKey}'");
+        this.LogInfo($"[PrepareEntitySpecificFields] LocationType Display: '{LocationType}'");
     }
 
     /// <summary>
@@ -208,8 +253,17 @@ public partial class LocationsEditViewModel : BaseEditViewModel<PlantLocation>
     {
         await ExecuteWithAllSuppressionsEnabledAsync(async () =>
         {
-            LocationType = entity.LocationType ?? "";
+            LocationTypeKey = entity.LocationType ?? ""; // Carrega chave do banco
             EnvironmentNotes = entity.EnvironmentNotes ?? "";
+
+            // Sincronizar propriedade de display para XAML
+            LocationType = string.IsNullOrEmpty(LocationTypeKey) ? "" : _fieldOptionsService.GetDisplayForKey(LocationTypeKey);
+
+            // Notifica propriedade de display
+            OnPropertyChanged(nameof(DisplayLocationType));
+
+            this.LogInfo($"[PopulateEntitySpecificFieldsAsync] LocationTypeKey: '{LocationTypeKey}'");
+            this.LogInfo($"[PopulateEntitySpecificFieldsAsync] LocationType Display: '{LocationType}'");
         });
     }
 

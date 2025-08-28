@@ -7,11 +7,13 @@ UPDATED ARCHITECTURE:
 - Added Sources and Locations as foundational setup items
 - Maintained professional structure with proper hierarchy
 - Removed non-existent PNG icons to prevent runtime errors
+- Added Settings section for language switching and app configuration
 
 NAVIGATION HIERARCHY (UPDATED):
 1. Setup: Sources and Locations (foundational data)
 2. Botanical Data: Complete taxonomic organization (Families → Genera → Species → Variants)
 3. My Plants: Personal collection management (future feature)
+4. Settings: Language and application preferences
 
 DESIGN PATTERNS:
 - Shell.FlyoutHeader: Branded application identity with logo and description
@@ -28,6 +30,7 @@ PERFORMANCE OPTIMIZATIONS:
 ENTERPRISE FEATURES:
 - Dynamic version display for deployment tracking
 - Branded logout functionality with security considerations
+- Language switching capability for international users
 - Future-ready structure with disabled placeholder items
 - Professional workflow organization
 -->
@@ -41,6 +44,7 @@ ENTERPRISE FEATURES:
     xmlns:locations="clr-namespace:OrchidPro.Views.Pages.Locations"
     xmlns:mounts="clr-namespace:OrchidPro.Views.Pages.Mounts"
     xmlns:substrates="clr-namespace:OrchidPro.Views.Pages.Substrates"
+    xmlns:settings="clr-namespace:OrchidPro.Views.Settings"
     Title="OrchidPro"
     FlyoutBehavior="Flyout">
 
@@ -207,13 +211,22 @@ ENTERPRISE FEATURES:
                          ContentTemplate="{DataTemplate locations:LocationsListPage}" />
         </Tab>
 
-
+        <!-- 
+        MOUNTS MANAGEMENT
+        Mounting hardware and support systems for epiphytic plants.
+        Essential for orchid cultivation and proper plant support.
+        -->
         <Tab Title="Mounts">
             <ShellContent Title="Mounts" 
                          Route="mounts" 
                          ContentTemplate="{DataTemplate mounts:MountsListPage}" />
         </Tab>
 
+        <!-- 
+        SUBSTRATES MANAGEMENT  
+        Growing medium and substrate composition management.
+        Critical for plant health and proper root development.
+        -->
         <Tab Title="Substrates">
             <ShellContent Title="Substrates" 
                          Route="substrates" 
@@ -288,6 +301,17 @@ ENTERPRISE FEATURES:
     -->
     <FlyoutItem Title="My Plants" IsEnabled="False"  Icon="flower.svg">
         <ShellContent Route="plants" />
+    </FlyoutItem>
+
+    <!-- 
+    SETTINGS AND PREFERENCES SECTION
+    Application configuration and user preferences management.
+    Includes language selection, theme preferences, and system settings.
+    -->
+    <FlyoutItem Title="Settings" Icon="settings.svg">
+        <ShellContent Title="Settings" 
+                     Route="settings" 
+                     ContentTemplate="{DataTemplate settings:SettingsPage}" />
     </FlyoutItem>
 
 </Shell>

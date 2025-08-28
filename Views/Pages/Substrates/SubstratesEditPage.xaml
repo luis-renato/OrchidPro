@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<!-- UPDATED SubstratesEditPage with SfComboBox -->
 <ContentPage x:Class="OrchidPro.Views.Pages.Substrates.SubstratesEditPage"
              xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
@@ -7,7 +6,7 @@
              xmlns:sfbusy="clr-namespace:Syncfusion.Maui.Core;assembly=Syncfusion.Maui.Core"
              xmlns:sfcombobox="clr-namespace:Syncfusion.Maui.Inputs;assembly=Syncfusion.Maui.Inputs"
              x:DataType="vm:SubstratesEditViewModel"
-             Title="Substrate"
+             Title="{Binding PageTitle}"
              BackgroundColor="White">
 
     <Grid>
@@ -37,10 +36,10 @@
                 <!-- Name Field -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
-                        <Label Text="Name *" Style="{StaticResource FormFieldLabelStyle}" />
+                        <Label Text="{Binding NameLabel, StringFormat='{0} *'}" Style="{StaticResource FormFieldLabelStyle}" />
 
                         <Entry Text="{Binding Name}"
-                               Placeholder="Enter substrate name"
+                               Placeholder="{Binding NamePlaceholder}"
                                FontSize="16"
                                TextColor="Black"
                                BackgroundColor="Transparent"
@@ -57,10 +56,10 @@
                 <!-- Components Field -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
-                        <Label Text="Components" Style="{StaticResource FormFieldLabelStyle}" />
+                        <Label Text="{Binding ComponentsLabel}" Style="{StaticResource FormFieldLabelStyle}" />
 
                         <Editor Text="{Binding Components}"
-                                Placeholder="e.g., Pine Bark 70%, Perlite 20%, Moss 10%"
+                                Placeholder="{Binding ComponentsPlaceholder}"
                                 FontSize="16"
                                 TextColor="Black"
                                 BackgroundColor="Transparent"
@@ -69,14 +68,14 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- pH Range Field - UPDATED to SfComboBox -->
+                <!-- pH Range Field -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
-                        <Label Text="pH Range" Style="{StaticResource FormFieldLabelStyle}" />
+                        <Label Text="{Binding PhRangeLabel}" Style="{StaticResource FormFieldLabelStyle}" />
 
                         <sfcombobox:SfComboBox ItemsSource="{Binding AvailablePhRanges}"
                                                SelectedItem="{Binding PhRange}"
-                                               Placeholder="Select pH range..."
+                                               Placeholder="{Binding PhRangePlaceholder}"
                                                PlaceholderColor="Gray"
                                                IsEditable="False"
                                                TextColor="Black"
@@ -90,14 +89,14 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Drainage Level Field - UPDATED to SfComboBox -->
+                <!-- Drainage Level Field -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
-                        <Label Text="Drainage Level" Style="{StaticResource FormFieldLabelStyle}" />
+                        <Label Text="{Binding DrainageLevelLabel}" Style="{StaticResource FormFieldLabelStyle}" />
 
                         <sfcombobox:SfComboBox ItemsSource="{Binding AvailableDrainageLevels}"
                                                SelectedItem="{Binding DrainageLevel}"
-                                               Placeholder="Select drainage level..."
+                                               Placeholder="{Binding DrainageLevelPlaceholder}"
                                                PlaceholderColor="Gray"
                                                IsEditable="False"
                                                TextColor="Black"
@@ -111,13 +110,13 @@
                     </StackLayout>
                 </ContentView>
 
-                <!-- Supplier Field - Keeping as Entry for free text -->
+                <!-- Supplier Field -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
-                        <Label Text="Supplier" Style="{StaticResource FormFieldLabelStyle}" />
+                        <Label Text="{Binding SupplierLabel}" Style="{StaticResource FormFieldLabelStyle}" />
 
                         <Entry Text="{Binding Supplier}"
-                               Placeholder="Supplier or brand name"
+                               Placeholder="{Binding SupplierPlaceholder}"
                                FontSize="16"
                                TextColor="Black"
                                BackgroundColor="Transparent"
@@ -129,10 +128,10 @@
                 <!-- Description Field -->
                 <ContentView Style="{StaticResource FormFieldFrameStyle}">
                     <StackLayout Style="{StaticResource FormFieldStackStyle}">
-                        <Label Text="Description" Style="{StaticResource FormFieldLabelStyle}" />
+                        <Label Text="{Binding DescriptionLabel}" Style="{StaticResource FormFieldLabelStyle}" />
 
                         <Editor Text="{Binding Description}"
-                                Placeholder="Optional description..."
+                                Placeholder="{Binding DescriptionPlaceholder}"
                                 FontSize="16"
                                 TextColor="Black"
                                 BackgroundColor="Transparent"
@@ -216,7 +215,7 @@
                       Margin="0,10,0,10">
 
                     <Button Grid.Column="0"
-                            Text="Cancel"
+                            Text="{Binding CancelButtonText}"
                             Style="{StaticResource CancelButtonStyle}"
                             Clicked="OnCancelButtonTapped" />
 
@@ -228,8 +227,14 @@
 
                 </Grid>
 
+                <!-- DEBUG Button -->
+                <Button Text="DEBUG LOCALIZAÇÃO" 
+                        Command="{Binding DebugLocalizationCommand}"
+                        BackgroundColor="Red" 
+                        TextColor="White" />
+
                 <!-- Save and Add Another Button -->
-                <Button Text="Save &amp; Add Another"
+                <Button Text="{Binding SaveAndContinueButtonText}"
                         IsVisible="{Binding ShowSaveAndContinue}"
                         Style="{StaticResource DynamicPrimaryButtonStyle}"
                         IsEnabled="{Binding CanSave}"
@@ -237,7 +242,7 @@
                         Clicked="OnSaveAndContinueButtonTapped" />
 
                 <!-- Delete Button -->
-                <Button Text="Delete"
+                <Button Text="{Binding DeleteButtonText}"
                         IsVisible="{Binding IsEditMode}"
                         IsEnabled="{Binding CanDelete}"
                         Style="{StaticResource ErrorButtonStyle}"

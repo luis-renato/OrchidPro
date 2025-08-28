@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage x:Class="OrchidPro.Views.Settings.SettingsPage"
+             xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             Title="Settings">
+    <ScrollView>
+        <StackLayout Padding="20">
+            <!-- Language Section -->
+            <Frame BackgroundColor="White" HasShadow="True" Margin="0,10">
+                <StackLayout>
+                    <Label Text="Language / Idioma" FontSize="18" FontAttributes="Bold" />
+
+                    <!-- Language Toggle Button -->
+                    <Button x:Name="LanguageToggleButton" 
+                            Text="Switch to Português"
+                            Command="{Binding ToggleLanguageCommand}"
+                            BackgroundColor="{StaticResource Primary}"
+                            TextColor="White"
+                            Margin="0,10" />
+
+                    <!-- Current Language Display -->
+                    <Label x:Name="CurrentLanguageLabel" 
+                           Text="Current: English"
+                           FontSize="14" 
+                           TextColor="Green"
+                           HorizontalOptions="Center" />
+                </StackLayout>
+            </Frame>
+        </StackLayout>
+    </ScrollView>
+</ContentPage>

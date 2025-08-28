@@ -1,5 +1,4 @@
-﻿
-using CommunityToolkit.Mvvm.ComponentModel;
+﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using OrchidPro.Models;
 using OrchidPro.ViewModels.Base;
@@ -11,7 +10,7 @@ using OrchidPro.Extensions;
 namespace OrchidPro.ViewModels.Sources;
 
 /// <summary>
-/// SourcesEditViewModel - CORRIGIDO seguindo padrão FamilyEditViewModel com Field Options
+/// SourcesEditViewModel - Atualizado com sistema de localização
 /// </summary>
 public partial class SourcesEditViewModel : BaseEditViewModel<Source>
 {
@@ -19,10 +18,11 @@ public partial class SourcesEditViewModel : BaseEditViewModel<Source>
 
     private readonly ISourceRepository _sourceRepository;
     private readonly IFieldOptionsService _fieldOptionsService;
+    private readonly ILocalizationService _localizationService;
 
     #endregion
 
-    #region Required Base Class Overrides - IGUAL ao Family
+    #region Required Base Class Overrides
 
     protected override string GetEntityName() => "Source";
     protected override string GetEntityNamePlural() => "Sources";
@@ -32,9 +32,6 @@ public partial class SourcesEditViewModel : BaseEditViewModel<Source>
     #region Observable Properties (Specific Fields)
 
     [ObservableProperty]
-    private string supplierType = "";
-
-    [ObservableProperty]
     private string contactInfo = "";
 
     [ObservableProperty]
@@ -42,35 +39,85 @@ public partial class SourcesEditViewModel : BaseEditViewModel<Source>
 
     #endregion
 
-    #region Field Options Properties
+    #region Key Properties (for database storage)
 
     [ObservableProperty]
-    private List<string> availableSupplierTypes = [];
+    private string supplierTypeKey = ""; // Chave para salvar no banco
 
     #endregion
 
-    #region UI Properties - IGUAL ao Family
+    #region Compatibility Properties for XAML Binding
 
     /// <summary>
-    /// Controls visibility of Save and Add Another button - only show in CREATE mode
+    /// Propriedade compatível para XAML - mapeia para SupplierTypeKey
     /// </summary>
+    [ObservableProperty]
+    private string supplierType = "";
+
+    // Handler para sincronizar display com key
+    partial void OnSupplierTypeChanged(string value)
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            // Converter display para key
+            var newKey = _fieldOptionsService.GetKeyForDisplay(value, _fieldOptionsService.GetSupplierTypeKeys());
+            if (SupplierTypeKey != newKey)
+            {
+                SupplierTypeKey = newKey;
+                this.LogInfo($"[OnSupplierTypeChanged] Display: '{value}' -> Key: '{newKey}'");
+            }
+        }
+    }
+
+    // Handler para sincronizar key com display
+    partial void OnSupplierTypeKeyChanged(string value)
+    {
+        var display = string.IsNullOrEmpty(value) ? "" : _fieldOptionsService.GetDisplayForKey(value);
+        if (SupplierType != display)
+        {
+            SupplierType = display;
+        }
+        OnPropertyChanged(nameof(DisplaySupplierType));
+    }
+
+    #endregion
+
+    #region Display Properties for UI
+
+    public string DisplaySupplierType =>
+        string.IsNullOrEmpty(SupplierTypeKey) ? "" :
+        _localizationService.GetString(SupplierTypeKey);
+
+    #endregion
+
+    #region Field Options Properties
+
+    public List<string> AvailableSupplierTypeKeys => _fieldOptionsService.GetSupplierTypeKeys();
+    public List<string> AvailableSupplierTypes => _fieldOptionsService.GetSupplierTypeOptions();
+
+    #endregion
+
+    #region UI Properties
+
     public bool ShowSaveAndContinue => !IsEditMode;
 
     #endregion
 
-    #region Constructor - IGUAL ao Family (usando enhanced constructor)
+    #region Constructor
 
     public SourcesEditViewModel(
         ISourceRepository sourceRepository,
         INavigationService navigationService,
-        IFieldOptionsService fieldOptionsService)
-        : base(sourceRepository, navigationService, "Source", "Sources") // Enhanced constructor!
+        IFieldOptionsService fieldOptionsService,
+        ILocalizationService localizationService)
+        : base(sourceRepository, navigationService, "Source", "Sources")
     {
         _sourceRepository = sourceRepository;
         _fieldOptionsService = fieldOptionsService;
+        _localizationService = localizationService;
 
         LoadFieldOptions();
-        this.LogInfo("Initialized - using enhanced base functionality");
+        this.LogInfo("Initialized - using enhanced base functionality with localization");
     }
 
     #endregion
@@ -79,16 +126,14 @@ public partial class SourcesEditViewModel : BaseEditViewModel<Source>
 
     private void LoadFieldOptions()
     {
-        AvailableSupplierTypes = _fieldOptionsService.GetSupplierTypeOptions();
+        // As propriedades são computed, não precisam ser carregadas
+        this.LogInfo("Field options are computed properties - no loading needed");
     }
 
     #endregion
 
-    #region Navigation Parameter Handling - IGUAL ao Family
+    #region Navigation Parameter Handling
 
-    /// <summary>
-    /// Enhanced navigation parameter handling for source-specific scenarios
-    /// </summary>
     public override void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         this.SafeExecute(() =>
@@ -109,11 +154,8 @@ public partial class SourcesEditViewModel : BaseEditViewModel<Source>
 
     #endregion
 
-    #region Initialization Methods - IGUAL ao Family
+    #region Initialization Methods
 
-    /// <summary>
-    /// Initialize for creating new source
-    /// </summary>
     public Task InitializeForCreateAsync()
     {
         return this.SafeExecuteAsync(() =>
@@ -126,9 +168,6 @@ public partial class SourcesEditViewModel : BaseEditViewModel<Source>
         }, "Initialize for Create");
     }
 
-    /// <summary>
-    /// Initialize for editing existing source
-    /// </summary>
     public async Task InitializeForEditAsync(Guid sourceId)
     {
         await this.SafeExecuteAsync(async () =>
@@ -149,11 +188,8 @@ public partial class SourcesEditViewModel : BaseEditViewModel<Source>
 
     #endregion
 
-    #region Source-Specific Delete with Validation - IGUAL ao Family
+    #region Source-Specific Delete
 
-    /// <summary>
-    /// Override the base delete with simple confirmation
-    /// </summary>
     [RelayCommand]
     public async Task DeleteWithValidationAsync()
     {
@@ -161,15 +197,20 @@ public partial class SourcesEditViewModel : BaseEditViewModel<Source>
 
         await this.SafeExecuteAsync(async () =>
         {
-            var confirmed = await this.ShowConfirmation("Delete Source",
-                "Are you sure you want to delete this source?", "Delete", "Cancel");
+            var confirmTitle = _localizationService.GetString("Confirm.DeleteSource.Title");
+            var confirmMessage = _localizationService.GetString("Confirm.DeleteSource.Message");
+            var deleteButton = _localizationService.GetString("Button.Delete");
+            var cancelButton = _localizationService.GetString("Button.Cancel");
+
+            var confirmed = await this.ShowConfirmation(confirmTitle, confirmMessage, deleteButton, cancelButton);
             if (!confirmed) return;
 
             var success = await _sourceRepository.DeleteAsync(EntityId.Value);
 
             if (success)
             {
-                await this.ShowSuccessToast("Source deleted successfully");
+                var successMessage = _localizationService.GetString("Message.SourceDeleted");
+                await this.ShowSuccessToast(successMessage);
                 await _navigationService.GoBackAsync();
             }
             else
@@ -177,44 +218,6 @@ public partial class SourcesEditViewModel : BaseEditViewModel<Source>
                 await this.ShowErrorToast("Failed to delete source");
             }
         }, "Delete Source");
-    }
-
-    #endregion
-
-    #region Entity Mapping - OBRIGATÓRIO para campos específicos
-
-    /// <summary>
-    /// Prepara a entidade para save copiando valores do ViewModel
-    /// </summary>
-    protected override async Task<Source> PrepareEntityForSaveAsync()
-    {
-        var entity = await base.PrepareEntityForSaveAsync();
-
-        // Copiar campos específicos do ViewModel para a entidade
-        entity.SupplierType = this.SupplierType;
-        entity.ContactInfo = this.ContactInfo;
-        entity.Website = this.Website;
-
-        // Log para debug
-        this.LogInfo($"[PrepareEntityForSaveAsync] Prepared - SupplierType: '{entity.SupplierType}', ContactInfo: '{entity.ContactInfo}', Website: '{entity.Website}'");
-
-        return entity;
-    }
-
-    /// <summary>
-    /// Popula o ViewModel a partir da entidade carregada
-    /// </summary>
-    protected override async Task PopulateFromEntityAsync(Source entity)
-    {
-        await base.PopulateFromEntityAsync(entity);
-
-        // Copiar campos específicos da entidade para o ViewModel
-        SupplierType = entity.SupplierType ?? "";
-        ContactInfo = entity.ContactInfo ?? "";
-        Website = entity.Website ?? "";
-
-        // Log para debug
-        this.LogInfo($"[PopulateFromEntityAsync] Populated - SupplierType: '{SupplierType}', ContactInfo: '{ContactInfo}', Website: '{Website}'");
     }
 
     #endregion
@@ -227,23 +230,24 @@ public partial class SourcesEditViewModel : BaseEditViewModel<Source>
     protected override bool IsTrackedProperty(string? propertyName)
     {
         return base.IsTrackedProperty(propertyName) || propertyName is
-            nameof(SupplierType) or nameof(ContactInfo) or nameof(Website);
+            nameof(SupplierType) or nameof(ContactInfo) or nameof(Website) or nameof(SupplierTypeKey);
     }
 
     #endregion
-    #region Entity Mapping - Seguindo padrão SpeciesEditViewModel
+
+    #region Entity Mapping - Usando chaves para campos predefinidos
 
     /// <summary>
     /// Override entity preparation to include source-specific fields
     /// </summary>
     protected override void PrepareEntitySpecificFields(Source entity)
     {
-        entity.SupplierType = string.IsNullOrWhiteSpace(SupplierType) ? null : SupplierType.Trim();
+        entity.SupplierType = SupplierTypeKey; // Salva chave no banco
         entity.ContactInfo = string.IsNullOrWhiteSpace(ContactInfo) ? null : ContactInfo.Trim();
         entity.Website = string.IsNullOrWhiteSpace(Website) ? null : Website.Trim();
 
-        // Log para debug
-        this.LogInfo($"[PrepareEntitySpecificFields] Prepared - SupplierType: '{entity.SupplierType}', ContactInfo: '{entity.ContactInfo}', Website: '{entity.Website}'");
+        this.LogInfo($"[PrepareEntitySpecificFields] SupplierTypeKey: '{SupplierTypeKey}'");
+        this.LogInfo($"[PrepareEntitySpecificFields] SupplierType Display: '{SupplierType}'");
     }
 
     /// <summary>
@@ -253,12 +257,18 @@ public partial class SourcesEditViewModel : BaseEditViewModel<Source>
     {
         await ExecuteWithAllSuppressionsEnabledAsync(async () =>
         {
-            SupplierType = entity.SupplierType ?? "";
+            SupplierTypeKey = entity.SupplierType ?? ""; // Carrega chave do banco
             ContactInfo = entity.ContactInfo ?? "";
             Website = entity.Website ?? "";
 
-            // Log para debug
-            this.LogInfo($"[PopulateEntitySpecificFieldsAsync] Populated - SupplierType: '{SupplierType}', ContactInfo: '{ContactInfo}', Website: '{Website}'");
+            // Sincronizar propriedade de display para XAML
+            SupplierType = string.IsNullOrEmpty(SupplierTypeKey) ? "" : _fieldOptionsService.GetDisplayForKey(SupplierTypeKey);
+
+            // Notifica propriedade de display
+            OnPropertyChanged(nameof(DisplaySupplierType));
+
+            this.LogInfo($"[PopulateEntitySpecificFieldsAsync] SupplierTypeKey: '{SupplierTypeKey}'");
+            this.LogInfo($"[PopulateEntitySpecificFieldsAsync] SupplierType Display: '{SupplierType}'");
         });
     }
 

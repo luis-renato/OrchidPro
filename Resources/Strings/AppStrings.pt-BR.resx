@@ -1,0 +1,144 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<root>
+	<xsd:schema id="root" xmlns="" xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:msdata="urn:schemas-microsoft-com:xml-msdata">
+		<xsd:element name="root" msdata:IsDataSet="true">
+			<xsd:complexType>
+				<xsd:choice maxOccurs="unbounded">
+					<xsd:element name="data">
+						<xsd:complexType>
+							<xsd:sequence>
+								<xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+								<xsd:element name="comment" type="xsd:string" minOccurs="0" msdata:Ordinal="2" />
+							</xsd:sequence>
+							<xsd:attribute name="name" type="xsd:string" msdata:Ordinal="1" />
+							<xsd:attribute name="type" type="xsd:string" msdata:Ordinal="3" />
+							<xsd:attribute name="mimetype" type="xsd:string" msdata:Ordinal="4" />
+						</xsd:complexType>
+					</xsd:element>
+					<xsd:element name="resheader">
+						<xsd:complexType>
+							<xsd:sequence>
+								<xsd:element name="value" type="xsd:string" minOccurs="0" msdata:Ordinal="1" />
+							</xsd:sequence>
+							<xsd:attribute name="name" type="xsd:string" use="required" />
+						</xsd:complexType>
+					</xsd:element>
+				</xsd:choice>
+			</xsd:complexType>
+		</xsd:element>
+	</xsd:schema>
+	<resheader name="resmimetype">
+		<value>text/microsoft-resx</value>
+	</resheader>
+	<resheader name="version">
+		<value>1.3</value>
+	</resheader>
+	<resheader name="reader">
+		<value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+	</resheader>
+	<resheader name="writer">
+		<value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=2.0.3500.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+	</resheader>
+	<data name="Global.Label.Name">
+		<value>Nome</value>
+	</data>
+	<data name="Global.Label.Description">
+		<value>Descrição</value>
+	</data>
+	<data name="Global.Button.Create">
+		<value>Criar</value>
+	</data>
+	<data name="Global.Button.Update">
+		<value>Atualizar</value>
+	</data>
+	<data name="Global.Button.Cancel">
+		<value>Cancelar</value>
+	</data>
+	<data name="Global.Button.Delete">
+		<value>Excluir</value>
+	</data>
+	<data name="Global.Button.SaveAndContinue">
+		<value>Salvar e Continuar</value>
+	</data>
+	<data name="Global.Placeholder.EnterName">
+		<value>Digite o nome</value>
+	</data>
+	<data name="Global.Placeholder.EnterDescription">
+		<value>Digite a descrição</value>
+	</data>
+	<data name="PhRange.VeryAcidic_40_45">
+		<value>4.0-4.5 (Muito Ácido)</value>
+	</data>
+	<data name="PhRange.Acidic_45_50">
+		<value>4.5-5.0 (Ácido)</value>
+	</data>
+	<data name="PhRange.SlightlyAcidic_50_55">
+		<value>5.0-5.5 (Levemente Ácido)</value>
+	</data>
+	<data name="PhRange.MildlyAcidic_55_60">
+		<value>5.5-6.0 (Pouco Ácido)</value>
+	</data>
+	<data name="PhRange.NearNeutral_60_65">
+		<value>6.0-6.5 (Quase Neutro)</value>
+	</data>
+	<data name="PhRange.Neutral_65_70">
+		<value>6.5-7.0 (Neutro)</value>
+	</data>
+	<data name="PhRange.SlightlyAlkaline_70_75">
+		<value>7.0-7.5 (Levemente Alcalino)</value>
+	</data>
+	<data name="DrainageLevel.VeryLow">
+		<value>Muito Baixo</value>
+	</data>
+	<data name="DrainageLevel.Low">
+		<value>Baixo</value>
+	</data>
+	<data name="DrainageLevel.Medium">
+		<value>Médio</value>
+	</data>
+	<data name="DrainageLevel.High">
+		<value>Alto</value>
+	</data>
+	<data name="DrainageLevel.VeryHigh">
+		<value>Muito Alto</value>
+	</data>
+	<data name="Substrates.Page.Add.Title">
+		<value>Adicionar Substrato</value>
+	</data>
+	<data name="Substrates.Page.Edit.Title">
+		<value>Editar Substrato</value>
+	</data>
+	<data name="Substrates.Label.Components">
+		<value>Componentes</value>
+	</data>
+	<data name="Substrates.Label.PhRange">
+		<value>Faixa de pH</value>
+	</data>
+	<data name="Substrates.Label.DrainageLevel">
+		<value>Nível de Drenagem</value>
+	</data>
+	<data name="Substrates.Label.Supplier">
+		<value>Fornecedor</value>
+	</data>
+	<data name="Substrates.Placeholder.EnterComponents">
+		<value>Digite os componentes do substrato</value>
+	</data>
+	<data name="Substrates.Placeholder.SelectPhRange">
+		<value>Selecione a faixa de pH</value>
+	</data>
+	<data name="Substrates.Placeholder.SelectDrainageLevel">
+		<value>Selecione o nível de drenagem</value>
+	</data>
+	<data name="Substrates.Placeholder.EnterSupplier">
+		<value>Digite o fornecedor</value>
+	</data>
+	<data name="Substrates.Message.SaveSuccess">
+		<value>Substrato salvo com sucesso</value>
+	</data>
+	<data name="Substrates.Message.DeleteSuccess">
+		<value>Substrato excluído com sucesso</value>
+	</data>
+	<data name="Substrates.Message.DeleteConfirmation">
+		<value>Tem certeza que deseja excluir este substrato?</value>
+	</data>
+</root>

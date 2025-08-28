@@ -1,7 +1,6 @@
 ﻿using CommunityToolkit.Maui;
 using Microsoft.Extensions.Logging;
 using OrchidPro.Config;
-using OrchidPro.Extensions;
 using OrchidPro.Services.Contracts;
 using OrchidPro.Services.Data;
 using OrchidPro.Services.Infrastructure.Supabase.Repositories;
@@ -14,6 +13,7 @@ using OrchidPro.ViewModels.Botanical.Species;
 using OrchidPro.ViewModels.Botanical.Variants;
 using OrchidPro.ViewModels.Locations;
 using OrchidPro.ViewModels.Mounts;
+using OrchidPro.ViewModels.Settings;
 using OrchidPro.ViewModels.Sources;
 using OrchidPro.ViewModels.Substrates;
 using OrchidPro.Views.Pages;
@@ -22,6 +22,7 @@ using OrchidPro.Views.Pages.Locations;
 using OrchidPro.Views.Pages.Mounts;
 using OrchidPro.Views.Pages.Sources;
 using OrchidPro.Views.Pages.Substrates;
+using OrchidPro.Views.Settings;
 using Syncfusion.Maui.Core.Hosting;
 
 namespace OrchidPro;
@@ -54,7 +55,10 @@ public static class MauiProgram
         // Core Services
         services.AddSingleton<SupabaseService>();
         services.AddSingleton<INavigationService, NavigationService>();
+        services.AddSingleton<ILocalizationService, LocalizationService>();
+        services.AddSingleton<ILanguageService, LanguageService>();
         services.AddSingleton<IFieldOptionsService, SimpleFieldOptionsService>();
+
 
         // Repositories
         services.AddSingleton<IFamilyRepository, SupabaseFamilyRepository>();
@@ -69,6 +73,7 @@ public static class MauiProgram
 
         // ViewModels
         services.AddTransient<MainPageViewModel>();
+        services.AddTransient<SettingsViewModel>();
         // Botanical
         services.AddTransient<FamiliesListViewModel>();
         services.AddTransient<FamilyEditViewModel>();
@@ -98,6 +103,7 @@ public static class MauiProgram
         services.AddTransient<MainPage>();
         services.AddTransient<SplashPage>();
         services.AddTransient<LoginPage>();
+        services.AddTransient<SettingsPage>();
         // Botanical
         services.AddTransient<FamiliesListPage>();
         services.AddTransient<FamilyEditPage>();

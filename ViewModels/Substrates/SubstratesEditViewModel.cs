@@ -11,24 +11,32 @@ namespace OrchidPro.ViewModels.Substrates;
 
 public partial class SubstratesEditViewModel : BaseEditViewModel<Substrate>
 {
-    #region Private Fields
-
     private readonly ISubstrateRepository _substrateRepository;
     private readonly IFieldOptionsService _fieldOptionsService;
+    private readonly ILocalizationService _localizationService;
+    private readonly ILanguageService _languageService;
 
-    #endregion
-
-    #region Required Base Class Overrides
-
-    protected override string GetEntityName() => "Substrate";
-    protected override string GetEntityNamePlural() => "Substrates";
-
-    #endregion
-
-    #region Observable Properties (Specific Fields)
+    #region Entity Properties
 
     [ObservableProperty]
     private string components = "";
+
+    [ObservableProperty]
+    private string supplier = "";
+
+    #endregion
+
+    #region Key Properties (for database)
+
+    [ObservableProperty]
+    private string phRangeKey = "";
+
+    [ObservableProperty]
+    private string drainageLevelKey = "";
+
+    #endregion
+
+    #region Display Properties (for XAML compatibility)
 
     [ObservableProperty]
     private string phRange = "";
@@ -36,24 +44,49 @@ public partial class SubstratesEditViewModel : BaseEditViewModel<Substrate>
     [ObservableProperty]
     private string drainageLevel = "";
 
-    [ObservableProperty]
-    private string supplier = "";
-
     #endregion
 
     #region Field Options Properties
 
-    [ObservableProperty]
-    private List<string> availablePhRanges = [];
+    public List<string> AvailablePhRangeKeys => _fieldOptionsService.GetPhRangeKeys();
+    public List<string> AvailableDrainageLevelKeys => _fieldOptionsService.GetDrainageLevelKeys();
 
-    [ObservableProperty]
-    private List<string> availableDrainageLevels = [];
+    public List<string> AvailablePhRanges => _fieldOptionsService.GetPhRangeOptions();
+    public List<string> AvailableDrainageLevels => _fieldOptionsService.GetDrainageLevelOptions();
 
     #endregion
 
-    #region UI Properties
+    #region UI Properties - Matching .resx Keys
 
-    public bool ShowSaveAndContinue => !IsEditMode;
+    public new string PageTitle => IsEditMode
+        ? _localizationService.GetString("Substrates.Page.Edit.Title", "Edit Substrate")
+        : _localizationService.GetString("Substrates.Page.Add.Title", "Add Substrate");
+
+    public string NameLabel => _localizationService.GetString("Global.Label.Name", "Name");
+    public string DescriptionLabel => _localizationService.GetString("Global.Label.Description", "Description");
+    public string ComponentsLabel => _localizationService.GetString("Substrates.Label.Components", "Components");
+    public string PhRangeLabel => _localizationService.GetString("Substrates.Label.PhRange", "pH Range");
+    public string DrainageLevelLabel => _localizationService.GetString("Substrates.Label.DrainageLevel", "Drainage Level");
+    public string SupplierLabel => _localizationService.GetString("Substrates.Label.Supplier", "Supplier");
+
+    public string NamePlaceholder => _localizationService.GetString("Global.Placeholder.EnterName", "Enter name");
+    public string DescriptionPlaceholder => _localizationService.GetString("Global.Placeholder.EnterDescription", "Enter description");
+    public string ComponentsPlaceholder => _localizationService.GetString("Substrates.Placeholder.EnterComponents", "Enter components");
+    public string PhRangePlaceholder => _localizationService.GetString("Substrates.Placeholder.SelectPhRange", "Select pH range");
+    public string DrainageLevelPlaceholder => _localizationService.GetString("Substrates.Placeholder.SelectDrainageLevel", "Select drainage level");
+    public string SupplierPlaceholder => _localizationService.GetString("Substrates.Placeholder.EnterSupplier", "Enter supplier");
+
+    public new string SaveButtonText => IsEditMode
+        ? _localizationService.GetString("Global.Button.Update", "Update")
+        : _localizationService.GetString("Global.Button.Create", "Create");
+
+    public string CancelButtonText => _localizationService.GetString("Global.Button.Cancel", "Cancel");
+    public string DeleteButtonText => _localizationService.GetString("Global.Button.Delete", "Delete");
+    public string SaveAndContinueButtonText => _localizationService.GetString("Global.Button.SaveAndContinue", "Save & Continue");
+
+    public string SaveSuccessMessage => _localizationService.GetString("Substrates.Message.SaveSuccess", "Substrate saved successfully");
+    public string DeleteSuccessMessage => _localizationService.GetString("Substrates.Message.DeleteSuccess", "Substrate deleted successfully");
+    public string DeleteConfirmationMessage => _localizationService.GetString("Substrates.Message.DeleteConfirmation", "Are you sure you want to delete this substrate?");
 
     #endregion
 
@@ -62,151 +95,199 @@ public partial class SubstratesEditViewModel : BaseEditViewModel<Substrate>
     public SubstratesEditViewModel(
         ISubstrateRepository substrateRepository,
         INavigationService navigationService,
-        IFieldOptionsService fieldOptionsService)
+        IFieldOptionsService fieldOptionsService,
+        ILocalizationService localizationService,
+        ILanguageService languageService)
         : base(substrateRepository, navigationService, "Substrate", "Substrates")
     {
         _substrateRepository = substrateRepository;
         _fieldOptionsService = fieldOptionsService;
+        _localizationService = localizationService;
+        _languageService = languageService;
 
-        LoadFieldOptions();
-        this.LogInfo("Initialized - using enhanced base functionality");
+        _languageService.LanguageChanged += OnLanguageChanged;
+        _localizationService.LanguageChanged += OnLocalizationChanged;
+
+        this.LogInfo("Initialized with correct .resx localization keys");
     }
 
     #endregion
 
-    #region Field Options Methods
+    #region Abstract Methods Implementation
 
-    private void LoadFieldOptions()
-    {
-        AvailablePhRanges = _fieldOptionsService.GetPhRangeOptions();
-        AvailableDrainageLevels = _fieldOptionsService.GetDrainageLevelOptions();
-    }
+    protected override string GetEntityName() => "Substrate";
+    protected override string GetEntityNamePlural() => "Substrates";
 
     #endregion
 
-    #region Navigation Parameter Handling
+    #region Language Change Handling
 
-    public override void ApplyQueryAttributes(IDictionary<string, object> query)
+    private void OnLanguageChanged(object? sender, string newLanguage)
     {
-        this.SafeExecute(() =>
+        RefreshAllUIProperties();
+    }
+
+    private void OnLocalizationChanged(object? sender, EventArgs e)
+    {
+        RefreshAllUIProperties();
+    }
+
+    private void RefreshAllUIProperties()
+    {
+        OnPropertyChanged(nameof(AvailablePhRanges));
+        OnPropertyChanged(nameof(AvailableDrainageLevels));
+
+        OnPropertyChanged(nameof(PageTitle));
+        OnPropertyChanged(nameof(NameLabel));
+        OnPropertyChanged(nameof(DescriptionLabel));
+        OnPropertyChanged(nameof(ComponentsLabel));
+        OnPropertyChanged(nameof(PhRangeLabel));
+        OnPropertyChanged(nameof(DrainageLevelLabel));
+        OnPropertyChanged(nameof(SupplierLabel));
+
+        OnPropertyChanged(nameof(NamePlaceholder));
+        OnPropertyChanged(nameof(DescriptionPlaceholder));
+        OnPropertyChanged(nameof(ComponentsPlaceholder));
+        OnPropertyChanged(nameof(PhRangePlaceholder));
+        OnPropertyChanged(nameof(DrainageLevelPlaceholder));
+        OnPropertyChanged(nameof(SupplierPlaceholder));
+
+        OnPropertyChanged(nameof(SaveButtonText));
+        OnPropertyChanged(nameof(CancelButtonText));
+        OnPropertyChanged(nameof(DeleteButtonText));
+        OnPropertyChanged(nameof(SaveAndContinueButtonText));
+
+        OnPropertyChanged(nameof(SaveSuccessMessage));
+        OnPropertyChanged(nameof(DeleteSuccessMessage));
+        OnPropertyChanged(nameof(DeleteConfirmationMessage));
+
+        if (!string.IsNullOrEmpty(PhRangeKey))
         {
-            this.LogInfo("Applying query attributes for Substrate edit");
+            PhRange = _fieldOptionsService.GetDisplayForKey(PhRangeKey);
+        }
 
-            if (query.TryGetValue("SubstrateId", out var substrateIdObj) &&
-                Guid.TryParse(substrateIdObj?.ToString(), out var substrateId))
-            {
-                _ = InitializeForEditAsync(substrateId);
-            }
-            else
-            {
-                _ = InitializeForCreateAsync();
-            }
-        }, "Apply Query Attributes");
+        if (!string.IsNullOrEmpty(DrainageLevelKey))
+        {
+            DrainageLevel = _fieldOptionsService.GetDisplayForKey(DrainageLevelKey);
+        }
+
+        this.LogInfo("[RefreshAllUIProperties] All UI properties refreshed after language change");
     }
 
     #endregion
 
-    #region Initialization Methods
+    #region Property Change Handlers
 
-    public Task InitializeForCreateAsync()
+    partial void OnPhRangeChanged(string value)
     {
-        return this.SafeExecuteAsync(() =>
+        var key = _fieldOptionsService.GetKeyForDisplay(value, _fieldOptionsService.GetPhRangeKeys());
+        if (PhRangeKey != key)
         {
-            this.LogInfo("Initializing for create mode");
-            HasUnsavedChanges = false;
-            OnPropertyChanged(nameof(ShowSaveAndContinue));
-            this.LogInfo("Create mode initialization completed - form is clean");
-            return Task.CompletedTask;
-        }, "Initialize for Create");
+            PhRangeKey = key;
+        }
     }
 
-    public async Task InitializeForEditAsync(Guid substrateId)
+    partial void OnDrainageLevelChanged(string value)
     {
-        await this.SafeExecuteAsync(async () =>
+        var key = _fieldOptionsService.GetKeyForDisplay(value, _fieldOptionsService.GetDrainageLevelKeys());
+        if (DrainageLevelKey != key)
         {
-            this.LogInfo($"Initializing for edit mode: {substrateId}");
+            DrainageLevelKey = key;
+        }
+    }
 
-            EntityId = substrateId;
-            _isEditMode = true;
+    partial void OnPhRangeKeyChanged(string value)
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            var display = _fieldOptionsService.GetDisplayForKey(value);
+            if (PhRange != display)
+            {
+                PhRange = display;
+            }
+        }
+    }
 
-            OnPropertyChanged(nameof(IsEditMode));
-            OnPropertyChanged(nameof(PageTitle));
-            OnPropertyChanged(nameof(ShowSaveAndContinue));
-
-            await LoadEntityAsync();
-            this.LogInfo("Edit mode initialization completed");
-        }, "Initialize for Edit");
+    partial void OnDrainageLevelKeyChanged(string value)
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            var display = _fieldOptionsService.GetDisplayForKey(value);
+            if (DrainageLevel != display)
+            {
+                DrainageLevel = display;
+            }
+        }
     }
 
     #endregion
 
-    #region Substrate-Specific Delete
+    #region Entity Mapping
 
-    [RelayCommand]
-    public async Task DeleteWithValidationAsync()
+    protected override void PrepareEntitySpecificFields(Substrate entity)
     {
-        if (!EntityId.HasValue) return;
+        entity.Components = Components;
+        entity.PhRange = PhRangeKey;
+        entity.DrainageLevel = DrainageLevelKey;
+        entity.Supplier = Supplier;
 
-        await this.SafeExecuteAsync(async () =>
+        this.LogInfo($"[PrepareEntitySpecificFields] PhRangeKey: '{PhRangeKey}', DrainageLevelKey: '{DrainageLevelKey}'");
+    }
+
+    protected override Task PopulateEntitySpecificFieldsAsync(Substrate entity)
+    {
+        ExecuteWithAllSuppressionsEnabled(() =>
         {
-            var confirmed = await this.ShowConfirmation("Delete Substrate",
-                "Are you sure you want to delete this substrate?", "Delete", "Cancel");
-            if (!confirmed) return;
+            Components = entity.Components ?? "";
+            PhRangeKey = entity.PhRange ?? "";
+            DrainageLevelKey = entity.DrainageLevel ?? "";
+            Supplier = entity.Supplier ?? "";
 
-            var success = await _substrateRepository.DeleteAsync(EntityId.Value);
+            PhRange = _fieldOptionsService.GetDisplayForKey(PhRangeKey);
+            DrainageLevel = _fieldOptionsService.GetDisplayForKey(DrainageLevelKey);
 
-            if (success)
-            {
-                await this.ShowSuccessToast("Substrate deleted successfully");
-                await _navigationService.GoBackAsync();
-            }
-            else
-            {
-                await this.ShowErrorToast("Failed to delete substrate");
-            }
-        }, "Delete Substrate");
+            this.LogInfo($"[PopulateEntitySpecificFieldsAsync] Loaded - PhRange: '{PhRange}', DrainageLevel: '{DrainageLevel}'");
+        });
+
+        return Task.CompletedTask;
     }
 
     #endregion
 
-    #region Base Class Overrides - Enhanced Tracking
+    #region Validation and Change Detection
 
-    /// <summary>
-    /// Override to include substrate-specific properties in unsaved changes tracking
-    /// </summary>
     protected override bool IsTrackedProperty(string? propertyName)
     {
         return base.IsTrackedProperty(propertyName) || propertyName is
-            nameof(Components) or nameof(PhRange) or nameof(DrainageLevel) or nameof(Supplier);
+            nameof(Components) or nameof(PhRange) or nameof(DrainageLevel) or nameof(Supplier) or
+            nameof(PhRangeKey) or nameof(DrainageLevelKey);
     }
 
     #endregion
 
-    #region Entity Mapping - Seguindo padrão SpeciesEditViewModel
+    #region Delete Confirmation
 
-    /// <summary>
-    /// Override entity preparation to include substrate-specific fields
-    /// </summary>
-    protected override void PrepareEntitySpecificFields(Substrate entity)
+    public async Task<bool> ShowDeleteConfirmationAsync()
     {
-        entity.Components = string.IsNullOrWhiteSpace(Components) ? null : Components.Trim();
-        entity.PhRange = string.IsNullOrWhiteSpace(PhRange) ? null : PhRange.Trim();
-        entity.DrainageLevel = string.IsNullOrWhiteSpace(DrainageLevel) ? null : DrainageLevel.Trim();
-        entity.Supplier = string.IsNullOrWhiteSpace(Supplier) ? null : Supplier.Trim();
+        return await Shell.Current.DisplayAlert("Confirm Delete", DeleteConfirmationMessage, "Yes", "No");
     }
 
-    /// <summary>
-    /// Override entity population to include substrate-specific fields
-    /// </summary>
-    protected override async Task PopulateEntitySpecificFieldsAsync(Substrate entity)
+    #endregion
+
+    #region DEBUG
+
+    [RelayCommand]
+    public void DebugLocalization()
     {
-        await ExecuteWithAllSuppressionsEnabledAsync(async () =>
-        {
-            Components = entity.Components ?? "";
-            PhRange = entity.PhRange ?? "";
-            DrainageLevel = entity.DrainageLevel ?? "";
-            Supplier = entity.Supplier ?? "";
-        });
+        var currentLang = _localizationService.GetCurrentLanguage();
+        var newLang = currentLang.StartsWith("en") ? "pt-BR" : "en-US";
+
+        System.Diagnostics.Debug.WriteLine($"[DEBUG] Current: {currentLang}, Switching to: {newLang}");
+        System.Diagnostics.Debug.WriteLine($"[DEBUG] PageTitle: '{PageTitle}'");
+        System.Diagnostics.Debug.WriteLine($"[DEBUG] ComponentsLabel: '{ComponentsLabel}'");
+        System.Diagnostics.Debug.WriteLine($"[DEBUG] First PhRange option: '{AvailablePhRanges.FirstOrDefault()}'");
+
+        _ = _languageService.SetLanguageAsync(newLang);
     }
 
     #endregion
