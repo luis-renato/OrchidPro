@@ -75,6 +75,7 @@ public abstract partial class BaseEditViewModel<T> : BaseViewModel, IQueryAttrib
     [ObservableProperty] private bool isNameFocused;
     [ObservableProperty] private bool isDescriptionFocused;
     [ObservableProperty] private bool isFavorite;
+    [ObservableProperty] private T? currentEntity;
 
     #endregion
 

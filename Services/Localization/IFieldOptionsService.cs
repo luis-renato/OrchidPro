@@ -1,8 +1,9 @@
-﻿namespace OrchidPro.Services.Localization;
+﻿// Services/Localization/IFieldOptionsService.cs
+namespace OrchidPro.Services.Localization;
 
 public interface IFieldOptionsService
 {
-    // Métodos para chaves (salvar no banco)
+    // Existing methods
     List<string> GetPhRangeKeys();
     List<string> GetDrainageLevelKeys();
     List<string> GetMountMaterialKeys();
@@ -11,7 +12,12 @@ public interface IFieldOptionsService
     List<string> GetSupplierTypeKeys();
     List<string> GetLocationTypeKeys();
 
-    // Métodos para display (UI)
+    // NEW: Plant-specific methods
+    List<string> GetWaterTypeKeys();
+    List<string> GetFertilizerTypeKeys();
+    List<string> GetHealthSeverityKeys();
+
+    // Existing display methods
     List<string> GetPhRangeOptions(string? language = null);
     List<string> GetDrainageLevelOptions(string? language = null);
     List<string> GetMountMaterialOptions(string? language = null);
@@ -19,6 +25,11 @@ public interface IFieldOptionsService
     List<string> GetDrainageTypeOptions(string? language = null);
     List<string> GetSupplierTypeOptions(string? language = null);
     List<string> GetLocationTypeOptions(string? language = null);
+
+    // NEW: Plant-specific display methods
+    List<string> GetWaterTypeOptions(string? language = null);
+    List<string> GetFertilizerTypeOptions(string? language = null);
+    List<string> GetHealthSeverityOptions(string? language = null);
 
     // Helper methods
     string GetDisplayForKey(string key);

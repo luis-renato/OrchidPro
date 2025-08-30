@@ -1,4 +1,6 @@
-﻿using OrchidPro.Models.Enums;
+﻿// Services/Localization/SimpleFieldOptionsService.cs
+using OrchidPro.Models.Enums;
+
 namespace OrchidPro.Services.Localization;
 
 public class SimpleFieldOptionsService : IFieldOptionsService
@@ -10,7 +12,7 @@ public class SimpleFieldOptionsService : IFieldOptionsService
         _localizationService = localizationService;
     }
 
-    #region Key Methods - Retornam chaves para salvar no banco
+    #region Key Methods - Return keys for saving to database
 
     public List<string> GetPhRangeKeys()
         => [.. Enum.GetValues<PhRange>().Select(e => $"PhRange.{e}")];
@@ -33,9 +35,19 @@ public class SimpleFieldOptionsService : IFieldOptionsService
     public List<string> GetLocationTypeKeys()
         => [.. Enum.GetValues<LocationType>().Select(e => $"LocationType.{e}")];
 
+    // NEW: Plant-specific key methods
+    public List<string> GetWaterTypeKeys()
+        => [.. Enum.GetValues<WaterType>().Select(e => $"WaterType.{e}")];
+
+    public List<string> GetFertilizerTypeKeys()
+        => [.. Enum.GetValues<FertilizerType>().Select(e => $"FertilizerType.{e}")];
+
+    public List<string> GetHealthSeverityKeys()
+        => [.. Enum.GetValues<HealthSeverity>().Select(e => $"HealthSeverity.{e}")];
+
     #endregion
 
-    #region Display Methods - Retornam displays traduzidos para UI
+    #region Display Methods - Return translated displays for UI
 
     public List<string> GetPhRangeOptions(string? language = null)
         => [.. GetPhRangeKeys().Select(key => _localizationService.GetString(key))];
@@ -58,12 +70,22 @@ public class SimpleFieldOptionsService : IFieldOptionsService
     public List<string> GetLocationTypeOptions(string? language = null)
         => [.. GetLocationTypeKeys().Select(key => _localizationService.GetString(key))];
 
+    // NEW: Plant-specific display methods
+    public List<string> GetWaterTypeOptions(string? language = null)
+        => [.. GetWaterTypeKeys().Select(key => _localizationService.GetString(key))];
+
+    public List<string> GetFertilizerTypeOptions(string? language = null)
+        => [.. GetFertilizerTypeKeys().Select(key => _localizationService.GetString(key))];
+
+    public List<string> GetHealthSeverityOptions(string? language = null)
+        => [.. GetHealthSeverityKeys().Select(key => _localizationService.GetString(key))];
+
     #endregion
 
     #region Helper Methods
 
     /// <summary>
-    /// Converte uma chave para display traduzido
+    /// Convert a key to translated display text
     /// </summary>
     public string GetDisplayForKey(string key)
     {
@@ -71,7 +93,7 @@ public class SimpleFieldOptionsService : IFieldOptionsService
     }
 
     /// <summary>
-    /// Encontra a chave correspondente a um display traduzido
+    /// Find the key corresponding to a translated display text
     /// </summary>
     public string GetKeyForDisplay(string display, List<string> keys)
     {

@@ -13,6 +13,7 @@ using OrchidPro.ViewModels.Botanical.Species;
 using OrchidPro.ViewModels.Botanical.Variants;
 using OrchidPro.ViewModels.Locations;
 using OrchidPro.ViewModels.Mounts;
+using OrchidPro.ViewModels.Plants;
 using OrchidPro.ViewModels.Settings;
 using OrchidPro.ViewModels.Sources;
 using OrchidPro.ViewModels.Substrates;
@@ -70,6 +71,11 @@ public static class MauiProgram
         services.AddSingleton<IMountRepository, SupabaseMountRepository>();
         services.AddSingleton<ISubstrateRepository, SupabaseSubstrateRepository>();
 
+        services.AddSingleton<IPlantRepository, SupabasePlantRepository>();
+        services.AddSingleton<IEventRepository, SupabaseEventRepository>();
+        services.AddSingleton<IEventTypeRepository, SupabaseEventTypeRepository>();
+        services.AddSingleton<IEventPropertyRepository, SupabaseEventPropertyRepository>();
+
 
         // ViewModels
         services.AddTransient<MainPageViewModel>();
@@ -98,6 +104,9 @@ public static class MauiProgram
         // Substrates
         services.AddSingleton<SubstratesListViewModel>();
         services.AddTransient<SubstratesEditViewModel>();
+
+        services.AddTransient<PlantsListViewModel>();
+        services.AddTransient<PlantsEditViewModel>();
 
         // Pages
         services.AddTransient<MainPage>();
